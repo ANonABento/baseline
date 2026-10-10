@@ -1,7 +1,8 @@
 """Streaming utterance segmentation (VAD).
 
-`Segmenter` is the interface; `EnergyVAD` is a dependency-free placeholder that silero-vad
-can replace (implement `feed`/`flush` with the same semantics)."""
+`Segmenter` is the interface. `FrameVAD` implements the streaming state machine on fixed
+frames; `EnergyVAD` (dependency-free placeholder) and `SileroVAD` (silero-vad, `ml` extra)
+only decide per frame whether it is speech. `make_segmenter(settings)` picks one (VAD_PROVIDER)."""
 
 from __future__ import annotations
 
@@ -32,17 +33,20 @@ class Segmenter(ABC):
         ...
 
 
-class EnergyVAD(Segmenter):
-    def __init__(self, sample_rate: int = 16_000, threshold_db: float = -40.0, frame_ms: int = 30,
-                 min_speech_ms: int = 250, hangover_ms: int = 500, max_utterance_ms: int = 15_000,
-                 preroll_ms: int = 150):
+class FrameVAD(Segmenter):
+    """Streaming frame-based segmenter. Subclasses decide per frame whether it is speech
+    (`_is_speech`); this class does buffering, pre-roll, min-speech, hangover and max-length.
+    Timestamps are seconds since the last reset()."""
+
+    def __init__(self, sample_rate: int = 16_000, frame_samples: int = 480, min_speech_ms: int = 250,
+                 hangover_ms: int = 500, max_utterance_ms: int = 15_000, preroll_ms: int = 150):
         self.sr = sample_rate
-        self.threshold_db = threshold_db
-        self.frame = int(sample_rate * frame_ms / 1000)
-        self.min_speech_frames = max(1, min_speech_ms // frame_ms)
-        self.hangover_frames = max(1, hangover_ms // frame_ms)
-        self.max_frames = max(1, max_utterance_ms // frame_ms)
-        self.preroll_frames = preroll_ms // frame_ms
+        self.frame = frame_samples
+        frame_ms = 1000.0 * frame_samples / sample_rate
+        self.min_speech_frames = max(1, int(min_speech_ms / frame_ms))
+        self.hangover_frames = max(1, int(hangover_ms / frame_ms))
+        self.max_frames = max(1, int(max_utterance_ms / frame_ms))
+        self.preroll_frames = int(preroll_ms / frame_ms)
         self.reset()
 
     def reset(self) -> None:
@@ -55,9 +59,9 @@ class EnergyVAD(Segmenter):
         self._silence_run = 0
         self._in_speech = False
 
+    @abstractmethod
     def _is_speech(self, frame: np.ndarray) -> bool:
-        rms = float(np.sqrt(np.mean(np.square(frame, dtype=np.float64))))
-        return 20.0 * np.log10(max(rms, 1e-9)) > self.threshold_db
+        ...
 
     def _close(self) -> Segment | None:
         seg = None
@@ -108,3 +112,67 @@ class EnergyVAD(Segmenter):
         seg = self._close() if self._in_speech else None
         self._preroll, self._pending = [], np.zeros(0, dtype=np.float32)
         return [seg] if seg is not None else []
+
+
+class EnergyVAD(FrameVAD):
+    """Dependency-free placeholder: a 30 ms frame is speech when its RMS exceeds threshold_db."""
+
+    def __init__(self, sample_rate: int = 16_000, threshold_db: float = -40.0, frame_ms: int = 30,
+                 min_speech_ms: int = 250, hangover_ms: int = 500, max_utterance_ms: int = 15_000,
+                 preroll_ms: int = 150):
+        self.threshold_db = threshold_db
+        super().__init__(sample_rate, int(sample_rate * frame_ms / 1000), min_speech_ms, hangover_ms,
+                         max_utterance_ms, preroll_ms)
+
+    def _is_speech(self, frame: np.ndarray) -> bool:
+        rms = float(np.sqrt(np.mean(np.square(frame, dtype=np.float64))))
+        return 20.0 * np.log10(max(rms, 1e-9)) > self.threshold_db
+
+
+class SileroVAD(FrameVAD):
+    """silero-vad 6 streaming: one model call per 512-sample (32 ms) chunk at 16 kHz, with
+    hysteresis (start at `threshold`, keep going until prob < threshold - 0.15), the same
+    rule silero's own VADIterator uses. ~0.15 ms per chunk on CPU, so it runs inline on the
+    event loop. The model is stateful (RNN), so every segmenter owns its own instance."""
+
+    CHUNK = 512
+
+    def __init__(self, sample_rate: int = 16_000, threshold: float = 0.5, min_speech_ms: int = 250,
+                 hangover_ms: int = 500, max_utterance_ms: int = 15_000, preroll_ms: int = 150):
+        if sample_rate != 16_000:
+            raise ValueError("SileroVAD is configured for 16 kHz input (512-sample chunks)")
+        import silero_vad
+        import torch
+
+        self._torch = torch
+        self.model = silero_vad.load_silero_vad()
+        self.threshold = threshold
+        self.neg_threshold = max(threshold - 0.15, 0.01)
+        self.last_prob = 0.0
+        super().__init__(sample_rate, self.CHUNK, min_speech_ms, hangover_ms, max_utterance_ms, preroll_ms)
+
+    def reset(self) -> None:
+        super().reset()
+        if hasattr(self, "model"):
+            self.model.reset_states()
+
+    def _is_speech(self, frame: np.ndarray) -> bool:
+        with self._torch.inference_mode():
+            self.last_prob = float(self.model(self._torch.from_numpy(np.ascontiguousarray(frame)), self.sr).item())
+        return self.last_prob >= (self.neg_threshold if self._in_speech else self.threshold)
+
+
+def make_segmenter(settings) -> Segmenter:
+    """VAD_PROVIDER=energy|silero. silero falls back to energy if silero-vad is not installed."""
+    s = settings
+    if s.vad_provider == "silero":
+        try:
+            return SileroVAD(sample_rate=s.sample_rate, threshold=s.silero_threshold, min_speech_ms=s.vad_min_speech_ms,
+                             hangover_ms=s.vad_hangover_ms, max_utterance_ms=s.vad_max_utterance_ms,
+                             preroll_ms=s.vad_preroll_ms)
+        except ImportError:
+            import logging
+
+            logging.getLogger(__name__).warning("VAD_PROVIDER=silero but silero-vad is not installed; using energy VAD")
+    return EnergyVAD(sample_rate=s.sample_rate, threshold_db=s.vad_threshold_db, min_speech_ms=s.vad_min_speech_ms,
+                     hangover_ms=s.vad_hangover_ms, max_utterance_ms=s.vad_max_utterance_ms, preroll_ms=s.vad_preroll_ms)

@@ -2,14 +2,25 @@
 
 from __future__ import annotations
 
+import logging
+
 from settings import Settings
 from providers.base import LLMProvider, STTProvider
+
+log = logging.getLogger(__name__)
 
 
 def make_stt(settings: Settings) -> STTProvider:
     from providers.stt_stub import StubSTT
 
-    # Future: if settings.stt_provider == "mlx_whisper": return MlxWhisperSTT(...)
+    if settings.stt_provider == "mlx":
+        from ml.runtime import has_modules
+
+        if has_modules("mlx_whisper", "mlx"):
+            from providers.stt_mlx import MlxWhisperSTT
+
+            return MlxWhisperSTT(settings.stt_model, settings.stt_language, settings.stt_min_audio_s)
+        log.warning("STT_PROVIDER=mlx but mlx-whisper is not installed (uv sync --extra ml); using stub STT")
     return StubSTT()
 
 
