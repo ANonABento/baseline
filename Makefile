@@ -8,7 +8,7 @@ export PATH := $(HOME)/.local/bin:$(PATH)
 ML ?=
 EXTRA := $(if $(ML),--extra ml,)
 
-.PHONY: setup dev-backend dev-live dev-frontend test eval clips build enroll-demo
+.PHONY: setup dev-backend dev-live gpu-tunnel dev-frontend test eval clips build enroll-demo
 
 setup:            ## install backend + frontend deps (ML=1 for real models)
 	cd backend && $(UV) sync $(EXTRA)
@@ -22,8 +22,13 @@ dev-backend:      ## FastAPI on :8000 with reload
 dev-live:         ## live "try it" backend on :8000: real models, Ollama persona LLM, say/ElevenLabs TTS
 	@test -f data/enroll/CUST-004217.npy || $(MAKE) enroll-demo
 	cd backend && STT_PROVIDER=mlx VAD_PROVIDER=silero SPEAKER_PROVIDER=ecapa SPOOF_PROVIDER=pretrained \
-	  LLM_PROVIDER=$${LLM_PROVIDER:-auto} LLM_TIMEOUT_S=$${LLM_TIMEOUT_S:-3} CALLER_LLM_PROVIDER=$${CALLER_LLM_PROVIDER:-auto} \
+	  LLM_TIMEOUT_S=$${LLM_TIMEOUT_S:-3} \
 	  HF_HUB_OFFLINE=1 $(UV) run --extra ml uvicorn app:app --host $${HOST:-127.0.0.1} --port $${PORT:-8000}
+
+GPU_HOST ?= rlwrld-us-01@100.88.216.90
+gpu-tunnel:       ## forward the 5090's Ollama (:11435) and Kokoro TTS (:8880) to localhost
+	ssh -f -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 \
+	  -L 11435:127.0.0.1:11434 -L 8880:127.0.0.1:8880 $(GPU_HOST) && echo "tunnel up: ollama :11435, kokoro :8880"
 
 dev-frontend:     ## Vite dashboard on :5173
 	cd frontend && $(NPM) run dev

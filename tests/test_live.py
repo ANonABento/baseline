@@ -615,3 +615,15 @@ def test_caller_llm_resolution():
     assert f.cfg.reasoning_effort == "low"
     f = BrainFactory(Settings(caller_llm_provider="ollama", caller_llm_model="qwen3:8b"))
     assert f.info() == {"provider": "ollama", "model": "qwen3:8b"}
+
+
+def test_kokoro_split_routes_baseline_voice_to_elevenlabs():
+    from caller.tts import ElevenLabsTTS, KokoroTTS, SplitTTS, baseline_voice
+
+    s = Settings(kokoro_url="http://gpu:8880", elevenlabs_api_key="k", tts_provider="auto")
+    tts = make_tts(s)
+    assert isinstance(tts, SplitTTS) and isinstance(tts.caller, KokoroTTS) and isinstance(tts.baseline, ElevenLabsTTS)
+    assert baseline_voice(tts, s) == s.baseline_voice_id
+    assert s.baseline_voice_id not in [v["id"] for v in tts.voices()]  # never offered as a caller voice
+    assert tts.valid_voice(s.baseline_voice_id)
+    assert isinstance(make_tts(Settings(kokoro_url="http://gpu:8880", tts_provider="auto")), KokoroTTS)

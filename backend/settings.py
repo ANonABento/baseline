@@ -110,7 +110,10 @@ class Settings(BaseSettings):
     session_idle_timeout_s: float = 60.0  # created sessions that never connect are dropped
     default_call_estimate_s: float = 120.0  # ETA seed until real call lengths are measured
     # TTS for the AI side: auto = elevenlabs if ELEVENLABS_API_KEY, else macOS `say`, else stub tones
-    tts_provider: Literal["auto", "elevenlabs", "say", "stub"] = "auto"
+    tts_provider: Literal["auto", "kokoro", "elevenlabs", "say", "stub"] = "auto"
+    # Kokoro TTS server (gpu/tts_server.py on the 5090, via SSH tunnel). When set, auto uses it for the
+    # AI caller's voice and keeps ElevenLabs only for Baseline's own voice (no scam lines to ElevenLabs).
+    kokoro_url: str = ""
     elevenlabs_api_key: str = ""
     elevenlabs_voice_id: str = ""  # default voice (e.g. a consented clone); listed first in /api/config voices
     # optional list of cloned voices: "Label:voice_id,Label 2:voice_id2" (replaces the premade list)

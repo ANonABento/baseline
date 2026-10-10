@@ -14,5 +14,5 @@ for _k, _v in {"STT_PROVIDER": "stub", "VAD_PROVIDER": "energy", "SPEAKER_PROVID
                "SPOOF_PROVIDER": "stub", "WARMUP_MODELS": "false",
                # Never let a developer's real keys/voices from .env leak into tests (or hit the network).
                "NEBIUS_API_KEY": "", "NVIDIA_API_KEY": "", "LLM_API_KEY": "",
-               "ELEVENLABS_API_KEY": "", "ELEVENLABS_VOICE_ID": "", "ELEVENLABS_VOICES": ""}.items():
+               "ELEVENLABS_API_KEY": "", "ELEVENLABS_VOICE_ID": "", "ELEVENLABS_VOICES": "", "KOKORO_URL": "", "CALLER_LLM_BASE_URL": "", "CALLER_LLM_MODEL": "", "CALLER_LLM_PROVIDER": "auto"}.items():
     os.environ[_k] = _v

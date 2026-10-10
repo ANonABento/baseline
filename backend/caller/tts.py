@@ -1,11 +1,13 @@
 """Text-to-speech for the AI side of a live call. Every provider yields 16 kHz mono int16 PCM.
 
+    KokoroTTS      Kokoro-82M on our own GPU box (KOKORO_URL, gpu/tts_server.py): the AI caller's voice
+    SplitTTS       caller lines -> Kokoro, Baseline's own voice -> ElevenLabs (scam scripts never leave our GPU)
     ElevenLabsTTS  streaming HTTP (ELEVENLABS_API_KEY), `output_format=pcm_16000`, low-latency
                    model (ELEVENLABS_MODEL, default eleven_flash_v2_5)
     MacSayTTS      macOS `say -v <voice>` rendered straight to 16 kHz LEI16 WAV (no network)
     StubTTS        deterministic tone bursts sized to the text (tests / non-mac without a key)
 
-`make_tts(settings)` auto-selects: elevenlabs if a key is set, else say if the binary exists,
+`make_tts(settings)` auto-selects: kokoro (+ ElevenLabs for Baseline) if KOKORO_URL is set, else elevenlabs if a key is set, else say if the binary exists,
 else stub (TTS_PROVIDER forces one). ElevenLabs falls back to `say` per utterance on errors.
 """
 
@@ -225,6 +227,70 @@ class ElevenLabsTTS(TTSProvider):
                 yield c
 
 
+# --------------------------------------------------------------------------- Kokoro (own GPU)
+
+KOKORO_VOICES: list[dict] = [
+    {"id": "am_michael", "label": "Michael (Kokoro, US male)"},
+    {"id": "am_adam", "label": "Adam (Kokoro, US male)"},
+    {"id": "bm_george", "label": "George (Kokoro, UK male)"},
+    {"id": "af_heart", "label": "Heart (Kokoro, US female)"},
+    {"id": "bf_emma", "label": "Emma (Kokoro, UK female)"},
+]
+
+
+class KokoroTTS(TTSProvider):
+    name = "kokoro"
+
+    def __init__(self, url: str, fallback: TTSProvider | None = None, timeout_s: float = 10.0):
+        self.url = url.rstrip("/")
+        self.fallback = fallback
+        self.timeout_s = timeout_s
+        self._client = None
+
+    def voices(self) -> list[dict]:
+        return KOKORO_VOICES
+
+    async def stream(self, text: str, voice: str) -> AsyncIterator[bytes]:
+        import httpx
+
+        voice = voice if self.valid_voice(voice) else self.default_voice()
+        try:
+            if self._client is None:
+                self._client = httpx.AsyncClient(timeout=httpx.Timeout(self.timeout_s, connect=3.0))
+            r = await self._client.post(f"{self.url}/tts", json={"text": text, "voice": voice})
+            r.raise_for_status()
+            pcm = r.content[: len(r.content) - len(r.content) % 2]
+        except Exception as e:
+            if self.fallback is None:
+                raise
+            log.warning("Kokoro TTS failed (%s); falling back to %s for this line", e, self.fallback.name)
+            async for c in self.fallback.stream(text, ""):
+                yield c
+            return
+        step = SR // 5 * 2  # 200 ms chunks
+        for i in range(0, len(pcm), step):
+            yield pcm[i:i + step]
+
+
+class SplitTTS(TTSProvider):
+    """Caller voices from `caller`; Baseline's own (hidden) voice from `baseline`."""
+
+    def __init__(self, caller: TTSProvider, baseline: TTSProvider, baseline_voice_id: str):
+        self.caller = caller
+        self.baseline = baseline
+        self.baseline_voice_id = baseline_voice_id
+        self.name = caller.name
+        self.hidden_voices = (baseline_voice_id,)
+
+    def voices(self) -> list[dict]:
+        return self.caller.voices()
+
+    def stream(self, text: str, voice: str) -> AsyncIterator[bytes]:
+        if voice == self.baseline_voice_id:
+            return self.baseline.stream(text, voice)
+        return self.caller.stream(text, voice)
+
+
 # --------------------------------------------------------------------------- factory
 
 def _resample_int16(x: np.ndarray, sr_in: int, sr_out: int) -> np.ndarray:
@@ -236,6 +302,8 @@ def _resample_int16(x: np.ndarray, sr_in: int, sr_out: int) -> np.ndarray:
 
 def baseline_voice(tts: TTSProvider, settings) -> str:
     """The voice Baseline itself speaks with (interventions)."""
+    if isinstance(tts, SplitTTS):
+        return tts.baseline_voice_id
     if tts.name == "elevenlabs":
         return getattr(settings, "baseline_voice_id", "") or tts.default_voice()
     if tts.name == "say":
@@ -285,6 +353,17 @@ def make_tts(settings) -> TTSProvider:
     if choice == "stub":
         return StubTTS()
     say = MacSayTTS() if say_available() else None
+    kokoro_url = getattr(settings, "kokoro_url", "")
+    if choice == "kokoro" or (choice == "auto" and kokoro_url):
+        if not kokoro_url:
+            log.warning("TTS_PROVIDER=kokoro but KOKORO_URL is empty; falling back")
+        else:
+            caller = KokoroTTS(kokoro_url, fallback=say)
+            if key:
+                eleven = ElevenLabsTTS(key, model=getattr(settings, "elevenlabs_model", "eleven_flash_v2_5"),
+                                       fallback=say)
+                return SplitTTS(caller, eleven, getattr(settings, "baseline_voice_id", ""))
+            return caller
     if choice in ("auto", "elevenlabs") and key:
         return ElevenLabsTTS(key, getattr(settings, "elevenlabs_voice_id", ""),
                              getattr(settings, "elevenlabs_model", "eleven_flash_v2_5"), fallback=say,
