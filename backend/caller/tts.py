@@ -165,17 +165,24 @@ class ElevenLabsTTS(TTSProvider):
     URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice}/stream"
 
     def __init__(self, api_key: str, voice_id: str = "", model: str = "eleven_flash_v2_5",
-                 fallback: TTSProvider | None = None, timeout_s: float = 15.0):
+                 fallback: TTSProvider | None = None, timeout_s: float = 15.0, voices: list[dict] | None = None):
         self.api_key = api_key
         self.voice_id = voice_id
         self.model = model
         self.fallback = fallback
         self.timeout_s = timeout_s
         self._client = None
+        if voices:  # ELEVENLABS_VOICES: exactly these, default voice first
+            if voice_id and not any(v["id"] == voice_id for v in voices):
+                voices = [{"id": voice_id, "label": "Default voice (ElevenLabs)"}] + voices
+            voices = sorted(voices, key=lambda v: v["id"] != voice_id)
+            self._voices = voices
+        else:
+            own = [{"id": voice_id, "label": "Cloned customer voice (ElevenLabs)"}] if voice_id else []
+            self._voices = own + [v for v in ELEVEN_VOICES if v["id"] != voice_id]
 
     def voices(self) -> list[dict]:
-        own = [{"id": self.voice_id, "label": "Cloned customer voice (ElevenLabs)"}] if self.voice_id else []
-        return own + [v for v in ELEVEN_VOICES if v["id"] != self.voice_id]
+        return self._voices
 
     def _http(self):
         import httpx
@@ -222,6 +229,20 @@ def _resample_int16(x: np.ndarray, sr_in: int, sr_out: int) -> np.ndarray:
     return (np.clip(y, -1, 1) * 32767).astype(np.int16)
 
 
+def parse_voice_list(spec: str) -> list[dict]:
+    """"Margaret (clone):abc123,Daniel:def456" -> [{id, label}]. Entries without a label use the id."""
+    out: list[dict] = []
+    for item in (spec or "").split(","):
+        item = item.strip()
+        if not item:
+            continue
+        label, sep, vid = item.rpartition(":")
+        vid = vid.strip()
+        if vid and not any(v["id"] == vid for v in out):
+            out.append({"id": vid, "label": (label.strip() if sep and label.strip() else vid)})
+    return out
+
+
 def say_available() -> bool:
     return shutil.which("say") is not None
 
@@ -234,7 +255,8 @@ def make_tts(settings) -> TTSProvider:
     say = MacSayTTS() if say_available() else None
     if choice in ("auto", "elevenlabs") and key:
         return ElevenLabsTTS(key, getattr(settings, "elevenlabs_voice_id", ""),
-                             getattr(settings, "elevenlabs_model", "eleven_flash_v2_5"), fallback=say)
+                             getattr(settings, "elevenlabs_model", "eleven_flash_v2_5"), fallback=say,
+                             voices=parse_voice_list(getattr(settings, "elevenlabs_voices", "")))
     if choice == "elevenlabs":
         log.warning("TTS_PROVIDER=elevenlabs but ELEVENLABS_API_KEY is empty; falling back")
     if say is not None:

@@ -110,7 +110,9 @@ class Settings(BaseSettings):
     # TTS for the AI side: auto = elevenlabs if ELEVENLABS_API_KEY, else macOS `say`, else stub tones
     tts_provider: Literal["auto", "elevenlabs", "say", "stub"] = "auto"
     elevenlabs_api_key: str = ""
-    elevenlabs_voice_id: str = ""  # e.g. a consented clone; listed first in /api/config voices
+    elevenlabs_voice_id: str = ""  # default voice (e.g. a consented clone); listed first in /api/config voices
+    # optional list of cloned voices: "Label:voice_id,Label 2:voice_id2" (replaces the premade list)
+    elevenlabs_voices: str = ""
     elevenlabs_model: str = "eleven_flash_v2_5"
     # Persona LLM for the AI caller / AI bank agent (OpenAI-compatible presets, providers/llm_presets.py)
     caller_llm_provider: Literal["stub", "nebius", "nvidia", "ollama"] = "ollama"
