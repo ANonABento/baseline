@@ -53,3 +53,5 @@ vp = load_dataset("facebook/voxpopuli", "en", streaming=True)  # config 'en' exi
 - Deception labels here are from games and negotiations, not commercial calls; transfer to the brief's targets is untested (HYPOTHESIS).
 
 Sources: https://huggingface.co/api/datasets/community-datasets/diplomacy_detection ; https://huggingface.co/api/datasets/mikelewis0/deal_or_no_dialog ; https://huggingface.co/api/datasets/stanfordnlp/craigslist_bargains ; https://huggingface.co/api/datasets/facebook/voxpopuli ; https://rose1.ntu.edu.sg/dataset/DOLOS/ ; https://github.com/NMS05/Audio-Visual-Deception-Detection-DOLOS-Dataset-and-Parameter-Efficient-Crossmodal-Learning
+
+**Use (2026-10-10):** Diplomacy (`fabrication`) and the ElevenLabs scripted calls train only the optional Stage B of the two-stage notebook model; Stage A (signal model) trains on emotion, arousal, delivery. Counts in the 5090 run: this run's synthetic data has only 6 bluff and 12 mismatch labels (30 negotiation turns), so those heads report `insufficient_evidence`; fabrication has 180 synthetic audio labels plus Diplomacy text; more negotiation calls are needed if bluff/mismatch scores are ever wanted.

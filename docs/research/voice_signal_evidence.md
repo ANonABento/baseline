@@ -53,6 +53,7 @@ Must not say:
 - "The speaker is lying / deceptive / hiding something / bluffing."
 - "The speaker is stressed / anxious / nervous" as fact.
 - "Stress in the voice indicates dishonesty" or any deception probability.
+- *(2026-10-10)* These rules also cover the notebook model's optional bluff/fabrication readings: uncalibrated model scores, one possible interpretation, never a verdict.
 - "Validated" / "accurate" / "X% reliable" for any signal before held-out, speaker-independent testing.
 - "Monotone means reading from a script."
 

@@ -18,6 +18,7 @@ visitor speaks for BARGE_IN_MS while the AI is talking, the AI stops (stop_audio
 from __future__ import annotations
 
 import asyncio
+import bisect
 import logging
 import statistics
 import time
@@ -35,6 +36,7 @@ from caller.report import VERDICT_LABELS, save_report
 from caller.tts import TTSProvider
 from credential import issue_for_report
 from core import Utterance
+from detectors import session_signals
 from detectors.session_signals import analyse, decision_tags
 from events import Event, TranscriptEvent
 from pipeline import CallPipeline, pcm16_to_float
@@ -221,6 +223,8 @@ class LiveCall:
         self._tasks: list[asyncio.Task] = []
         self._next_unanalyzed = UNANALYZED_ID_BASE
         self._mic_samples = 0
+        self._mic_ends: list[int] = []  # cumulative mic sample count after each chunk ...
+        self._mic_walls: list[float] = []  # ... and the call time it arrived (push-to-talk sends audio in bursts)
         self._cur_timing: TurnTiming | None = None
         self._last_vad_end_at: float | None = None
         self._ending = False
@@ -265,20 +269,42 @@ class LiveCall:
         await self.send_json(self._transcript(utterance_id=uid, speaker=speaker, analyzed=False, text=text,
                                               t_start=t_start, t_end=t_end, latency_ms=latency_ms))
 
+    def _mic_to_call_time(self, t_audio: float) -> float:
+        """Pipeline times count only the mic samples received (push-to-talk sends audio in bursts);
+        map them to call time so the visitor's turns line up with the AI's wall-clock lines."""
+        if not self._mic_ends:
+            return t_audio
+        s = t_audio * self.settings.sample_rate
+        i = min(bisect.bisect_left(self._mic_ends, s), len(self._mic_ends) - 1)
+        return round(self._mic_walls[i] - (self._mic_ends[i] - s) / self.settings.sample_rate, 2)
+
+    async def _emit_behaviour(self) -> None:
+        """Session behavioural signals so far (tone drift, speech rate, hesitation, response and
+        de-escalation latency, decisions), recomputed after every analysed turn."""
+        try:
+            b = session_signals.analyse({"transcript": self.col.transcript, "signals": self.col.signals})
+        except Exception:  # noqa: BLE001  never break the call over a summary
+            log.debug("behaviour summary failed", exc_info=True)
+            return
+        await self.send_json({"type": "behaviour", "t": self.now(), **b})
+
     async def _on_pipe_event(self, ev: Event) -> None:
         d = ev.model_dump()
         t = self.now()
         if ev.type == "transcript":
+            t_start, t_end = ev.t_start, ev.t_end
+            if self.role == "scammer" and t_start != t_end:  # audio turn (typed text already uses call time)
+                t_start, t_end = self._mic_to_call_time(t_start), self._mic_to_call_time(t_end)
             d = self._transcript(utterance_id=ev.utterance_id, speaker=self.analyzed_speaker, analyzed=True,
-                                 text=ev.text, t_start=ev.t_start, t_end=ev.t_end, latency_ms=ev.latency_ms)
+                                 text=ev.text, t_start=t_start, t_end=t_end, latency_ms=ev.latency_ms)
             if self.candidate:
                 for tag in decision_tags(ev.text):
                     await self.send_json({"type": "decision", "event": tag, "utterance_id": ev.utterance_id,
-                                          "t": round(ev.t_start, 1)})
+                                          "t": round(t_start, 1)})
             if self.role in ("scammer", "candidate") and not self._ending and ev.text.strip():
                 src = "text" if ev.t_start == ev.t_end else "audio"
                 vad_end = self._last_vad_end_at if src == "audio" else None
-                self.turn_q.put_nowait(VisitorTurn(ev.text, ev.t_start, ev.t_end, time.monotonic(), src,
+                self.turn_q.put_nowait(VisitorTurn(ev.text, t_start, t_end, time.monotonic(), src,
                                                    vad_end_at=vad_end, stt_ms=ev.latency_ms))
         elif ev.type == "signal":
             self.col.signals.append(d | {"t": t})
@@ -293,6 +319,8 @@ class LiveCall:
                 self.col.errors.append(d.get("message", ""))
             return  # not part of the live contract
         await self.send_json(d)
+        if (ev.type == "transcript" and ev.text.strip()) or (ev.type == "signal" and ev.signal == "prosody"):
+            await self._emit_behaviour()
 
     # ------------------------------------------------------------------ lifecycle
 
@@ -337,6 +365,8 @@ class LiveCall:
             return
         x = pcm16_to_float(data)
         self._mic_samples += len(x)
+        self._mic_ends.append(self._mic_samples)
+        self._mic_walls.append(time.monotonic() - self.t0)
         segs = self.turn_vad.feed(x)
         if self.role == "scammer":
             self.pipe.feed_float(x)
@@ -387,7 +417,7 @@ class LiveCall:
             if not text or self._ending:
                 continue
             if self.candidate:  # transcript + prosody come back through the pipeline and queue the turn
-                self.pipe.feed_utterance(seg.audio, t_start, t_end, text=text)
+                self.pipe.feed_utterance(seg.audio, self._mic_to_call_time(t_start), self._mic_to_call_time(t_end), text=text)
                 continue
             await self._emit_unanalyzed("visitor", text, t_start, t_end, stt_ms)
             self.turn_q.put_nowait(VisitorTurn(text, t_start, t_end, time.monotonic(), "audio",
@@ -607,5 +637,13 @@ class LiveCall:
                 "max_turn_ms": round(max(lat), 1) if lat else None,
                 "pipeline": self.pipe.utterance_timings,
             },
+            "behaviour": self._behaviour_summary(),
             "errors": self.col.errors,
         }
+
+    def _behaviour_summary(self) -> dict | None:
+        try:
+            return session_signals.analyse({"transcript": self.col.transcript, "signals": self.col.signals})
+        except Exception:  # noqa: BLE001
+            log.debug("behaviour summary failed", exc_info=True)
+            return None
