@@ -456,7 +456,9 @@ button { cursor: pointer; }
 .typed button:hover { color: var(--ink); }
 .controls__row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
 
-.room__right { display: grid; grid-template-rows: auto auto minmax(0, 1fr); min-height: 0; }
+.room__right { display: flex; flex-direction: column; min-height: 0; }
+.room__right > .transcript { flex: 1 1 0; min-height: 0; }
+.room__right > :not(.transcript) { flex: 0 0 auto; }
 
 /* Live behavioural signals (tone drift, speech rate, hesitation, latency, de-escalation, decisions) */
 .signals { border-bottom: 1px solid var(--rule); padding: 0.6rem var(--gutter) 0.5rem; }
@@ -772,7 +774,7 @@ button.tline__time { background: none; border: 0; padding: 0.32rem 0 0; text-ali
 }
 
 /* ---- Digital twin + credential ---- */
-.twin__more { padding: 0.5rem var(--gutter); border-bottom: 1px solid var(--rule); }
+.twin__more { padding: 0.5rem var(--gutter); border-bottom: 1px solid var(--rule); max-height: 45vh; overflow-y: auto; }
 .twin__more > summary { cursor: pointer; }
 .twin { border-bottom: 1px solid var(--rule); padding: 1rem var(--gutter); display: grid; gap: 0.75rem; }
 .twin__head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }

@@ -399,9 +399,9 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
           {/* role client: the banner speaks to the client; agent-side "say this" scripts would confuse */}
           {!aiIsCaller && call.agenda && <AgendaPanel agenda={call.agenda} />}
           <VerdictStrip v={{ ...verdict, sayThis: null }} />
-          <TwinPanel twin={twin} duration={duration} />
           <details className="twin__more">
-            <summary className="label">All behavioural signals</summary>
+            <summary className="label">Digital Twin and behavioural signals</summary>
+            <TwinPanel twin={twin} duration={duration} />
             <Signals behaviour={state.behaviour} signals={state.signals} />
           </details>
           <Transcript
