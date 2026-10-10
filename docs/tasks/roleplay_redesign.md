@@ -64,19 +64,48 @@ This makes no sense now: nobody claims to be an enrolled customer. In the client
 - Frontend: update copy in `lib/notes.ts:28`, `lib/mock.ts:292-309`, and `lib/mockScripts.ts:149` (mock mode).
 - Synthetic-voice (spoof) detection stays: "This voice shows signs of being AI-generated." That is the honest voice story for the pitch.
 
-## 5. Bug: push-to-talk clips words (`frontend/src/pages/Room.tsx:169-235`)
-Symptoms: the start of speech is slightly delayed or lost, and words are cut off after releasing Space if not enough time has passed.
-- **Start:** only frames captured *while holding* are sent, so the mic and worklet latency, plus people starting to speak as they press, eat the first syllable.
-  - Fix: keep a ~300 ms ring buffer of recent PCM always, and flush it on `press()` before streaming.
-- **End:** `TAIL_MS = 600` keeps sending after release, but:
-  - (a) Check whether audio still in flight in the worklet or `startMic` (`frontend/src/mic.ts`) is dropped when the gate closes. Consider raising the tail to ~800 ms.
-  - (b) **Important:** the backend now has an end-of-turn hold (`turn_end_silence_ms` 800 + `turn_unfinished_extra_ms` 1100, commit 006a45c, `LiveCall._hold_for_end_of_turn`). With push-to-talk, **release IS the end of turn**, so that hold only adds latency.
-  - Add a client message, e.g. `{"type":"ptt","state":"up"}`, sent on release:
-    - The backend force-closes the turn VAD segment after the tail (flush the segmenter).
-    - It marks the next turn as final, so `_hold_for_end_of_turn` skips the wait.
-    - Look at how `live_api.py` routes client JSON messages to `LiveCall`.
-  - On `{"type":"ptt","state":"down"}`, keep the current barge-in behavior.
-- Test manually: hold Space, say "one two three four five", and release right after "five". All five words should appear in the transcript, and the reply should come in under about 1.5 s.
+## 5. Talking system: push-to-talk as a real turn mode, plus hands-free fixes
+Symptoms today:
+- With push-to-talk, the first syllable is late or lost.
+- Words get cut off if Space is released too soon.
+- In hands-free mode, the AI answers mid-pause. Commit 006a45c added an end-of-turn hold for that, but the hold now adds 0.8–1.9 s of latency to push-to-talk too.
+
+Root cause: holding Space only gates which audio gets *sent*. The turn VAD (`LiveCall.turn_vad`, `feed_mic`) still decides where a turn ends, from silence. Fix it by making push-to-talk a mode where press and release mark the turn.
+
+### 5a. Push-to-talk: press/release = one turn (do this first; it should be the demo default)
+- **Frontend (`frontend/src/pages/Room.tsx:169-235`, `frontend/src/mic.ts`):**
+  - Keep the mic open for the whole call and keep a ~300 ms ring buffer of recent PCM.
+  - On `press()`, send `{"type":"ptt","state":"down"}`, then flush the ring buffer, then stream.
+  - On `release()`, keep streaming for a ~250 ms tail, then send `{"type":"ptt","state":"up"}`. Make sure frames still in the worklet aren't dropped when the gate closes.
+- **Backend (`backend/live_api.py` routes client JSON to `LiveCall`; `backend/caller/live_call.py`):**
+  - On `ptt down`: barge-in (as today), set `self.ptt_active = True`, and start a fresh turn buffer.
+  - While `ptt_active`, **append mic PCM to the turn buffer; don't let `turn_vad` segment turns.** For the scammer role, the analysis `CallPipeline` keeps its own VAD for detectors. In the client role, analysis runs on the AI's lines, so nothing changes there.
+  - On `ptt up`: the whole buffer is **one** visitor turn. Transcribe it (if 5c exists, only the remaining audio). Enqueue it as a `VisitorTurn` marked final (e.g. `source="ptt"`). `_hold_for_end_of_turn` must skip anything that isn't `source=="audio"` (today only `"audio"` waits), so there's no extra hold.
+  - Ignore turns shorter than ~200 ms of speech (accidental taps).
+  - Session/contract: the lobby or room sends `talk_mode: "ptt" | "handsfree"`. Default is `ptt`.
+- **Manual test:** hold Space, say "one two three four five", and release right after "five".
+  - All five words should come out as **one** transcript line.
+  - The AI's first audio should start less than about 1.5 s after release.
+  - Tapping Space while the AI talks should interrupt it.
+
+### 5b. Hands-free: start generating during the hold (about 30 min)
+The end-of-turn hold (`LiveCall._hold_for_end_of_turn`, settings `turn_end_silence_ms` / `turn_unfinished_extra_ms`) currently waits *before* generating, which adds the whole wait to latency.
+- Change: when a turn arrives, **start the LLM and TTS immediately**, but gate playback. Don't send audio to the `Player` / client until the hold expires with the visitor still silent.
+- If a new visitor turn arrives during the hold, cancel the speculative reply (same pattern as `_run_ai_turn_merging`, and pop its `TurnTiming`), merge the turns, and restart.
+- Net effect: the hold costs about 0 ms when the LLM and TTS take longer than the hold, which they usually do.
+- Test: extend `tests/test_turn_end.py`. A complete turn should play right when the hold ends. A continuation during the hold should give exactly one reply covering the merged text.
+
+### 5c. Transcribe while holding (if time allows)
+While `ptt_active`, transcribe the turn buffer every ~1 s in the background and keep the stable prefix. On `ptt up`, only the last chunk is left, so release-to-transcript drops to about the cost of one short STT call. Skip this if the STT provider is already fast enough (<300 ms) on a 5 s clip.
+
+### 5d. Barge-in in hands-free mode
+While the AI is speaking, require `barge_in_ms` of about 500 instead of 350 (new setting `barge_in_handsfree_ms`), so leaked speaker audio doesn't cut the AI off. In push-to-talk mode, barge-in is the key press, so ignore VAD barge-in there.
+
+### 5e. Measure it
+Report the p50/p90 of `speech_end_to_first_audio_ms` per talk mode in the call report and logs. For push-to-talk, measure from `ptt up`. Then we can tell whether each change helped.
+
+### Later (not for the finals)
+Replace the `looks_unfinished` word heuristic with an audio-and-text end-of-turn model, such as Pipecat's open "Smart Turn" or LiveKit's turn detector.
 
 ## 6. Bug: the timeline curves are clipped (`frontend/src/components/Baseline.tsx`, `.room__timeline` in `index.css:537`)
 The red spike curves are cut off at the top and bottom on Kevin's laptop.
