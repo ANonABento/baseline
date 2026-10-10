@@ -47,7 +47,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "backend"))
 
-from pipeline import analyze_wav  # noqa: E402
+from pipeline import analyze_wav, warmup_models  # noqa: E402
 from settings import get_settings  # noqa: E402
 
 HISTORY_FIELDS = [
@@ -130,6 +130,10 @@ def load_rows(labels: Path) -> list[dict]:
 
 async def run(rows: list[dict], base: Path) -> list[dict]:
     settings = get_settings()
+    if settings.warmup_models:  # load real models up front so latency numbers are steady-state
+        warm = warmup_models(settings)
+        if warm:
+            print(f"warmup (s): {warm}")
     out = []
     for r in rows:
         path = (base / r["file"].strip()).resolve()
