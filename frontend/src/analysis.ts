@@ -97,17 +97,25 @@ export function patternsFromSignal(ev: SignalEvent, transcript: TranscriptEvent[
       const o = p as Record<string, unknown>;
       const id = str(o.id);
       if (!id) continue;
-      const sev = SEVERITIES.includes(o.severity as Severity) ? (o.severity as Severity) : severityFromScore(ev.score);
+      // severity: "low"|"medium"|"high", or the playbook's numeric weight (0..1)
+      const sev = SEVERITIES.includes(o.severity as Severity)
+        ? (o.severity as Severity)
+        : severityFromScore(typeof o.severity === "number" ? o.severity : ev.score);
       const cit = citations.find((c) => c.pattern_id === id);
-      out.push({
+      // `source` is a string in the original contract; the playbook stores {name, url}.
+      const srcObj = o.source && typeof o.source === "object" ? (o.source as Record<string, unknown>) : null;
+      const item: FraudPatternEvidence = {
         id,
         name: str(o.name) || cit?.name || id,
         severity: sev,
         quote: str(o.quote),
         utterance_id: typeof o.utterance_id === "number" ? o.utterance_id : ev.utterance_id,
-        source: str(o.source) || cit?.source || "",
+        source: (srcObj ? str(srcObj.name) : str(o.source)) || cit?.source || "",
         suggested_agent_action: str(o.suggested_agent_action) || str(d.suggested_action),
-      });
+      };
+      if (str(o.say_this)) item.say_this = str(o.say_this);
+      if (srcObj && str(srcObj.url)) item.source_url = str(srcObj.url);
+      out.push(item);
     } else if (typeof p === "string" && p) {
       const cit = citations.find((c) => c.pattern_id === p);
       const phrases = d.matched_phrases?.[p] ?? [];
@@ -151,6 +159,8 @@ export function mergeEvidence(prev: EvidenceState, ev: SignalEvent, transcript: 
       utterance_id: p.quote ? p.utterance_id : old.utterance_id,
       source: p.source || old.source,
       suggested_agent_action: p.suggested_agent_action || old.suggested_agent_action,
+      ...(p.say_this || old.say_this ? { say_this: p.say_this || old.say_this } : {}),
+      ...(p.source_url || old.source_url ? { source_url: p.source_url || old.source_url } : {}),
       first_utterance_id: Math.min(old.first_utterance_id, p.utterance_id),
       updated_utterance_id: ev.utterance_id,
     });

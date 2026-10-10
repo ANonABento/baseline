@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import { buildTimeline, fmtTime, LANES, SIGNAL_LABEL, type EvidenceItem, type TimelineMarker, type Tone } from "../analysis";
-import type { SignalEvent, TranscriptEvent } from "../types";
+import { buildTimeline, fmtTime, LANES, SIGNAL_LABEL, type EvidenceItem, type TimelineMarker, type Tone } from "../../analysis";
+import type { SignalEvent, TranscriptEvent } from "../../types";
 import { SignalIcon } from "./icons";
 import { cx, Panel } from "./Panel";
 import { Tip } from "./Tip";

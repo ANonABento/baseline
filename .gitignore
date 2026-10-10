@@ -49,5 +49,9 @@ models/
 data/text_eval/cache/
 data/text_eval/local/
 
+# committed 3D assets for the frontend (small, licensed)
+!frontend/public/models/
 # SharedNet seat credentials
 .sharednet/
+# Live-call reports (WS /ws/session)
+data/reports/
