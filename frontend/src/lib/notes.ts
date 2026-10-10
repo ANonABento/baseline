@@ -25,7 +25,7 @@ export interface Note {
 }
 
 const AUDIO_TITLES: Record<Exclude<SignalName, "fraud">, Record<"watch" | "flag", string>> = {
-  speaker: { watch: "Voice drifting from enrolled print", flag: "Voice doesn't match enrolled customer" },
+  speaker: { watch: "Voice drifting from who they claim to be", flag: "Voice doesn't match who they claim to be" },
   spoof: { watch: "Possible synthetic artifacts", flag: "Synthetic voice" },
   prosody: { watch: "Pace and pitch shift", flag: "Pressure above caller's baseline" },
   client: { watch: "You're going along with it", flag: "You're about to hand something over" },

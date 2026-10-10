@@ -34,7 +34,7 @@ import numpy as np
 
 from caller import intervention
 from caller.brain import Brain
-from caller.personas import CUSTOMER, PRESSURE_HINTS, SCENARIOS, Persona, normalize_role, pressure_for_time, pressure_for_turn
+from caller.personas import CUSTOMER, PRESSURE_HINTS, SCENARIOS, Persona, agenda_for, normalize_role, pressure_for_time, pressure_for_turn
 from caller.recording import CallRecorder
 from caller.report import VERDICT_LABELS, save_report
 from caller.tts import TTSProvider, baseline_voice
@@ -240,8 +240,8 @@ class LiveCall:
         self._ai_turns = 0
         self.pipe = pipeline if pipeline is not None else CallPipeline(self._on_pipe_event, settings)
         self.pipe.emit = self._on_pipe_event
-        if self.role == "client" and not (self.scenario and self.scenario.claims_customer):
-            # the caller doesn't claim to be the enrolled customer: voice verification has nothing to compare
+        if self.role in ("client", "scammer") and not (self.scenario and self.scenario.claims_customer):
+            # the caller doesn't claim to be someone the callee knows: voice verification has nothing to compare
             self.pipe.detectors = [d for d in self.pipe.detectors if d.name != "speaker"]
         # interventions (role client)
         self.policy = intervention.InterventionPolicy(min_gap_s=float(getattr(settings, "intervention_min_gap_s", 10.0)))
@@ -391,7 +391,7 @@ class LiveCall:
             if ev.level == "high" and self.first_high_t is None:
                 self.first_high_t = t
             await self.send_json(d)
-            if self.role == "client":
+            if self.role in ("client", "scammer"):
                 await self._consider_intervention(ev.level)
             return
         elif ev.type == "status":
@@ -433,7 +433,13 @@ class LiveCall:
         first = not self.interventions or (speak and not any(i["spoken"] for i in self.interventions))
         message = intervention.message_for(reason_id, first=first)
         self.interventions.append({"t": t, "level": level, "reason_id": reason_id, "message": message, "spoken": speak})
-        await self.send_json({"type": "intervention", "level": level, "message": message, "reason_id": reason_id})
+        await self.send_json({"type": "intervention", "level": level, "message": message, "reason_id": reason_id,
+                              "to": "victim" if self.role == "scammer" else "visitor"})
+        if self.role == "scammer":
+            # the AI is the scammer's target: Baseline warns ITS phone, the visitor (scammer) only sees that it
+            # happened. The victim reacts to the warning from its next turn on.
+            self.brain.pressure_hint += f"\nWARNINGS: your bank app just warned you on screen: \"{message}\""
+            return
         if level == "high" and not self.actions:
             for a in intervention.ACTIONS:
                 self.actions.append({"t": self.now(), "kind": a["kind"], "message": a["message"]})
@@ -516,11 +522,12 @@ class LiveCall:
                 "audio": {"sample_rate": self.settings.sample_rate, "format": "pcm_s16le"},
                 "max_call_s": int(self.settings.max_call_seconds),
                 "scenario_label": self.scenario.label if self.scenario else None,
+                "agenda": agenda_for(self.session.scenario) if self.role == "scammer" else None,
                 "visitor_as": self._visitor_as()}
 
     def _visitor_as(self) -> str:
         if self.role == "scammer":
-            return f"Posing as {CUSTOMER.name}"
+            return "The scammer"
         if self.session.scenario == "grandchild":
             return f"{CUSTOMER.name}'s grandparent"
         return CUSTOMER.name

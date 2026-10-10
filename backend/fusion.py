@@ -45,7 +45,7 @@ SPOOF_LIKELY_P = 0.8        # wording only: "likely" vs "possible" synthetic voi
 
 DEFAULT_ACTIONS = {
     "spoof": "Audio shows signs of synthetic speech. Do not rely on voice recognition; use out-of-band verification.",
-    "speaker": "Voice does not match the enrolled customer. Complete step-up verification before any change.",
+    "speaker": "Voice does not match the person the caller claims to be. Verify through a known number before acting.",
     "prosody": "Caller sounds under pressure. Slow down and ask open questions.",
     "fraud": "Conversation matches a known fraud pattern. Slow down and verify before acting on any request.",
     "client": "Don't share codes, card numbers or PINs, and don't send money. Hang up and call the bank back.",

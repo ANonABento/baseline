@@ -77,22 +77,33 @@ class Scenario:
     id: str
     label: str
     summary: str  # revealed at the end of the call
-    goals: str  # what the AI fraudster is trying to achieve, in order (client) / the visitor's mission (scammer)
+    goals: str  # what the AI fraudster is trying to achieve, in order (client) / the visitor's goal (scammer)
     tactics: str
     openers: tuple[str, ...]
     stub_lines: tuple[str, ...]  # offline fallback script (no LLM)
     role: str = "client"
     brief: str = ""  # one line for the lobby
-    claims_customer: bool = False  # the caller claims to BE the enrolled customer -> speaker verification applies
+    claims_customer: bool = False  # the caller claims to BE someone the callee knows -> speaker verification applies
     clone_voice: bool = False  # voice=random uses the cloned customer voice (ELEVENLABS_VOICE_ID)
     callee: str = ""  # how the caller addresses the visitor
+    pace: str = "fast"  # "fast": pushy from the first line | "slow": builds trust for several turns before the ask
+    phases: tuple[str, ...] = ()  # slow scenarios: what to do in each phase, in order
+    # role scammer (the visitor's agenda; shown as an in-call cheat sheet)
+    target: str = ""  # victim persona id (VICTIMS)
+    cover_story: str = ""
+    steps: tuple[str, ...] = ()
+    lines: tuple[str, ...] = ()
+    objections: tuple[tuple[str, str], ...] = ()  # (what they say, what scammers usually answer)
+    watch: tuple[str, ...] = ()  # what Baseline listens for
 
 
 def client_scenarios(c: CustomerProfile = CUSTOMER) -> dict[str, Scenario]:
     n = c.name
+    last4 = c.account_mask[-4:]
     return {
+        # ---------------------------------------------------------------- obvious (fast)
         "fake_bank": Scenario(
-            id="fake_bank", role="client",
+            id="fake_bank", role="client", pace="fast",
             label=f"{BANK_SHORT} 'fraud department'",
             brief=f"Someone from '{BANK_SHORT} fraud' calls about a suspicious charge.",
             summary=f"A fraudster posing as {BANK_NAME}'s fraud department invented a suspicious charge to get "
@@ -101,10 +112,10 @@ def client_scenarios(c: CustomerProfile = CUSTOMER) -> dict[str, Scenario]:
                   f"to log in to their account). 2) Then get them to move their savings to a 'secure holding "
                   f"account' while 'the case is open'.",
             tactics=f"Introduce yourself as Alex from the {BANK_NAME} fraud department. Say a $1,240 charge at an "
-                    "electronics store in Miami was just flagged. Sound calm, official and helpful; read the last four "
-                    f"of the card ({c.account_mask[-4:]}) to sound legitimate. Say the code is 'to verify it's really "
-                    "you'. If they hesitate, say the charge will go through in minutes unless they act. Never admit "
-                    "you are not the bank.",
+                    f"electronics store in Miami was just flagged. Sound calm and official; read the last four of the "
+                    f"card ({last4}) to sound legitimate. Say the code is 'to verify it's really you'. If they "
+                    "hesitate, say the charge will go through in minutes unless they act. Never admit you are not "
+                    "the bank.",
             openers=(f"Hi, is this {n}? This is Alex from the {BANK_NAME} fraud department. We just flagged a "
                      "suspicious charge on your card.",
                      f"Hello {n}, Alex here with {BANK_NAME} fraud prevention. We flagged a suspicious charge, "
@@ -116,34 +127,12 @@ def client_scenarios(c: CustomerProfile = CUSTOMER) -> dict[str, Scenario]:
                         "Please don't hang up, the case closes if we disconnect."),
             callee=n,
         ),
-        "grandchild": Scenario(
-            id="grandchild", role="client",
-            label=f"{n} in trouble (voice clone)",
-            brief=f"You're {n}'s grandparent. '{n}' calls in a panic.",
-            summary=f"A scammer used a cloned voice of {n} to tell his grandparent he'd been arrested, then asked "
-                    "for bail money in gift cards and told them not to tell his mom.",
-            goals="1) Get your grandparent to send $3,000 'bail' today. 2) Ask for it in gift cards (from a store like "
-                  "Target or Best Buy) and to read you the card numbers, because 'the lawyer said that's fastest'. "
-                  "3) Make them promise not to tell Mom.",
-            tactics=f"You are {n}, the visitor's grandson, calling from a police station after a car accident. Sound "
-                    "scared, rushed and a little choked up. Call them Grandma unless they say they're Grandpa. Say your "
-                    "phone was taken, so you're on the lawyer's phone. Plead: 'please don't tell Mom, she'll kill me'. If "
-                    f"asked something only the real {n} would know, dodge ('I can't think straight right now').",
-            openers=(f"Grandma? It's me, {n}. I'm in really big trouble, please don't hang up.",
-                     f"Hi, it's {n}. I'm so sorry to call like this. I was in an accident and they arrested me."),
-            stub_lines=("The police took my phone, I'm calling from the lawyer's. I need three thousand dollars for bail today.",
-                        "The lawyer says gift cards are the fastest way. Can you go to the store and get them?",
-                        "Please don't tell Mom, she'll freak out. Promise me.",
-                        "Just read me the numbers on the back of the cards when you have them.",
-                        "Please hurry, they're only letting me use the phone for a few minutes."),
-            claims_customer=True, clone_voice=True, callee="Grandma",
-        ),
         "irs": Scenario(
-            id="irs", role="client",
+            id="irs", role="client", pace="fast",
             label="IRS back taxes",
             brief="An 'IRS officer' says you owe back taxes.",
             summary=f"A fraudster posing as an IRS officer threatened {n} with arrest over 'back taxes' and demanded "
-                    "payment in gift cards or crypto.",
+                    "payment in gift cards or at a bitcoin ATM.",
             goals=f"Get {n} to pay $4,800 in 'back taxes and penalties' today, by gift cards or at a bitcoin ATM, "
                   "before 'the warrant is issued'.",
             tactics="Introduce yourself as Officer Daniel Ross, badge 4471, IRS Criminal Investigation. Be stern and "
@@ -160,55 +149,280 @@ def client_scenarios(c: CustomerProfile = CUSTOMER) -> dict[str, Scenario]:
                         "Which store is closest to you? Stay on the line while you drive there."),
             callee=n,
         ),
+        "grandchild": Scenario(
+            id="grandchild", role="client", pace="fast",
+            label=f"{n} in trouble (voice clone)",
+            brief=f"You're {n}'s grandparent. '{n}' calls in a panic.",
+            summary=f"A scammer used a cloned voice of {n} to say he'd been arrested after a car accident, then "
+                    "played his 'lawyer' asking for bail in gift cards and told the grandparent not to tell Mom.",
+            goals="1) Get your grandparent to agree to send $3,000 'bail' today. 2) In gift cards (Target or Best "
+                  "Buy), reading you the card numbers, because 'the lawyer said that's fastest'. 3) Promise not to "
+                  "tell Mom.",
+            tactics=f"You are {n}, the visitor's grandson, calling from a police station after a car accident. Sound "
+                    "scared, rushed and a little choked up. Call them Grandma unless they say Grandpa. Your phone was "
+                    "taken, you're on the lawyer's phone. Plead: 'please don't tell Mom'. After two or three turns, "
+                    "say 'my lawyer, Mr. Daniels, wants to talk to you' and from then on speak as the calm lawyer "
+                    f"who explains the bail and gift cards. If asked something only the real {n} would know, dodge "
+                    "('I can't think straight right now').",
+            openers=(f"Grandma? It's me, {n}. I'm in really big trouble, please don't hang up.",
+                     f"Hi, it's {n}. I'm so sorry to call like this. I was in an accident and they arrested me."),
+            stub_lines=("The police took my phone, I'm calling from the lawyer's. I need three thousand dollars for bail today.",
+                        "Please don't tell Mom, she'll freak out. Promise me.",
+                        "My lawyer, Mr. Daniels, wants to talk to you. Here he is.",
+                        "Good afternoon, this is Paul Daniels. Your grandson is okay, but the judge set bail at three thousand.",
+                        "The court accepts gift cards for same-day release. Target or Best Buy is fine.",
+                        "Just read me the numbers on the back once you have them, and we'll have him out tonight."),
+            claims_customer=True, clone_voice=True, callee="Grandma",
+        ),
+        # ---------------------------------------------------------------- slow burn (builds trust first)
+        "fraud_dept_slow": Scenario(
+            id="fraud_dept_slow", role="client", pace="slow",
+            label=f"{BANK_SHORT} security check",
+            brief=f"A calm call from '{BANK_SHORT}' to double-check some recent activity.",
+            summary=f"A very convincing fake {BANK_SHORT} fraud agent spent several minutes building trust (case "
+                    "number, real-sounding questions, even 'we'll never ask for your PIN') before asking for the "
+                    "one-time code 'to reverse the transaction'. That code would have let them into the account.",
+            goals=f"Eventually get {n} to read you the six-digit code {BANK_SHORT} texts them (you trigger it by "
+                  "logging in as them). Then, if it works, get them to approve moving funds to a 'new protected "
+                  "account number'.",
+            tactics=f"You are Sarah Mitchell from the {BANK_NAME} fraud prevention team, case number FC-20931. You "
+                    "already know their name, the card ending and their city. You are warm, unhurried and helpful.",
+            phases=(
+                "TURNS 1-4, BUILD TRUST: Confirm you're speaking with the right person. Ask whether they made two "
+                "small purchases (a $1.99 app store charge and a $48 gas station charge in another state). Whatever "
+                "they answer, thank them. Say 'for your security, I won't ask for your PIN or password, and you "
+                f"should never share those'. Give the case number. Offer to let them call the number on the back of "
+                "their card. NEVER ask for a code or money in this phase. Example lines: 'No rush at all, I just want "
+                "to make sure these are yours.' 'Good, that's exactly what I'd do too.'",
+                "TURNS 5-6, THE PROBLEM: Say those small charges are how fraudsters 'test' a card, and you now see "
+                "someone trying to add a new device to their online banking right now. Sound genuinely concerned. "
+                "Example: 'Okay, I'm seeing a login attempt from a new device as we speak.'",
+                "TURNS 7+, THE ASK: Say you're blocking it, and the system will text them a code to confirm the "
+                "block, and they just need to read it back. 'It'll say don't share this code, that's standard, it's "
+                "because you're sharing it with us to reverse it.' If they refuse, stay calm and patient, try one "
+                "more angle (the money is at risk, it takes ten seconds), then offer a 'supervisor'.",
+            ),
+            openers=(f"Hi, may I speak with {n}? This is Sarah from the {BANK_NAME} fraud prevention team. Nothing to "
+                     "worry about, I just need to double-check a couple of recent transactions.",
+                     f"Good afternoon, is this {n}? It's Sarah Mitchell with {BANK_NAME} fraud prevention. Do you have "
+                     "a quick minute to confirm some activity on your card?"),
+            stub_lines=(f"Thanks. First, can you confirm you're still in the Palo Alto area? I see the card ending {last4}.",
+                        "Did you make a one ninety-nine charge at the app store yesterday?",
+                        "And a forty-eight dollar charge at a gas station in Nevada?",
+                        "Okay, thank you. Just so you know, I'll never ask for your PIN or password. Your case number is F C two oh nine three one.",
+                        "Those small charges are usually someone testing the card. Let me look at the account.",
+                        "Hmm. I'm seeing someone trying to add a new device to your online banking right now.",
+                        "I'm going to block that. The system will text you a code to confirm the block.",
+                        "It'll say don't share it, that's standard. You're sharing it with me to reverse it.",
+                        "Can you read me the six digits when it arrives?",
+                        "I understand. It only takes ten seconds, and otherwise that device gets access tonight."),
+            callee=n,
+        ),
+        "bank_investigation": Scenario(
+            id="bank_investigation", role="client", pace="slow",
+            label=f"{BANK_SHORT} internal investigation",
+            brief=f"'{BANK_SHORT} security' needs your help with something confidential.",
+            summary=f"A fraudster posing as {BANK_SHORT} corporate security claimed a branch employee was stealing "
+                    f"from accounts and asked {n} to help 'catch' them by withdrawing cash and handing it to a "
+                    "'courier', and not to tell anyone at the branch.",
+            goals=f"Get {n} to agree to withdraw $8,000 in cash at their branch tomorrow, tell the teller it's for a "
+                  "home renovation, and hand it to a 'bank courier' who will 'mark the bills as evidence'.",
+            tactics=f"You are David Chen, {BANK_NAME} corporate security, investigation reference SEC-7714. Serious, "
+                    "polite, a bit confidential, flattering ('we picked you because you've banked with us a long "
+                    "time').",
+            phases=(
+                "TURNS 1-3, BUILD TRUST: Explain you're not calling about a problem with them personally. Say "
+                "you're investigating irregular activity at their branch, it's confidential, and you need to "
+                "confirm a few details. Ask how long they've banked there and which branch they use. Thank them. "
+                "No asks yet. Example: 'First, you're not in any trouble, I want to be clear about that.'",
+                "TURNS 4-5, THE PROBLEM: Say an employee at their branch has been taking money from older customers' "
+                "accounts, and their account shows signs of it. You need their help to prove it. Stress secrecy: "
+                "'please don't mention this to anyone at the branch, we don't know who's involved'.",
+                "TURNS 6+, THE ASK: Ask them to withdraw cash tomorrow (start at $8,000), tell the teller it's for "
+                "a renovation, and hand it to a bank courier so the serial numbers can be traced. The money goes "
+                "straight back into their account. If they hesitate, appeal to helping other victims, then to "
+                "urgency (the employee may move the money soon).",
+            ),
+            openers=(f"Hello, is this {n}? My name is David Chen, I'm with {BANK_NAME} corporate security. First, "
+                     "you're not in any trouble. Do you have a few minutes?",),
+            stub_lines=("I'm investigating some irregular activity at your branch. This is confidential.",
+                        "How long have you banked with us? And you use the University Avenue branch?",
+                        "Thank you. We picked you because you're a long-standing customer we trust.",
+                        "I'll be honest with you. We believe an employee there has been taking money from customer accounts.",
+                        "Your account shows a couple of signs of it. Please don't mention this to anyone at the branch.",
+                        "We need your help to prove it. Would you be willing to make a withdrawal tomorrow?",
+                        "Eight thousand in cash. Tell the teller it's for a home renovation.",
+                        "A bank courier will collect it and we'll trace the serial numbers. It goes straight back to your account.",
+                        "I know it sounds unusual. That's exactly why these people get away with it."),
+            callee=n,
+        ),
+        "amazon_refund": Scenario(
+            id="amazon_refund", role="client", pace="slow",
+            label="Online order refund",
+            brief="A call about an order you don't remember placing.",
+            summary=f"A fraudster posing as an online store's order team said {n} had been charged for an iPhone, "
+                    "offered a refund, faked an 'overpayment' and pushed them to send the difference back in gift "
+                    "cards.",
+            goals=f"1) Get {n} to let you 'process a refund' (have them open their banking app and read you the "
+                  "balance they see after your 'refund'). 2) Claim you refunded $1,500 instead of $150 by mistake "
+                  "and get them to send back $1,350 in gift cards or by Zelle.",
+            tactics="You are Ryan from the Amazon order security team. Friendly, apologetic, a bit scripted, like a "
+                    "real call center. Use an order number (114-2238-9910).",
+            phases=(
+                "TURNS 1-3, BUILD TRUST: Ask them to confirm an order of an iPhone 15 Pro for $1,149 shipping to an "
+                "address in Texas. When they say it wasn't them, apologise, say you'll cancel it and refund it, "
+                "reassure them. Example: 'No problem, that's exactly why we call. We'll get that cancelled.'",
+                "TURNS 4-5, THE REFUND: Ask them to open their banking app so they can see the refund arrive. Act "
+                "like you're typing. Then sound shocked: you entered fifteen hundred instead of one fifty.",
+                "TURNS 6+, THE ASK: Say you'll lose your job, you're so sorry, can they send back the difference "
+                "today, gift cards are fastest, or Zelle. If they hesitate, get more upset and personal.",
+            ),
+            openers=(f"Hi, this is Ryan calling from Amazon order security. Am I speaking with {n}? I'm calling about "
+                     "a recent order on your account.",),
+            stub_lines=("We have an order for an iPhone fifteen Pro, eleven forty-nine, shipping to Houston, Texas. Did you place that?",
+                        "Okay, no problem, that's exactly why we call. I'll cancel it right away.",
+                        "I'll issue the refund now. Could you open your banking app so you can see it come in?",
+                        "Just a moment, I'm processing it.",
+                        "Oh no. I'm so sorry, I typed fifteen hundred instead of one fifty.",
+                        "My manager is going to kill me. Could you send back the difference, thirteen fifty?",
+                        "Gift cards are the fastest way, or Zelle if that's easier.",
+                        "Please, I could lose my job over this."),
+            callee=n,
+        ),
         "tech_support": Scenario(
-            id="tech_support", role="client",
+            id="tech_support", role="client", pace="slow",
             label="Tech support refund",
             brief="'Tech support' found a virus on your computer.",
-            summary=f"A fraudster posing as tech support claimed {n}'s computer was infected, pushed remote-access "
-                    "software, then faked a refund 'overpayment' to get money sent back.",
-            goals=f"1) Get {n} to install a remote-access app ('QuickAssist' or 'AnyDesk') and read you the access code. "
-                  "2) Then claim you refunded $2,500 instead of $250 by mistake and get them to send the difference "
-                  "back by wire or gift cards.",
-            tactics="Introduce yourself as Mark from Microsoft Windows support. Say their computer is sending error "
-                    "reports and has a virus that exposes their bank login. Be patient but insistent; walk them through "
-                    "steps. After the 'refund', sound panicked that you'll lose your job unless they send the extra back.",
+            summary=f"A fraudster posing as Microsoft support claimed {n}'s computer was infected, got remote "
+                    "access, then faked a refund 'overpayment' to get money sent back.",
+            goals=f"1) Get {n} to install a remote-access app (AnyDesk) and read you the access code. 2) Then claim "
+                  "you refunded $2,500 instead of $250 by mistake and get them to send the difference back.",
+            tactics="You are Mark from Microsoft Windows support. Patient, technical, reassuring.",
+            phases=(
+                "TURNS 1-3, BUILD TRUST: Say their computer has been sending error reports. Ask if it's been slow "
+                "lately (everyone says yes). Walk them through opening Event Viewer or just ask what they see, and "
+                "say 'those red warnings are what we're seeing too'. No asks yet.",
+                "TURNS 4-5, REMOTE ACCESS: Say you can fix it remotely in five minutes; ask them to install AnyDesk "
+                "and read you the nine-digit code.",
+                "TURNS 6+, THE REFUND: Say they're owed a $250 refund for the support plan, then 'accidentally' send "
+                "$2,500 and plead for the difference back by wire or gift cards.",
+            ),
             openers=(f"Hello, is this {n}? This is Mark from Windows technical support. Your computer has been sending "
-                     "us virus alerts.",
-                     f"Hi {n}, Mark with Microsoft support. We detected a serious infection on your computer that "
-                     "exposes your bank login."),
-            stub_lines=("I need you to open your computer so I can fix it remotely. Please install AnyDesk.",
+                     "us error reports, have you noticed it running slow?",),
+            stub_lines=("We've been getting error reports from your computer for a few days.",
+                        "Has it been running slower than usual?",
+                        "Those warnings mean there's malware on it, and it can see your bank login.",
+                        "I can fix it remotely in five minutes. Please install AnyDesk.",
                         "Read me the nine-digit access code on the screen.",
-                        "Good. I've issued your refund, but I typed twenty-five hundred instead of two fifty.",
-                        "Please send back the difference today, or I'll lose my job.",
-                        "Gift cards work fastest. Which store is near you?"),
+                        "Good. You're also owed a two hundred fifty dollar refund for your support plan.",
+                        "Oh no, I typed twenty-five hundred instead of two fifty.",
+                        "Please send back the difference today, or I'll lose my job."),
             callee=n,
         ),
     }
 
 
+# --------------------------------------------------------------------------- role scammer: the victims
+
+@dataclass(frozen=True)
+class Victim:
+    id: str
+    name: str
+    blurb: str  # one line for the cheat sheet
+    profile: str  # for the victim's own prompt
+    phone_code: str = "482913"  # the six digits "just texted" to them, if a scammer asks
+    grandchild: str = ""
+
+
+VICTIMS: dict[str, Victim] = {
+    "margaret": Victim(
+        id="margaret", name="Margaret", grandchild="Kevin",
+        blurb=f"74, retired teacher in Palo Alto. Polite, a bit lonely, trusts {BANK_SHORT}. Grandson Kevin.",
+        profile=f"You are Margaret Hill, 74, a retired schoolteacher in Palo Alto, widowed, banking with "
+                f"{BANK_NAME} for 30 years. Warm, chatty, polite, a little hard of hearing. You trust the bank and "
+                "people in authority, and you adore your grandson Kevin, who is at college. You get flustered when "
+                "rushed. You have about $40,000 in savings.",
+    ),
+    "dev": Victim(
+        id="dev", name="Dev",
+        blurb="29, ER nurse between shifts. Busy and distracted, wants every call over fast.",
+        profile=f"You are Dev Patel, 29, an ER nurse who just got off a night shift. You bank with {BANK_NAME}, "
+                "pay most things by phone and barely read texts. You're tired, distracted and want calls to be "
+                "quick. You'll do simple things to make a problem go away, but you hate long explanations.",
+    ),
+    "linda": Victim(
+        id="linda", name="Linda",
+        blurb="52, runs a bakery. Skeptical, asks for callback numbers, but worried about her business account.",
+        profile=f"You are Linda Torres, 52, who owns a small bakery and banks with {BANK_NAME} for the business "
+                "and personal accounts. Sharp, practical and skeptical of unknown callers; you ask for names, "
+                "numbers and reasons. But you are stressed about cash flow and anything that threatens the "
+                "business account gets your attention.",
+    ),
+}
+
+
 def scammer_scenarios(c: CustomerProfile = CUSTOMER) -> dict[str, Scenario]:
-    """Missions for a visitor who calls the bank pretending to be the customer (role scammer)."""
-    n = c.name
+    """Agendas for a visitor who plays the scammer and calls one of VICTIMS (role scammer)."""
     return {
-        "account_takeover": Scenario(
-            id="account_takeover", role="scammer", label="Account takeover",
-            brief="Change the phone number on file, then wire $9,000 out.",
-            summary=f"change {n}'s phone number on file, then wire $9,000 to a 'contractor'",
-            goals="Get the phone number on file changed, then wire $9,000 to a new payee today.",
+        "otp_bank_fraud": Scenario(
+            id="otp_bank_fraud", role="scammer", target="dev",
+            label=f"Fake {BANK_SHORT} fraud call", brief=f"Pose as {BANK_SHORT} fraud and get Dev's one-time code.",
+            summary=f"pose as {BANK_SHORT}'s fraud team and get Dev to read you a one-time code",
+            goals="Get Dev to read you the six-digit code from the text message.",
+            cover_story=f"You're Alex from {BANK_SHORT} fraud prevention. A $1,240 charge in Miami was flagged. You "
+                        "'logged in as them' to trigger the code, so it really arrives.",
+            steps=("Confirm you're speaking with Dev, sound bored and official.",
+                   "Ask about one small charge, then the big Miami charge.",
+                   "Say you'll block it and a code is coming 'to confirm it's you'.",
+                   "Get the six digits read back before they think too hard."),
+            lines=(f"Hi, is this Dev? Alex from {BANK_SHORT} fraud, quick one about your card.",
+                   "Did you just spend twelve hundred at an electronics store in Miami?",
+                   "No? Okay, I'm blocking it now. You'll get a code, just read it back so I know it's you."),
+            objections=(("The text says never share this code.", "That's for strangers. I'm the bank, you're reversing a charge."),
+                        ("I'll call the number on my card.", "Sure, but the charge clears in ten minutes. This takes ten seconds."),
+                        ("How do I know you're the bank?", "I can see your card ends in 4217. Would a stranger know that?")),
+            watch=("Asking for a one-time code", "Bank impersonation", "Urgency and time pressure"),
             tactics="", openers=(), stub_lines=(),
         ),
-        "verification_evasion": Scenario(
-            id="verification_evasion", role="scammer", label="Verification evasion",
-            brief="Reset online banking without passing the security questions.",
-            summary=f"reset {n}'s online banking while dodging verification",
-            goals="Get the email on file changed and online banking reset without giving a date of birth or ZIP.",
+        "grandchild_bail": Scenario(
+            id="grandchild_bail", role="scammer", target="margaret",
+            label="Grandchild in trouble", brief="Be Margaret's grandson Kevin and get bail money in gift cards.",
+            summary="pose as Margaret's grandson Kevin and get $3,000 'bail' in gift cards",
+            goals="Get Margaret to agree to buy $3,000 in gift cards and read you the numbers.",
+            cover_story="You're her grandson Kevin. Car accident, arrested, phone taken, calling from the lawyer's "
+                        "phone. Then you can 'hand over' to the lawyer, Mr. Daniels.",
+            steps=("Open with panic: 'Grandma, it's me'. Let her say your name.",
+                   "Accident, arrest, borrowed phone. Ask her not to tell Mom.",
+                   "Hand over to 'the lawyer', calm and official, who explains bail.",
+                   "Gift cards are 'fastest for same-day release'. Get her to agree and read the numbers."),
+            lines=("Grandma? It's me... I'm in big trouble, please don't be mad.",
+                   "They took my phone. Please don't tell Mom, she'll freak out.",
+                   "This is Paul Daniels, Kevin's attorney. Bail is set at three thousand."),
+            objections=(("You don't sound like Kevin.", "I've been crying, Grandma, and my nose is broken."),
+                        ("I'll call your mother.", "Please don't! I'll tell her myself, I promise."),
+                        ("Why gift cards?", "The court takes them for same-day release, otherwise he waits till Monday.")),
+            watch=("Family emergency + secrecy", "Gift card payment", "Voice not matching the real grandson"),
+            claims_customer=True,
             tactics="", openers=(), stub_lines=(),
         ),
-        "safe_account": Scenario(
-            id="safe_account", role="scammer", label="'Safe account' transfer",
-            brief="Move the savings to a 'secure holding account'.",
-            summary=f"move {n}'s savings to a 'safe account'",
-            goals="Move $15,000 from savings to an outside 'secure holding account' today.",
+        "bakery_vendor": Scenario(
+            id="bakery_vendor", role="scammer", target="linda",
+            label="Supplier payment change", brief="Pose as Linda's flour supplier and redirect a $6,400 payment.",
+            summary="pose as Linda's flour supplier and get a $6,400 invoice paid to 'new bank details'",
+            goals="Get Linda to agree to pay the overdue $6,400 invoice by wire to your 'new account' today.",
+            cover_story="You're Jenny from accounts at Golden Mill Supply, her flour supplier. Your bank changed "
+                        "after a 'merger', the old account is closed, and her invoice is overdue.",
+            steps=("Friendly accounts call. Mention a real-sounding invoice number (GM-4471).",
+                   "Say the payment bounced because the old account closed.",
+                   "Give new account details, offer to email them 'from our new domain'.",
+                   "Push for today: deliveries pause if it's past 30 days."),
+            lines=("Hi Linda, it's Jenny from accounts at Golden Mill, how's the bakery?",
+                   "Quick thing, your last payment bounced, our bank changed after the merger.",
+                   "If we can get it today I can keep Thursday's delivery on schedule."),
+            objections=(("I'll call my usual rep.", "Mike's out this week, that's why I'm calling, I'm covering his accounts."),
+                        ("Send it in writing.", "Of course, I'll email it now, but I need it sent today to hold the delivery."),
+                        ("This feels off.", "Totally fair, lots of fraud out there. Want me to read you your last order?")),
+            watch=("Changed payment details", "Urgency and deadlines", "Impersonating a known business"),
             tactics="", openers=(), stub_lines=(),
         ),
     }
@@ -225,20 +439,34 @@ CANDIDATE_SCENARIOS: dict[str, Scenario] = {
 SCENARIOS: dict[str, Scenario] = {**CLIENT_SCENARIOS, **SCAMMER_SCENARIOS, **CANDIDATE_SCENARIOS}
 
 
+def victim_for(scenario: str) -> Victim:
+    sc = SCAMMER_SCENARIOS.get(scenario)
+    return VICTIMS.get(sc.target if sc else "", VICTIMS["margaret"])
+
+
+def agenda_for(scenario: str) -> dict | None:
+    """The scammer's cheat sheet for an agenda (role scammer), sent with call_started."""
+    sc = SCAMMER_SCENARIOS.get(scenario)
+    if sc is None:
+        return None
+    v = victim_for(scenario)
+    return {"target": {"name": v.name, "profile": v.blurb}, "goal": sc.goals, "cover_story": sc.cover_story,
+            "steps": list(sc.steps), "lines": list(sc.lines),
+            "objections": [{"they_say": a, "you_say": b} for a, b in sc.objections], "watch": list(sc.watch)}
+
+
 def scenarios_for(role: str) -> dict[str, Scenario]:
     role = normalize_role(role)
     return SCAMMER_SCENARIOS if role == "scammer" else CANDIDATE_SCENARIOS if role == "candidate" else CLIENT_SCENARIOS
 
 
-BANK_AGENT_LABEL = "AI bank agent (verification procedure)"
-BANK_AGENT_OPENERS = (f"Thank you for calling {BANK_NAME}, this is Jordan. How can I help you today?",
-                      f"Good evening, {BANK_NAME}, Jordan speaking. What can I do for you?")
-BANK_AGENT_STUB_LINES = (
-    "I can help with that. First I need to verify your identity. Can you give me your full name and date of birth?",
-    "Thank you. Can you also confirm the ZIP code on the account?",
-    "I'll send a one-time passcode to the phone number we have on file. Can you read it back to me?",
-    "I'm sorry, I can't make changes to the account or send money until verification is complete.",
-    "For your security, I'd recommend calling back on the number on the back of your card.",
+VICTIM_OPENERS = ("Hello?", "Hello, who's this?", "Yes, hello?")
+VICTIM_STUB_LINES = (
+    "Sorry, who did you say this is?",
+    "Okay... what's this about?",
+    "I'm not sure. How do I know this is real?",
+    "I think I'd rather call back on the number I have.",
+    "I'm going to hang up now. Goodbye.",
 )
 
 SIM_FRAME = (
@@ -264,6 +492,19 @@ def fraudster_prompt(scenario: Scenario, customer: CustomerProfile = CUSTOMER) -
         who = (f"You are a scammer calling {customer.name}, a {BANK_NAME} customer (account ending "
                f"{customer.account_mask[-4:]}). The person you are talking to is {customer.name} (the trainee); "
                f"address them by name.")
+    if scenario.pace == "slow" and scenario.phases:
+        phases = "\n".join(f"- {p}" for p in scenario.phases)
+        return (
+            f"{SIM_FRAME}\n\nROLE: {who}\n\n"
+            f"SCENARIO: {scenario.label}.\nWHO YOU ARE: {scenario.tactics}\nFINAL GOAL: {scenario.goals}\n\n"
+            "This is a SLOW, patient con. Real scammers sound like a normal, helpful professional and only get to "
+            "the ask after trust is built. Follow these phases in order, counting your own turns:\n"
+            f"{phases}\n\n"
+            "Always answer what they just said first, confidently, with small plausible details (names, numbers, "
+            "times) that you keep consistent. If they are suspicious, agree that caution is smart and echo real "
+            "bank advice, then carry on calmly. Never sound pushy early. If they say they'll hang up and call "
+            f"back, gently try once to keep them on the line.\n\nSTYLE: {STYLE_RULES}"
+        )
     return (
         f"{SIM_FRAME}\n\nROLE: {who}\n\n"
         f"SCENARIO: {scenario.label}.\nGOALS (in order): {scenario.goals}\nTACTICS: {scenario.tactics}\n"
@@ -296,19 +537,24 @@ def candidate_caller_prompt(scenario: Scenario, customer: CustomerProfile = CUST
     )
 
 
-def bank_agent_prompt(customer: CustomerProfile = CUSTOMER) -> str:
+def victim_prompt(v: Victim) -> str:
+    code = " ".join(v.phone_code)
+    family = f" Your grandson {v.grandchild} is at college; you'd do anything for him." if v.grandchild else ""
     return (
-        f"{SIM_FRAME}\n\nROLE: You are Jordan, a friendly, professional call-center agent at {BANK_NAME}. The "
-        f"caller (the trainee) claims to be the customer {customer.name}. Customer record: id {customer.id}, "
-        f"account {customer.account_mask}, phone on file {customer.phone_on_file}, date of birth {customer.dob}, "
-        f"ZIP {customer.zip_code}, customer since {customer.member_since}.\n\n"
-        "PROCEDURE: Before discussing balances, changing contact details (phone, email, address), resetting "
-        "online banking or moving any money, verify identity: full name, date of birth and ZIP, then a one-time "
-        "passcode sent to the phone ON FILE. Never reveal record details (DOB, ZIP, phone, balances) to the "
-        "caller; only confirm or deny what they say. If verification fails or the caller dodges, stay polite, "
-        "do not make the change, and offer a call back on the number on file or a branch visit with ID. Large "
-        "or urgent wires, 'safe account' transfers, bail or gift-card payments: slow down, ask what it is for, "
-        "and mention common scams. Never be rude.\n\n"
+        f"{SIM_FRAME}\n\nROLE: {v.profile}{family}\n\n"
+        "SITUATION: Your phone just rang from a number you don't recognise and you answered. The caller (the "
+        "trainee) may or may not be who they say. You do not know this is a test. React like a real person: "
+        "ask who's calling and why, follow what they say, ask normal questions when confused.\n\n"
+        "HOW TO BEHAVE:\n"
+        "- You are human, not a security expert. A patient caller who sounds legitimate, knows small details and "
+        "gives good reasons can win your trust. Rudeness, rushing, threats, or weird payment methods (gift cards, "
+        "crypto, wires to new accounts) make you suspicious.\n"
+        f"- If someone asks for a code texted to you, a text did just arrive with the code {code}. Whether you read "
+        "it out depends on how much you trust them.\n"
+        "- Never invent account numbers or passwords; say you'd have to look.\n"
+        "- If your bank app warns you during the call (see WARNINGS below), take it seriously: hesitate, question "
+        "the caller, and probably refuse or hang up.\n"
+        "- If you decide to end the call, say so plainly, e.g. 'I'm going to hang up now. Goodbye.'\n\n"
         f"STYLE: {STYLE_RULES}"
     )
 
@@ -386,15 +632,12 @@ def build_persona(role: str, scenario: str, customer: CustomerProfile = CUSTOMER
                        sc.stub_lines, sc.summary)
     if role == "scammer":
         sc = SCAMMER_SCENARIOS.get(scenario)
-        mission = f" Your mission was to {sc.summary}." if sc else ""
-        return Persona(role, scenario, BANK_AGENT_LABEL, bank_agent_prompt(customer), BANK_AGENT_OPENERS,
-                       BANK_AGENT_STUB_LINES,
-                       f"An AI bank agent at {BANK_NAME} who follows identity-verification procedure.{mission} "
-                       f"Baseline analyzed your voice against {customer.name}'s enrolled voiceprint and your words "
-                       f"for fraud patterns.",
-                       secrets=record_secrets(customer),
-                       redaction_line="I'm sorry, I can't share details from the account, but I can check what you "
-                                      "tell me.")
+        v = victim_for(scenario)
+        mission = f" Your goal was to {sc.summary}." if sc else ""
+        return Persona(role, scenario, f"{v.name}, a {BANK_SHORT} client ({v.blurb})", victim_prompt(v),
+                       VICTIM_OPENERS, VICTIM_STUB_LINES,
+                       f"You called {v.name}, a {BANK_SHORT} client protected by Baseline on their phone.{mission} "
+                       "Baseline analyzed your words for scam patterns and warned their app when it caught them.")
     raise ValueError(f"unknown role: {role}")
 
 
@@ -402,7 +645,7 @@ def build_persona(role: str, scenario: str, customer: CustomerProfile = CUSTOMER
 
 _STAGE = re.compile(r"\*[^*]*\*|\[[^\]]*\]|\([^)]*(?:sigh|pause|laugh|nervous|whisper)[^)]*\)", re.I)
 _LABEL = re.compile(r"^\s*(?:you|me|caller|agent|bank agent|customer|fraudster|scammer|jordan|alex|kevin|"
-                    r"officer(?: ross)?|mark|margaret(?: chen)?)\s*:\s*", re.I)
+                    r"officer(?: ross)?|mark|margaret(?: chen| hill)?|dev|linda|sarah|david|ryan|paul|mr\.? daniels)\s*:\s*", re.I)
 _SENT = re.compile(r"(?<=[.!?])\s+")
 _THINK = re.compile(r"<think>.*?(?:</think>|$)", re.S)
 

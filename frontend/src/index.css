@@ -478,6 +478,32 @@ button { cursor: pointer; }
 .signals__note { margin: 0.4rem 0 0; font-size: var(--t-label); color: var(--ink-4); }
 
 /* verdict strip */
+/* scammer side: the visitor's cheat sheet */
+.agenda { border-bottom: 1px solid var(--rule); }
+.agenda__head { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: flex; align-items: baseline; gap: 1rem; padding: 0.85rem var(--gutter); }
+.agenda__head:focus-visible { outline: 1px solid var(--ink-3); outline-offset: -1px; }
+.agenda__target { font-size: var(--t-body); color: var(--ink-2); flex: 1; min-width: 0; }
+.agenda__target b { color: var(--ink); font-weight: 500; }
+.agenda__key { color: var(--ink-4); white-space: nowrap; }
+.agenda__body { display: grid; gap: 0.85rem; padding: 0 var(--gutter) 1rem; max-height: 42vh; overflow-y: auto; }
+.agenda__profile { margin: 0; color: var(--ink-2); font-size: var(--t-small); }
+.agenda__row { display: grid; grid-template-columns: 8.5rem minmax(0, 1fr); gap: 0.25rem 1rem; align-items: baseline; }
+.agenda__row > .label { color: var(--ink-3); }
+.agenda__row p { margin: 0; font-size: var(--t-small); line-height: 1.45; }
+.agenda__steps, .agenda__lines { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.35rem; font-size: var(--t-small); line-height: 1.45; }
+.agenda__steps label { display: flex; gap: 0.5rem; align-items: baseline; cursor: pointer; }
+.agenda__steps input { accent-color: var(--ink-2); margin: 0; flex: none; }
+.agenda__steps input:checked + span { color: var(--ink-4); text-decoration: line-through; }
+.agenda__lines li { color: var(--ink); }
+.agenda__obj { margin: 0; display: grid; gap: 0.5rem; font-size: var(--t-small); line-height: 1.45; }
+.agenda__obj dt { color: var(--ink-2); }
+.agenda__obj dd { margin: 0.1rem 0 0; padding-left: 0.75rem; border-left: 1px solid var(--rule); }
+.agenda__watch { color: var(--amber); }
+@media (max-width: 900px) {
+  .agenda__row { grid-template-columns: 1fr; }
+  .agenda__body { max-height: none; }
+}
+
 .verdict { border-bottom: 1px solid var(--rule); padding: 1rem var(--gutter) 1rem; display: grid; gap: 0.5rem; transition: background 400ms var(--ease); }
 .verdict__row { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
 .verdict__level { font-family: var(--mono); font-size: var(--t-label); letter-spacing: 0.1em; text-transform: uppercase; display: inline-flex; align-items: center; gap: 0.5rem; min-width: 7.5rem; }

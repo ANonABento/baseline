@@ -1,3 +1,4 @@
+import { AgendaPanel } from "../components/Agenda";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fmtTime } from "../analysis";
 import { Baseline } from "../components/Baseline";
@@ -72,6 +73,12 @@ export function callerClaim(scenario: string, name: string): string {
       return "Says: IRS officer";
     case "tech_support":
       return "Says: Windows support";
+    case "fraud_dept_slow":
+      return "Says: First City fraud team";
+    case "bank_investigation":
+      return "Says: First City security";
+    case "amazon_refund":
+      return "Says: Amazon order team";
     default:
       return "Unknown caller";
   }
@@ -90,7 +97,7 @@ export function InterventionBanner({ state, onHangup }: { state: SessionState; o
   return (
     <section className={`iv iv--${iv.level}`} role="alert" aria-live="assertive" key={iv.reason_id + iv.level}>
       <div className="iv__head">
-        <span className="label iv__who">Baseline, First City fraud protection</span>
+        <span className="label iv__who">{iv.to === "victim" ? "Baseline warned the person you called" : "Baseline, First City fraud protection"}</span>
         {state.baselineSpeaking && (
           <span className="label iv__speaking" aria-label="Baseline is speaking">
             <i />
@@ -268,7 +275,6 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
   const resolve = state.phase === "ended" && state.peak === "none" ? 1 : calm ? 0.6 : 0;
   const cust = call.customer;
   const aiIsCaller = role !== "scammer";
-  const ident = `acct ${cust.account_mask}, ${cust.enrolled ? "voice enrolled" : "no voiceprint"}`;
   const speakingAi = state.speaking.ai;
   const speakingMe = state.speaking.visitor || holding;
   const video = currentCamera();
@@ -299,7 +305,7 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
   };
 
   const left = Math.max(0, (call.max_call_s || 0) - t);
-  const who = aiIsCaller ? ({ ai: "Caller", visitor: "You" } as const) : ({ ai: "Bank", visitor: "You" } as const);
+  const who = aiIsCaller ? ({ ai: "Caller", visitor: "You" } as const) : ({ ai: call.agenda?.target.name ?? "Them", visitor: "You" } as const);
 
   return (
     <div className="room">
@@ -328,15 +334,15 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
         <div className="room__left">
           <div className={`tile ${speakingAi ? "tile--speaking" : ""} ${aiIsCaller && verdict.level === "alert" ? "tile--alert" : ""}`}>
             <div className="tile__label">
-              <span className="label tile__name">{aiIsCaller ? callerClaim(call.scenario, cust.name) : "Jordan, First City Bank"}</span>
-              <span className="label">{aiIsCaller ? "Caller (AI)" : "Agent (AI)"}</span>
+              <span className="label tile__name">{aiIsCaller ? callerClaim(call.scenario, cust.name) : (call.agenda?.target.name ?? "The person you called")}</span>
+              <span className="label">{aiIsCaller ? "Caller (AI)" : "Protected by Baseline (AI)"}</span>
             </div>
             <Viewport source="head" level={aiLevel} chaos={aiIsCaller ? alertChaos : 0} resolve={aiIsCaller ? resolve : 0.4} drift label="The AI caller" />
             <div className="tile__state">{speakingAi && <span className="label">Speaking</span>}</div>
           </div>
           <div className={`tile ${speakingMe ? "tile--speaking" : ""} ${!aiIsCaller && verdict.level === "alert" ? "tile--alert" : ""}`}>
             <div className="tile__label">
-              <span className="label tile__name">{aiIsCaller ? `You, ${call.visitor_as ?? cust.name}` : `You, as ${cust.name}, ${ident}`}</span>
+              <span className="label tile__name">{aiIsCaller ? `You, ${call.visitor_as ?? cust.name}` : "You, the scammer"}</span>
               <span className="label">{aiIsCaller ? "Protected by Baseline" : "Caller"}</span>
             </div>
             <Viewport source="video" video={video} level={() => myLevel.current} chaos={!aiIsCaller ? alertChaos : 0} resolve={!aiIsCaller ? resolve : 0} label="Your camera, stylized" />
@@ -395,7 +401,10 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
             <TwinPanel twin={twin} duration={duration} />
           ) : (
             /* role client: the banner speaks to the client; agent-side "say this" scripts would confuse */
-            <VerdictStrip v={aiIsCaller ? { ...verdict, sayThis: null } : verdict} />
+            <>
+              {!aiIsCaller && call.agenda && <AgendaPanel agenda={call.agenda} />}
+              <VerdictStrip v={{ ...verdict, sayThis: null }} />
+            </>
           )}
           <Signals behaviour={state.behaviour} signals={state.signals} />
           <Transcript
@@ -409,7 +418,7 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
               <p className="transcript__empty">
                 {aiIsCaller
                   ? "Your phone is ringing. Answer it like any call. Baseline is listening on both sides."
-                  : `First City will pick up. Convince them you're ${cust.name}.`}
+                  : `${call.agenda?.target.name ?? "They"} will pick up. Your agenda is on the side; hold Space to talk.`}
               </p>
             }
           />

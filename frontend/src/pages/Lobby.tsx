@@ -8,10 +8,10 @@ import { linkTo } from "../lib/prefs";
 import { listReports } from "../lib/reports";
 
 const ROLES: { id: SessionRequest["role"]; label: string; hint: string }[] = [
-  { id: "client", label: "Be the client", hint: "A scammer is about to call you. Can you tell? Baseline can." },
-  { id: "scammer", label: "Be the scammer", hint: "Call First City pretending to be Kevin. Try to get past Baseline." },
+  { id: "random", label: "Surprise me", hint: "You might get a scam call, or you might be the scammer." },
+  { id: "client", label: "Get a call", hint: "You're a First City client and your phone rings. Is it a scam? Baseline is on your phone." },
+  { id: "scammer", label: "Make a call", hint: "You're the scammer. Call a First City client and try to get what you came for. Baseline is on their phone." },
   { id: "candidate", label: "Pressure simulation", hint: "You're the bank agent; the caller's pressure rises. Your delivery and decisions feed a Digital Twin and a signed credential. Needs the live backend." },
-  { id: "random", label: "Random", hint: "You'll find out which side you're on when the call connects." },
 ];
 
 export const SCENARIO_LABEL: Record<string, string> = {
@@ -19,6 +19,12 @@ export const SCENARIO_LABEL: Record<string, string> = {
   grandchild: "Kevin in trouble (voice clone)",
   irs: "IRS back taxes",
   tech_support: "Tech support refund",
+  fraud_dept_slow: "First City security check",
+  bank_investigation: "First City internal investigation",
+  amazon_refund: "Online order refund",
+  otp_bank_fraud: "Fake First City fraud call",
+  grandchild_bail: "Grandchild in trouble",
+  bakery_vendor: "Supplier payment change",
   account_takeover: "Account takeover",
   grandparent: "Grandparent / coached",
   grandparent_coached: "Grandparent / coached",
@@ -46,7 +52,7 @@ interface Props {
 export function Lobby({ onJoin, error }: Props) {
   const [cfg, setCfg] = useState<{ mock: boolean; config: AppConfig } | null>(null);
   const [cfgErr, setCfgErr] = useState<string | null>(null);
-  const [role, setRole] = useState<SessionRequest["role"]>("client");
+  const [role, setRole] = useState<SessionRequest["role"]>("random");
   const [scenario, setScenario] = useState("random");
   const [voice, setVoice] = useState("random");
   const [video, setVideo] = useState<HTMLVideoElement | null>(currentCamera());
@@ -174,7 +180,7 @@ export function Lobby({ onJoin, error }: Props) {
         <section className="config" aria-label="Call setup">
           <div>
             <h1 className="config__title">Take a call</h1>
-            <p className="config__sub">First City runs Baseline on both sides of the call: in its call center and in its app on your phone. Calls last up to four minutes.</p>
+            <p className="config__sub">First City puts Baseline in its app on its clients' phones. It listens to the call and warns them when the caller sounds like a scam. Calls last up to four minutes.</p>
           </div>
 
           <fieldset className="field">
@@ -195,7 +201,7 @@ export function Lobby({ onJoin, error }: Props) {
 
           {scenarios.length > 0 && (
             <fieldset className="field">
-              <legend className="label">{role === "scammer" ? "Your mission" : "Who calls you"}</legend>
+              <legend className="label">{role === "scammer" ? "Your target" : "Who calls you"}</legend>
               <div className="chips">
                 {[{ id: "random", label: role === "scammer" ? "Surprise me" : "Don't tell me" }, ...scenarios].map((s) => (
                   <label className="chip" key={s.id}>

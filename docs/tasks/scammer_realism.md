@@ -1,6 +1,6 @@
 # Task: make the AI scammer believable (research + rewrite the scenarios)
 
-**Owner:** next agent · **Size:** about 1.5 hours (20 min research, then writing) · **Deadline:** submission at 9:00 AM, Oct 10
+**Status:** DONE in code (scenarios + slow-burn phases in `backend/caller/personas.py`). Not done: the web research note `docs/research/scam_tactics.md`; scenarios were written from known FTC / UK Finance patterns.
 
 ## Problem
 In role `client`, the visitor is the bank's customer and an AI fraudster calls them. The fraudster is obvious within one or two turns: it states the problem, demands the code, and pushes urgency right away. Real scammers build trust first.

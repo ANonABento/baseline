@@ -94,6 +94,8 @@ export type ServerMsg =
       scenario_label?: string | null;
       /** who the visitor is on this call, e.g. "Kevin", "Kevin's grandparent", "Posing as Kevin" */
       visitor_as?: string;
+      /** role scammer: the visitor's cheat sheet */
+      agenda?: Agenda | null;
     }
   | { type: "speaking"; who: Speaker; state: "start" | "end" }
   | { type: "ai_level"; rms: number }
@@ -115,7 +117,7 @@ export type ServerMsg =
   | { type: "alert"; level: AlertLevel; reasons: string[]; suggested_action: string; signals: string[]; citations: Citation[] }
   | { type: "warning"; message: string; seconds_left: number }
   /** Baseline warns the client (role client). At "high" it is also spoken, see baseline_audio_*. */
-  | { type: "intervention"; level: "caution" | "high"; message: string; reason_id: string }
+  | { type: "intervention"; level: "caution" | "high"; message: string; reason_id: string; to?: "visitor" | "victim" }
   /** Binary frames between these two markers are Baseline's voice (to the client only), not the caller's. */
   | { type: "baseline_audio_start"; reason_id: string; text: string; sample_rate?: number }
   | { type: "baseline_audio_end"; reason_id: string }
@@ -144,6 +146,16 @@ export interface Behaviour {
     compliance_phrases: number;
   };
   decision_events: { t: number; utterance_id: number; event: string }[];
+}
+
+export interface Agenda {
+  target: { name: string; profile: string };
+  goal: string;
+  cover_story: string;
+  steps: string[];
+  lines: string[];
+  objections: { they_say: string; you_say: string }[];
+  watch: string[];
 }
 
 export type ClientMsg = { type: "hangup" } | { type: "ping" } | { type: "text"; text: string } | { type: "suspect" } | { type: "ptt"; state: "down" | "up" };

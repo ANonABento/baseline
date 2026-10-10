@@ -297,7 +297,7 @@ export class MockTransport {
           this.emit({
             type: "alert",
             level: hi ? "high" : "caution",
-            reasons: ["Voice doesn't match enrolled customer", ...pats.map((p) => p.name)],
+            reasons: ["Voice doesn't match who they claim to be", ...pats.map((p) => p.name)],
             suggested_action: pats[0].suggested_agent_action,
             signals: ["speaker", "fraud"],
             citations: pats.map((p) => ({ pattern_id: p.id, name: p.name, source: p.source.url })),
@@ -306,7 +306,7 @@ export class MockTransport {
         this.later(1600, () => this.emit({ type: "trust", score: hi ? 18 : 45 }));
       } else {
         this.later(1600, () => this.emit({ type: "trust", score: 62 }));
-        this.later(1700, () => this.emit({ type: "alert", level: "caution", reasons: ["Voice doesn't match enrolled customer"], suggested_action: "Verify identity before any change.", signals: ["speaker"], citations: [] }));
+        this.later(1700, () => this.emit({ type: "alert", level: "caution", reasons: ["Voice doesn't match who they claim to be"], suggested_action: "Verify identity before any change.", signals: ["speaker"], citations: [] }));
       }
     }
     if (!this.aiBusy) this.later(this.baselineSpeaking ? 1500 : 900, () => this.aiTurn());

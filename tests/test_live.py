@@ -137,11 +137,20 @@ def test_grandchild_persona_addresses_the_grandparent():
     assert all(s.role == "scammer" for s in SCAMMER_SCENARIOS.values())
 
 
-def test_bank_agent_persona_follows_verification():
-    p = build_persona("scammer", "random")
-    assert "verify identity" in p.system_prompt and "one-time" in p.system_prompt
-    assert "Never reveal record details" in p.system_prompt
-    assert "First City Bank" in p.opener()
+def test_scammer_role_ai_is_a_victim_with_an_agenda():
+    from caller.personas import VICTIMS, agenda_for, victim_for
+
+    for sid, sc in SCAMMER_SCENARIOS.items():
+        p = build_persona("scammer", sid)
+        v = victim_for(sid)
+        assert sc.target in VICTIMS and v.profile in p.system_prompt and "Jordan" not in p.system_prompt
+        assert "WARNINGS" in p.system_prompt and p.opener().startswith(("Hello", "Yes"))
+        a = agenda_for(sid)
+        assert a["target"]["name"] == v.name and a["goal"] and a["steps"] and a["lines"] and a["objections"]
+    assert agenda_for("fake_bank") is None
+    slow = [s for s in CLIENT_SCENARIOS.values() if s.pace == "slow"]
+    assert len(slow) >= 3 and all(s.phases and len(s.stub_lines) >= 8 for s in slow)
+    assert "SLOW, patient con" in build_persona("client", "fraud_dept_slow").system_prompt
     with pytest.raises(ValueError):
         build_persona("nobody", "x")
 
@@ -258,7 +267,8 @@ def test_config_and_session_validation(tmp_path):
         assert all(set(s) == {"id", "label", "role", "brief"} for s in c["scenarios"])
         assert c["customer"]["name"] == "Kevin"
         assert {s["id"] for s in c["scenarios"] if s["role"] == "client"} == {"fake_bank", "grandchild", "irs",
-                                                                              "tech_support"}
+                                                                              "tech_support", "fraud_dept_slow",
+                                                                              "bank_investigation", "amazon_refund"}
         assert c["voices"] == svc.tts.voices()
         assert c["max_concurrent"] == 1 and c["queue_length"] == 0 and c["active_calls"] == 0
         assert c["tts"] == "stub" and set(c["llm"]) == {"provider", "model"}
@@ -343,7 +353,7 @@ def test_role_scammer_text_is_analyzed(tmp_path):
             recv_until(ws, lambda m: m["type"] == "call_started")
             seen = recv_until(ws, lambda m: m["type"] == "transcript")
             ai = jsons(seen, "transcript")[0]
-            assert ai["speaker"] == "ai" and ai["analyzed"] is False and "First City" in ai["text"]
+            assert ai["speaker"] == "ai" and ai["analyzed"] is False and ai["text"]
             ws.send_text(json.dumps({"type": "text", "text": "This is Kevin. I lost my phone, please change "
                                      "my phone number and wire nine thousand dollars to my contractor today, it's urgent."}))
             seen = recv_until(ws, lambda m: m["type"] == "alert")
@@ -607,8 +617,17 @@ async def test_llm_brain_two_sentences_reasoning_off_and_history():
     assert msgs[-1] == {"role": "user", "content": "hello"}
 
 
+def _redacting_persona():
+    import dataclasses
+
+    from caller.personas import CUSTOMER, record_secrets
+
+    return dataclasses.replace(build_persona("client", "fake_bank"), secrets=record_secrets(CUSTOMER),
+                               redaction_line="I'm sorry, I can't share details from the account.")
+
+
 async def test_llm_brain_redacts_bank_record_and_falls_back():
-    p = build_persona("scammer", "random")
+    p = _redacting_persona()
     out, _, _ = await _reply(p, "Sure. Your date of birth is March 14, 1951 on file. Anything else?")
     assert out[0] == p.redaction_line and not any("1951" in x for x in out)
     out, _, b = await _reply(p, "", fail=True)
@@ -616,7 +635,7 @@ async def test_llm_brain_redacts_bank_record_and_falls_back():
 
 
 async def test_llm_brain_first_clause_cut():
-    p = build_persona("scammer", "random")
+    p = _redacting_persona()
     out, _, _ = await _reply(p, "Hello Kevin, I will need your full name, date of birth, ZIP code, and a "
                                 "passcode sent to your phone first. Then we can proceed. Extra.")
     assert out[0].endswith(",") and len(out) == 3 and out[2] == "Then we can proceed."

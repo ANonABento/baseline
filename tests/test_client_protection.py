@@ -149,18 +149,22 @@ def test_role_client_intervention_flow(tmp_path):
         assert not any("Baseline" in x["text"] for x in r["transcript"])
 
 
-def test_role_scammer_gets_no_interventions(tmp_path):
+def test_role_scammer_warns_the_victim_not_the_visitor(tmp_path):
     client, svc = make_client(tmp_path)
     with client:
-        sid = new_session(client, role="scammer", scenario="account_takeover", voice="stub-a")
+        sid = new_session(client, role="scammer", scenario="otp_bank_fraud", voice="stub-a")
         with client.websocket_connect(f"/ws/session/{sid}") as ws:
-            recv_until(ws, lambda m: m["type"] == "call_started")
-            ws.send_text(json.dumps({"type": "text", "text": "This is Kevin. I lost my phone, change my number and "
-                                     "wire nine thousand dollars today, it's urgent."}))
-            seen = recv_until(ws, lambda m: m["type"] == "alert")
+            started = recv_until(ws, lambda m: m["type"] == "call_started")
+            assert jsons(started, "call_started")[0]["agenda"]["target"]["name"] == "Dev"
+            ws.send_text(json.dumps({"type": "text", "text": "This is Alex from the First City fraud department. "
+                                     "Read me the one-time code we just texted you right now, then move your savings to a safe account. "
+                                     "It's urgent, don't tell anyone."}))
+            seen = recv_until(ws, lambda m: m["type"] == "alert" and m["level"] != "none")
             ws.send_text(json.dumps({"type": "hangup"}))
             seen += recv_until(ws, lambda m: m["type"] == "call_ended")
-            assert not jsons(seen, "intervention") and not jsons(seen, "action")
+            iv = jsons(seen, "intervention")
+            assert iv and all(i["to"] == "victim" for i in iv)
+            assert not jsons(seen, "action") and not jsons(seen, "baseline_audio_start")
 
 
 @pytest.fixture(autouse=True)

@@ -1,6 +1,6 @@
 # Task: redesign the role-play (scammer ↔ the bank's client), the lobby, the in-call cheat sheet + bug fixes
 
-**Owner:** next agent · **Size:** about 2–3 hours, work through the sections in order · **Deadline:** submission at 9:00 AM, Oct 10; finals 12–2 PM
+**Status:** sections 1-4 DONE (lobby, victim personas + Baseline warnings to the victim, agenda cheat sheet, enrolled-voice check dropped unless the caller claims to be someone the callee knows), 5a DONE (push-to-talk as turns), 6 DONE (timeline clipping). Open: 5b-5e, mock-mode scripts (`frontend/src/lib/mockScripts.ts` still has the old Jordan flow), game over, genuine calls.
 **Read first:** `docs/tasks/scammer_realism.md` covers the scenario rewrite. Do it before or with section 2 here, because both edit `backend/caller/personas.py`.
 
 ## Product framing (why this changes)
