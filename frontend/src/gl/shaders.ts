@@ -13,12 +13,9 @@ float vnoise(vec3 x){
 float personMask(sampler2D m, vec2 uv){
   return smoothstep(0.3, 0.7, texture2D(m, uv).r);
 }
-// silhouette edge from the mask gradient (mask is 160x120, so step ~1.5 texels)
+// hairline silhouette: only the narrow band where the mask crosses 0.5
 float personEdge(sampler2D m, vec2 uv){
-  vec2 d = vec2(1.5 / 160.0, 1.5 / 120.0);
-  float gx = texture2D(m, uv + vec2(d.x, 0.0)).r - texture2D(m, uv - vec2(d.x, 0.0)).r;
-  float gy = texture2D(m, uv + vec2(0.0, d.y)).r - texture2D(m, uv - vec2(0.0, d.y)).r;
-  return smoothstep(0.15, 0.45, length(vec2(gx, gy)));
+  return 1.0 - smoothstep(0.0, 0.06, abs(texture2D(m, uv).r - 0.5));
 }
 `;
 
@@ -47,8 +44,9 @@ varying vec3 vN; varying vec3 vView;
 void main(){
   vec3 N = normalize(vN);
   vec3 V = normalize(vView);
-  // near-frontal key from above so both halves of the face read (the head faces the viewer)
-  vec3 L = normalize(vec3(-0.12, 0.62, 0.78));
+  // soft side key from upper left: enough shadow to model the nose and brow, not enough to
+  // lose the far half of the face
+  vec3 L = normalize(vec3(-0.3, 0.7, 0.65));
   float diff = max(dot(N, L), 0.0);
   float rim = pow(1.0 - max(dot(N, V), 0.0), 2.6);
   float l = diff * 0.62 + rim * 0.42 + 0.02;
@@ -81,7 +79,7 @@ void main(){
     // still spans the dither range; a dotted outline keeps the silhouette readable against black
     float person = clamp((raw - uLevels.x) / max(0.05, uLevels.y - uLevels.x), 0.0, 1.0);
     person = smoothstep(0.0, 1.0, person * 0.92 + 0.04);
-    float masked = max(person * personMask(uMask, uv), personEdge(uMask, uv) * 0.5);
+    float masked = max(person * personMask(uMask, uv), personEdge(uMask, uv) * 0.35);
     l = mix(smoothstep(0.08, 0.85, raw), masked, uHasMask);
   } else {
     l = field(vUv);
