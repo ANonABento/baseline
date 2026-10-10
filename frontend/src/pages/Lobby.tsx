@@ -10,6 +10,7 @@ import { listReports } from "../lib/reports";
 const ROLES: { id: SessionRequest["role"]; label: string; hint: string }[] = [
   { id: "client", label: "Be the client", hint: "A scammer is about to call you. Can you tell? Baseline can." },
   { id: "scammer", label: "Be the scammer", hint: "Call First Harbor pretending to be Kevin. Try to get past Baseline." },
+  { id: "candidate", label: "Pressure simulation", hint: "You're the bank agent; the caller's pressure rises. Your delivery and decisions feed a Digital Twin and a signed credential. Needs the live backend." },
   { id: "random", label: "Random", hint: "You'll find out which side you're on when the call connects." },
 ];
 
@@ -181,7 +182,7 @@ export function Lobby({ onJoin, error }: Props) {
             <div className="options">
               {ROLES.map((r) => (
                 <label className="option" key={r.id}>
-                  <input type="radio" name="role" value={r.id} checked={role === r.id} onChange={() => pickRole(r.id)} />
+                  <input type="radio" name="role" value={r.id} checked={role === r.id} onChange={() => pickRole(r.id)} disabled={r.id === "candidate" && !!cfg?.mock} />
                   <span className="option__mark" />
                   <span className="option__text">
                     {r.label}

@@ -1,0 +1,498 @@
+{
+ "label": "EXPLORATORY",
+ "timestamp": "2026-10-10T08:40:31+00:00",
+ "git_sha": "e400e54-dirty",
+ "seed": 0,
+ "quick": false,
+ "versions": {
+  "numpy": "2.4.6",
+  "librosa": "0.11.0",
+  "scikit-learn": "1.9.1"
+ },
+ "command": "python scripts/public_checks.py",
+ "data_manifests": {
+  "ami": {
+   "repo": "edinburghcstr/ami",
+   "licence": "cc-by-4.0 (HF tag)",
+   "config": "ihm",
+   "files": [
+    {
+     "file": "data/external/ami/ihm/train-00000-of-00042.parquet",
+     "bytes": 296004645,
+     "sha256": "782e6f65089b2b1de0be54f279bed4c08c262748ce71591b69bd27ff44811676"
+    },
+    {
+     "file": "data/external/ami/ihm/train-00001-of-00042.parquet",
+     "bytes": 288716572,
+     "sha256": "3726c7b40d0a2e085be79a12a8234ebfb902a7f2972e2a01bc04187fedf0a1b8"
+    },
+    {
+     "file": "data/external/ami/ihm/validation-00000-of-00005.parquet",
+     "bytes": 339196635,
+     "sha256": "30a90f2fc82658c2f749864236813d1ca106060fc3870676a7e9afb423d45f47"
+    }
+   ]
+  },
+  "ravdess": {
+   "source": "zenodo.org/records/1188976",
+   "licence": "CC BY-NC-SA 4.0 (research only, not shippable)",
+   "md5": "bc696df654c87fed845eb13823edef8a",
+   "wav_files": 1440
+  }
+ },
+ "A_ami_baseline_rule": {
+  "n_speakers": 30,
+  "usable_utterance_share": 0.678,
+  "any_feature_fired_rate_mean": 0.604,
+  "any_feature_fired_ci95_over_speakers": [
+   0.511,
+   0.691
+  ],
+  "sustained_change_rate_mean": 0.087,
+  "sustained_change_ci95_over_speakers": [
+   0.024,
+   0.173
+  ],
+  "per_speaker": [
+   {
+    "meeting": "IB4001",
+    "speaker": "MIO091",
+    "n_utts": 60,
+    "n_usable": 45,
+    "any_feature_fired_rate": 0.69,
+    "sustained_change_rate": 0.0
+   },
+   {
+    "meeting": "EN2001e",
+    "speaker": "MEO069",
+    "n_utts": 301,
+    "n_usable": 236,
+    "any_feature_fired_rate": 0.421,
+    "sustained_change_rate": 0.009
+   },
+   {
+    "meeting": "EN2001a",
+    "speaker": "MEO069",
+    "n_utts": 444,
+    "n_usable": 335,
+    "any_feature_fired_rate": 0.952,
+    "sustained_change_rate": 0.217
+   },
+   {
+    "meeting": "ES2011c",
+    "speaker": "FEE041",
+    "n_utts": 124,
+    "n_usable": 77,
+    "any_feature_fired_rate": 0.824,
+    "sustained_change_rate": 0.027
+   },
+   {
+    "meeting": "ES2011c",
+    "speaker": "FEE043",
+    "n_utts": 121,
+    "n_usable": 84,
+    "any_feature_fired_rate": 0.988,
+    "sustained_change_rate": 0.741
+   },
+   {
+    "meeting": "ES2011c",
+    "speaker": "FEE042",
+    "n_utts": 63,
+    "n_usable": 44,
+    "any_feature_fired_rate": 0.415,
+    "sustained_change_rate": 0.049
+   },
+   {
+    "meeting": "ES2011a",
+    "speaker": "FEE041",
+    "n_utts": 93,
+    "n_usable": 68,
+    "any_feature_fired_rate": 0.831,
+    "sustained_change_rate": 0.077
+   },
+   {
+    "meeting": "EN2001a",
+    "speaker": "MEE067",
+    "n_utts": 246,
+    "n_usable": 186,
+    "any_feature_fired_rate": 0.355,
+    "sustained_change_rate": 0.0
+   },
+   {
+    "meeting": "EN2001a",
+    "speaker": "MEE068",
+    "n_utts": 126,
+    "n_usable": 52,
+    "any_feature_fired_rate": 0.531,
+    "sustained_change_rate": 0.0
+   },
+   {
+    "meeting": "IB4003",
+    "speaker": "MIO039",
+    "n_utts": 163,
+    "n_usable": 102,
+    "any_feature_fired_rate": 0.354,
+    "sustained_change_rate": 0.0
+   },
+   {
+    "meeting": "IB4010",
+    "speaker": "FIE038",
+    "n_utts": 32,
+    "n_usable": 25,
+    "any_feature_fired_rate": 0.273,
+    "sustained_change_rate": 0.0
+   },
+   {
+    "meeting": "EN2001a",
+    "speaker": "FEO066",
+    "n_utts": 142,
+    "n_usable": 104,
+    "any_feature_fired_rate": 0.277,
+    "sustained_change_rate": 0.0
+   },
+   {
+    "meeting": "EN2001d",
+    "speaker": "FEO066",
+    "n_utts": 51,
+    "n_usable": 35,
+    "any_feature_fired_rate": 0.531,
+    "sustained_change_rate": 0.0
+   },
+   {
+    "meeting": "EN2001d",
+    "speaker": "MEE067",
+    "n_utts": 217,
+    "n_usable": 167,
+    "any_feature_fired_rate": 0.11,
+    "sustained_change_rate": 0.0
+   },
+   {
+    "meeting": "ES2011a",
+    "speaker": "FEE043",
+    "n_utts": 66,
+    "n_usable": 45,
+    "any_feature_fired_rate": 0.81,
+    "sustained_change_rate": 0.095
+   },
+   {
+    "meeting": "EN2003a",
+    "speaker": "MEE076",
+    "n_utts": 23,
+    "n_usable": 14,
+    "any_feature_fired_rate": 0.727,
+    "sustained_change_rate": 0.0
+   },
+   {
+    "meeting": "EN2003a",
+    "speaker": "MEO074",
+    "n_utts": 20,
+    "n_usable": 6,
+    "any_feature_fired_rate": 0.333,
+    "sustained_change_rate": 0.0
+   },
+   {
+    "meeting": "IB4001",
+    "speaker": "FIE038",
+    "n_utts": 200,
+    "n_usable": 133,
+    "any_feature_fired_rate": 0.738,
+    "sustained_change_rate": 0.177
+   },
+   {
+    "meeting": "IB4010",
+    "speaker": "MIO036",
+    "n_utts": 63,
+    "n_usable": 32,
+    "any_feature_fired_rate": 0.793,
+    "sustained_change_rate": 0.069
+   },
+   {
+    "meeting": "IB4010",
+    "speaker": "MIO046",
+    "n_utts": 46,
+    "n_usable": 29,
+    "any_feature_fired_rate": 0.808,
+    "sustained_change_rate": 0.0
+   },
+   {
+    "meeting": "EN2001e",
+    "speaker": "MEE068",
+    "n_utts": 94,
+    "n_usable": 37,
+    "any_feature_fired_rate": 0.971,
+    "sustained_change_rate": 0.176
+   },
+   {
+    "meeting": "EN2001a",
+    "speaker": "FEO065",
+    "n_utts": 105,
+    "n_usable": 58,
+    "any_feature_fired_rate": 0.455,
+    "sustained_change_rate": 0.0
+   },
+   {
+    "meeting": "ES2011a",
+    "speaker": "FEE042",
+    "n_utts": 16,
+    "n_usable": 10,
+    "any_feature_fired_rate": 1.0,
+    "sustained_change_rate": 0.0
+   },
+   {
+    "meeting": "IB4003",
+    "speaker": "MIO094",
+    "n_utts": 29,
+    "n_usable": 16,
+    "any_feature_fired_rate": 0.385,
+    "sustained_change_rate": 0.0
+   },
+   {
+    "meeting": "EN2001d",
+    "speaker": "FEO065",
+    "n_utts": 46,
+    "n_usable": 32,
+    "any_feature_fired_rate": 0.483,
+    "sustained_change_rate": 0.034
+   },
+   {
+    "meeting": "EN2001b",
+    "speaker": "FEO066",
+    "n_utts": 174,
+    "n_usable": 124,
+    "any_feature_fired_rate": 1.0,
+    "sustained_change_rate": 0.934
+   },
+   {
+    "meeting": "IB4003",
+    "speaker": "FIE037",
+    "n_utts": 75,
+    "n_usable": 46,
+    "any_feature_fired_rate": 0.465,
+    "sustained_change_rate": 0.0
+   },
+   {
+    "meeting": "ES2011a",
+    "speaker": "FEE044",
+    "n_utts": 60,
+    "n_usable": 41,
+    "any_feature_fired_rate": 0.553,
+    "sustained_change_rate": 0.0
+   },
+   {
+    "meeting": "EN2003a",
+    "speaker": "MEE075",
+    "n_utts": 49,
+    "n_usable": 39,
+    "any_feature_fired_rate": 0.583,
+    "sustained_change_rate": 0.0
+   },
+   {
+    "meeting": "IB4003",
+    "speaker": "MIO036",
+    "n_utts": 193,
+    "n_usable": 111,
+    "any_feature_fired_rate": 0.454,
+    "sustained_change_rate": 0.019
+   }
+  ]
+ },
+ "B_read_vs_spontaneous": {
+  "n_librispeech_speakers": 40,
+  "n_ami_speakers": 30,
+  "features": {
+   "pause_frac": {
+    "librispeech_mean": 0.3,
+    "ami_mean": 0.323,
+    "cohens_d_ami_minus_ls": 0.44
+   },
+   "rate_proxy": {
+    "librispeech_mean": 4.943,
+    "ami_mean": 4.936,
+    "cohens_d_ami_minus_ls": -0.02
+   },
+   "f0_std_st": {
+    "librispeech_mean": 5.059,
+    "ami_mean": 4.385,
+    "cohens_d_ami_minus_ls": -0.63
+   }
+  }
+ },
+ "C_ravdess": {
+  "n_clips": 1440,
+  "n_actors": 24,
+  "tasks": {
+   "8-class emotion": {
+    "majority_baseline": 0.133,
+    "prosody5": {
+     "accuracy": 0.353,
+     "ci95_over_actors": [
+      0.327,
+      0.378
+     ]
+    },
+    "prosody5_actor_norm": {
+     "accuracy": 0.422,
+     "ci95_over_actors": [
+      0.394,
+      0.45
+     ]
+    },
+    "prosody5+mfcc26": {
+     "accuracy": 0.43,
+     "ci95_over_actors": [
+      0.392,
+      0.466
+     ]
+    }
+   },
+   "high vs low arousal": {
+    "majority_baseline": 0.533,
+    "prosody5": {
+     "accuracy": 0.771,
+     "ci95_over_actors": [
+      0.738,
+      0.803
+     ]
+    },
+    "prosody5_actor_norm": {
+     "accuracy": 0.828,
+     "ci95_over_actors": [
+      0.801,
+      0.856
+     ]
+    },
+    "prosody5+mfcc26": {
+     "accuracy": 0.756,
+     "ci95_over_actors": [
+      0.717,
+      0.793
+     ]
+    }
+   }
+  },
+  "c2_share_clips_with_any_feature_abs_z_at_Z_FIRE": {
+   "neutral": {
+    "mean": 0.292,
+    "ci95_over_actors": [
+     0.125,
+     0.5
+    ],
+    "n_actors": 24
+   },
+   "calm": {
+    "mean": 0.625,
+    "ci95_over_actors": [
+     0.536,
+     0.714
+    ],
+    "n_actors": 24
+   },
+   "happy": {
+    "mean": 0.906,
+    "ci95_over_actors": [
+     0.859,
+     0.948
+    ],
+    "n_actors": 24
+   },
+   "sad": {
+    "mean": 0.792,
+    "ci95_over_actors": [
+     0.703,
+     0.865
+    ],
+    "n_actors": 24
+   },
+   "angry": {
+    "mean": 0.964,
+    "ci95_over_actors": [
+     0.932,
+     0.99
+    ],
+    "n_actors": 24
+   },
+   "fearful": {
+    "mean": 0.953,
+    "ci95_over_actors": [
+     0.917,
+     0.984
+    ],
+    "n_actors": 24
+   },
+   "disgust": {
+    "mean": 0.896,
+    "ci95_over_actors": [
+     0.828,
+     0.948
+    ],
+    "n_actors": 24
+   },
+   "surprised": {
+    "mean": 0.948,
+    "ci95_over_actors": [
+     0.911,
+     0.979
+    ],
+    "n_actors": 24
+   }
+  },
+  "c2_mean_signed_z": {
+   "neutral": {
+    "f0_median_st": 0.02,
+    "f0_std_st": -0.21,
+    "rms_db": 0.49,
+    "rate_proxy": 0.95,
+    "pause_frac": 0.35
+   },
+   "calm": {
+    "f0_median_st": -0.62,
+    "f0_std_st": 0.28,
+    "rms_db": -1.63,
+    "rate_proxy": 0.31,
+    "pause_frac": -0.41
+   },
+   "happy": {
+    "f0_median_st": 5.03,
+    "f0_std_st": 1.19,
+    "rms_db": 5.0,
+    "rate_proxy": 0.65,
+    "pause_frac": -0.26
+   },
+   "sad": {
+    "f0_median_st": 2.09,
+    "f0_std_st": 1.29,
+    "rms_db": 0.37,
+    "rate_proxy": 0.28,
+    "pause_frac": -0.64
+   },
+   "angry": {
+    "f0_median_st": 5.87,
+    "f0_std_st": 2.12,
+    "rms_db": 7.56,
+    "rate_proxy": -0.04,
+    "pause_frac": -0.61
+   },
+   "fearful": {
+    "f0_median_st": 6.01,
+    "f0_std_st": 0.93,
+    "rms_db": 5.28,
+    "rate_proxy": 0.74,
+    "pause_frac": -0.71
+   },
+   "disgust": {
+    "f0_median_st": 2.03,
+    "f0_std_st": 2.97,
+    "rms_db": 1.6,
+    "rate_proxy": 0.17,
+    "pause_frac": -0.97
+   },
+   "surprised": {
+    "f0_median_st": 5.39,
+    "f0_std_st": 2.89,
+    "rms_db": 3.94,
+    "rate_proxy": 1.43,
+    "pause_frac": -0.24
+   }
+  }
+ }
+}

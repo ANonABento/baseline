@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fmtTime } from "../analysis";
 import { Baseline } from "../components/Baseline";
 import { Mark } from "../components/Chrome";
+import { Signals } from "../components/Signals";
 import { Transcript } from "../components/Transcript";
+import { TwinPanel } from "../components/Twin";
+import { twinView } from "../lib/twin";
 import { Viewport } from "../components/Viewport";
 import { currentCamera, micChoice } from "../lib/media";
 import { buildNotes, spikesFromNotes, TIER_GLYPH, verdictOf, type Note } from "../lib/notes";
@@ -154,6 +157,8 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
   const call = state.call!;
   const role = state.ended?.reveal.role ?? call.role;
   const notes = useMemo(() => buildNotes(state.lines, state.signals, state.evidence.items), [state.lines, state.signals, state.evidence.items]);
+  const candidate = role === "candidate";
+  const twin = useMemo(() => twinView(state), [state.lines, state.signals, state.pressure, state.decisions]);
   const verdict = useMemo(() => verdictOf(state.alert, notes, state.evidence.items), [state.alert, notes, state.evidence.items]);
   const [active, setActive] = useState<string | null>(null);
   const [scrollTo, setScrollTo] = useState<{ id: number; n: number } | null>(null);
@@ -283,7 +288,7 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
           <Mark alert={verdict.level === "alert"} />
           <span className="hide-sm">Baseline</span>
         </a>
-        <span className="role-badge">{role === "scammer" ? "You: scammer" : `You: ${call.visitor_as ?? cust.name}`}</span>
+        <span className="role-badge">{role === "scammer" ? "You: scammer" : candidate ? "You: agent under pressure" : `You: ${call.visitor_as ?? cust.name}`}</span>
         {live && <span className="live-dot" aria-hidden />}
         <span className="room__timer" aria-label="Call time">
           {fmtTime(t)}
@@ -366,8 +371,13 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
         </div>
 
         <div className="room__right">
-          {/* role client: the banner speaks to the client; agent-side "say this" scripts would confuse */}
-          <VerdictStrip v={aiIsCaller ? { ...verdict, sayThis: null } : verdict} />
+          {candidate ? (
+            <TwinPanel twin={twin} duration={duration} />
+          ) : (
+            /* role client: the banner speaks to the client; agent-side "say this" scripts would confuse */
+            <VerdictStrip v={aiIsCaller ? { ...verdict, sayThis: null } : verdict} />
+          )}
+          <Signals behaviour={state.behaviour} signals={state.signals} />
           <Transcript
             lines={state.lines}
             notes={notes}
@@ -402,8 +412,8 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
                 : state.error ?? "Call over."}
             </h2>
             {state.ended?.reveal?.summary && <p className="ended__summary">{state.ended.reveal.summary}</p>}
-            {state.ended?.reveal && aiIsCaller && <YouVsBaseline state={state} />}
-            {state.ended?.reveal && !aiIsCaller && (
+            {state.ended?.reveal && aiIsCaller && !candidate && <YouVsBaseline state={state} />}
+            {state.ended?.reveal && !aiIsCaller && !candidate && (
               <p className="label">
                 {state.peak === "high" ? "Baseline raised an alert" : state.peak === "caution" ? "Baseline was watching" : "You got past Baseline"}
               </p>
@@ -411,7 +421,7 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
             <div className="ended__actions">
               {state.ended?.report_id && (
                 <button className="btn" type="button" onClick={() => navigate(`/report/${state.ended!.report_id}`)}>
-                  See the report
+                  {candidate ? "See the twin summary and credential" : "See the report"}
                 </button>
               )}
               <button className="btn btn--ghost" type="button" onClick={onAgain}>

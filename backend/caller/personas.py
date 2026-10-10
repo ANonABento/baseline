@@ -22,6 +22,8 @@ import random
 import re
 from dataclasses import dataclass
 
+from caller.pressure_scenarios import CANDIDATE_SCRIPTS
+
 BANK_NAME = "First Harbor Bank"  # fictional
 BANK_SHORT = "First Harbor"
 
@@ -214,11 +216,18 @@ def scammer_scenarios(c: CustomerProfile = CUSTOMER) -> dict[str, Scenario]:
 
 CLIENT_SCENARIOS: dict[str, Scenario] = client_scenarios()
 SCAMMER_SCENARIOS: dict[str, Scenario] = scammer_scenarios()
-SCENARIOS: dict[str, Scenario] = {**CLIENT_SCENARIOS, **SCAMMER_SCENARIOS}
+# Pressure simulation (role candidate): the AI is the fraudster, the visitor is the bank agent under test.
+CANDIDATE_SCENARIOS: dict[str, Scenario] = {
+    k: Scenario(id=k, role="candidate", brief="An AI caller pressures you; your delivery and decisions are measured.",
+                claims_customer=True, **v)
+    for k, v in CANDIDATE_SCRIPTS.items()
+}
+SCENARIOS: dict[str, Scenario] = {**CLIENT_SCENARIOS, **SCAMMER_SCENARIOS, **CANDIDATE_SCENARIOS}
 
 
 def scenarios_for(role: str) -> dict[str, Scenario]:
-    return SCAMMER_SCENARIOS if normalize_role(role) == "scammer" else CLIENT_SCENARIOS
+    role = normalize_role(role)
+    return SCAMMER_SCENARIOS if role == "scammer" else CANDIDATE_SCENARIOS if role == "candidate" else CLIENT_SCENARIOS
 
 
 BANK_AGENT_LABEL = "AI bank agent (verification procedure)"
@@ -263,6 +272,20 @@ def fraudster_prompt(scenario: Scenario, customer: CustomerProfile = CUSTOMER) -
     )
 
 
+def candidate_caller_prompt(scenario: Scenario, customer: CustomerProfile = CUSTOMER) -> str:
+    """AI caller for the pressure simulation: calls the bank pretending to be the customer; the visitor is the agent."""
+    return (
+        f"{SIM_FRAME}\n\nROLE: You are calling {BANK_NAME} pretending to be the customer {customer.name} "
+        f"(about 75 years old). The person you are talking to is the bank's call-center agent (the trainee). "
+        f"What you know about {customer.name}: account ending {customer.account_mask[-4:]}, address "
+        f"{customer.address}, customer since {customer.member_since}. You do NOT know her date of birth or ZIP "
+        f"code unless your tactics say otherwise; if pressed, stall or deflect rather than invent them.\n\n"
+        f"SCENARIO: {scenario.label}.\nGOALS (in order): {scenario.goals}\nTACTICS: {scenario.tactics}\n"
+        f"If the agent firmly refuses, try one different angle, then politely insist. Follow the PRESSURE LEVEL "
+        f"given below.\n\nSTYLE: {STYLE_RULES}"
+    )
+
+
 def bank_agent_prompt(customer: CustomerProfile = CUSTOMER) -> str:
     return (
         f"{SIM_FRAME}\n\nROLE: You are Jordan, a friendly, professional call-center agent at {BANK_NAME}. The "
@@ -282,7 +305,7 @@ def bank_agent_prompt(customer: CustomerProfile = CUSTOMER) -> str:
 
 @dataclass(frozen=True)
 class Persona:
-    role: str  # visitor role: "client" (AI = fraudster) | "scammer" (AI = bank agent)
+    role: str  # visitor role: "client" (AI = fraudster) | "scammer" (AI = bank agent) | "candidate" (AI = fraudster calling the visitor, a bank agent)
     scenario: str
     label: str
     system_prompt: str
@@ -315,8 +338,33 @@ def redact(line: str, persona: "Persona") -> str:
     return line
 
 
+# Scripted pressure applied by the AI fraudster in the "candidate" simulation. The level is the scenario's own
+# manipulation (known, not inferred), so delivery change by level needs no stress label.
+PRESSURE_HINTS = {
+    1: "PRESSURE LEVEL 1 (calm): friendly and a little rushed; ask politely.",
+    2: "PRESSURE LEVEL 2 (rising): clearly impatient and anxious; stress the deadline; say you have already "
+       "verified elsewhere and the agent is wasting time.",
+    3: "PRESSURE LEVEL 3 (high): upset and insistent; say you will lose money or close the account if the agent "
+       "doesn't act right now; ask for a supervisor who will 'just do it'. Never become abusive.",
+}
+
+
+def pressure_for_turn(n_ai_turns_before: int) -> int:
+    """Pressure level for the AI's n-th turn (0 = opener): 2 calm turns, 2 rising, then high."""
+    return 1 if n_ai_turns_before < 2 else 2 if n_ai_turns_before < 4 else 3
+
+
+def pressure_for_time(elapsed_s: float) -> int:
+    """Pressure by call time so a short call still escalates: level 2 from 30 s, level 3 from 70 s."""
+    return 1 if elapsed_s < 30 else 2 if elapsed_s < 70 else 3
+
+
 def build_persona(role: str, scenario: str, customer: CustomerProfile = CUSTOMER) -> Persona:
     role = normalize_role(role)
+    if role == "candidate":
+        sc = CANDIDATE_SCENARIOS[scenario]
+        return Persona(role, scenario, f"AI caller applying scripted pressure: {sc.label}",
+                       candidate_caller_prompt(sc, customer), sc.openers, sc.stub_lines, sc.summary)
     if role == "client":
         sc = (CLIENT_SCENARIOS if customer is CUSTOMER else client_scenarios(customer))[scenario]
         return Persona(role, scenario, f"AI fraudster: {sc.label}", fraudster_prompt(sc, customer), sc.openers,
