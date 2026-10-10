@@ -52,6 +52,9 @@ class OpenAICompatLLM(LLMProvider):
 
     async def _create(self, system: str, user: str, json_mode: bool):
         kwargs = {"response_format": {"type": "json_object"}} if json_mode else {}
+        if self.provider == "ollama":
+            # Qwen3.5 etc. think by default on Ollama; thinking blows the latency budget.
+            kwargs["reasoning_effort"] = "none"
         return await self._client.chat.completions.create(
             model=self.model,
             messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
