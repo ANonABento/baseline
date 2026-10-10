@@ -44,7 +44,7 @@ const MAX_CALL_S = 180;
 const RANK = { none: 0, caution: 1, high: 2 } as const;
 const ACTIONS: ServerMsg[] = [
   { type: "action", kind: "family_alert", message: "Text sent to your trusted contact" },
-  { type: "action", kind: "bank_hold", message: "First Harbor: outgoing transfers held for review — linked to this flagged call" },
+  { type: "action", kind: "bank_hold", message: "First City: outgoing transfers held for review — linked to this flagged call" },
 ];
 
 export class MockTransport {

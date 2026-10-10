@@ -9,12 +9,12 @@ import { listReports } from "../lib/reports";
 
 const ROLES: { id: SessionRequest["role"]; label: string; hint: string }[] = [
   { id: "client", label: "Be the client", hint: "A scammer is about to call you. Can you tell? Baseline can." },
-  { id: "scammer", label: "Be the scammer", hint: "Call First Harbor pretending to be Kevin. Try to get past Baseline." },
+  { id: "scammer", label: "Be the scammer", hint: "Call First City pretending to be Kevin. Try to get past Baseline." },
   { id: "random", label: "Random", hint: "You'll find out which side you're on when the call connects." },
 ];
 
 export const SCENARIO_LABEL: Record<string, string> = {
-  fake_bank: "First Harbor 'fraud department'",
+  fake_bank: "First City 'fraud department'",
   grandchild: "Kevin in trouble (voice clone)",
   irs: "IRS back taxes",
   tech_support: "Tech support refund",
@@ -173,7 +173,7 @@ export function Lobby({ onJoin, error }: Props) {
         <section className="config" aria-label="Call setup">
           <div>
             <h1 className="config__title">Take a call</h1>
-            <p className="config__sub">First Harbor runs Baseline on both sides of the call: in its call center and in its app on your phone. Calls last up to four minutes.</p>
+            <p className="config__sub">First City runs Baseline on both sides of the call: in its call center and in its app on your phone. Calls last up to four minutes.</p>
           </div>
 
           <fieldset className="field">

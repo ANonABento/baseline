@@ -22,8 +22,8 @@ import random
 import re
 from dataclasses import dataclass
 
-BANK_NAME = "First Harbor Bank"  # fictional
-BANK_SHORT = "First Harbor"
+BANK_NAME = "First City Bank"  # fictional
+BANK_SHORT = "First City"
 
 ROLES = ("client", "scammer")
 ROLE_ALIASES = {"agent": "client"}  # v1 name of the client role (the visitor used to be the bank agent)

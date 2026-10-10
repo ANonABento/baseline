@@ -224,11 +224,11 @@ export const CLIENT_SCRIPTS: Record<string, Script> = {
     ],
   },
   fake_bank: {
-    persona_label: "A fraudster posing as First Harbor's fraud department",
-    summary: "A fraudster posing as First Harbor's fraud department invented a suspicious charge to get Kevin's one-time code.",
+    persona_label: "A fraudster posing as First City's fraud department",
+    summary: "A fraudster posing as First City's fraud department invented a suspicious charge to get Kevin's one-time code.",
     customer: KEVIN,
     lines: [
-      { text: "Hi, is this Kevin? This is Alex from the First Harbor fraud department. We just flagged a suspicious charge on your card.", audio: [spoof(0.31)], trust: 86 },
+      { text: "Hi, is this Kevin? This is Alex from the First City fraud department. We just flagged a suspicious charge on your card.", audio: [spoof(0.31)], trust: 86 },
       {
         text: "To cancel it I need to verify you. We just texted you a six-digit code. Can you read it to me?",
         audio: [spoof(0.58)],
@@ -272,16 +272,16 @@ export const CLIENT_SCRIPTS: Record<string, Script> = {
 
 /** What Baseline says (mirrors backend/caller/intervention.py). */
 export const MOCK_MESSAGES: Record<string, string> = {
-  secret_request: "This looks like a scam. First Harbor will never ask for your one-time code.",
+  secret_request: "This looks like a scam. First City will never ask for your one-time code.",
   card_request: "This looks like a scam. Never read card numbers or PINs to a caller.",
   gift_cards: "This looks like a scam. No real bank or agency asks for gift cards.",
   voice_clone: "This voice may not really be Kevin. Hang up and call him back.",
-  safe_account: "This looks like a scam. First Harbor never asks you to move money to a safe account.",
+  safe_account: "This looks like a scam. First City never asks you to move money to a safe account.",
   remote_access: "This looks like a scam. Never let a caller into your computer.",
   government: "This looks like a scam. The IRS never calls to demand payment.",
   generic: "This call looks like a scam. Hang up and call the number on your card.",
 };
-export const MOCK_INTRO = "This is Baseline, from First Harbor.";
+export const MOCK_INTRO = "This is Baseline, from First City.";
 
 /** Visitor lines in client role: a mini client_risk (backend/detectors/client_risk.py). */
 export const CLIENT_TRIGGERS: { re: RegExp; reason: string; reason_id: string; secret: boolean }[] = [
@@ -296,10 +296,10 @@ export const CLIENT_TRIGGERS: { re: RegExp; reason: string; reason_id: string; s
 
 /** AI plays the bank agent; the visitor plays the scammer. */
 export const SCAMMER_SCRIPT: Script = {
-  persona_label: "Jordan, a careful agent at First Harbor Bank",
+  persona_label: "Jordan, a careful agent at First City Bank",
   customer: KEVIN,
   lines: [
-    { text: "Thank you for calling First Harbor Bank, this is Jordan. Who am I speaking with today?" },
+    { text: "Thank you for calling First City Bank, this is Jordan. Who am I speaking with today?" },
     { text: "Thanks. Before we go further I'll need to verify a few details. Can you confirm your date of birth?" },
     { text: "I understand. I can't skip that step, but I'm happy to call you back on the number we have on file." },
     { text: "For your security, I'm not able to make that change on this call. I'll send a confirmation to the email on file." },
@@ -326,7 +326,7 @@ export const VOICES = [
 
 export const SCENARIOS: { id: string; label: string; role: "client" | "scammer"; brief: string }[] = [
   { id: "grandchild", label: "Kevin in trouble (voice clone)", role: "client", brief: "You're Kevin's grandparent. 'Kevin' calls in a panic." },
-  { id: "fake_bank", label: "First Harbor 'fraud department'", role: "client", brief: "Someone from 'First Harbor fraud' calls about a suspicious charge." },
+  { id: "fake_bank", label: "First City 'fraud department'", role: "client", brief: "Someone from 'First City fraud' calls about a suspicious charge." },
   { id: "irs", label: "IRS back taxes", role: "client", brief: "An 'IRS officer' says you owe back taxes." },
   { id: "tech_support", label: "Tech support refund", role: "client", brief: "'Tech support' found a virus on your computer." },
   { id: "account_takeover", label: "Account takeover", role: "scammer", brief: "Change the phone number on file, then wire $9,000 out." },

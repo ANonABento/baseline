@@ -62,7 +62,7 @@ export function callerClaim(scenario: string, name: string): string {
     case "grandchild":
       return `Says he's ${name}`;
     case "fake_bank":
-      return "Says: First Harbor fraud dept.";
+      return "Says: First City fraud dept.";
     case "irs":
       return "Says: IRS officer";
     case "tech_support":
@@ -85,7 +85,7 @@ export function InterventionBanner({ state, onHangup }: { state: SessionState; o
   return (
     <section className={`iv iv--${iv.level}`} role="alert" aria-live="assertive" key={iv.reason_id + iv.level}>
       <div className="iv__head">
-        <span className="label iv__who">Baseline, First Harbor fraud protection</span>
+        <span className="label iv__who">Baseline, First City fraud protection</span>
         {state.baselineSpeaking && (
           <span className="label iv__speaking" aria-label="Baseline is speaking">
             <i />
@@ -101,7 +101,7 @@ export function InterventionBanner({ state, onHangup }: { state: SessionState; o
         Hang up
       </button>
       {state.actions.length > 0 && (
-        <ul className="iv__actions" aria-label="What First Harbor did">
+        <ul className="iv__actions" aria-label="What First City did">
           {state.actions.map((a) => (
             <li key={a.kind} title={a.message}>
               {a.message}
@@ -303,7 +303,7 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
         <div className="room__left">
           <div className={`tile ${speakingAi ? "tile--speaking" : ""} ${aiIsCaller && verdict.level === "alert" ? "tile--alert" : ""}`}>
             <div className="tile__label">
-              <span className="label tile__name">{aiIsCaller ? callerClaim(call.scenario, cust.name) : "Jordan, First Harbor Bank"}</span>
+              <span className="label tile__name">{aiIsCaller ? callerClaim(call.scenario, cust.name) : "Jordan, First City Bank"}</span>
               <span className="label">{aiIsCaller ? "Caller (AI)" : "Agent (AI)"}</span>
             </div>
             <Viewport source="head" level={aiLevel} chaos={aiIsCaller ? alertChaos : 0} resolve={aiIsCaller ? resolve : 0.4} drift label="The AI caller" />
@@ -379,7 +379,7 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
               <p className="transcript__empty">
                 {aiIsCaller
                   ? "Your phone is ringing. Answer it like any call. Baseline is listening on both sides."
-                  : `First Harbor will pick up. Convince them you're ${cust.name}.`}
+                  : `First City will pick up. Convince them you're ${cust.name}.`}
               </p>
             }
           />

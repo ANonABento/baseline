@@ -112,7 +112,7 @@ def test_role_client_intervention_flow(tmp_path):
         sid = new_session(client, role="client", scenario="fake_bank", voice="stub-a")
         with client.websocket_connect(f"/ws/session/{sid}") as ws:
             recv_until(ws, lambda m: m["type"] == "call_started")
-            # opener: "...the First Harbor fraud department... flagged a suspicious charge" -> fraud -> caution
+            # opener: "...the First City fraud department... flagged a suspicious charge" -> fraud -> caution
             seen = recv_until(ws, lambda m: m["type"] == "intervention")
             iv = jsons(seen, "intervention")[0]
             assert iv["level"] == "caution" and iv["reason_id"] and iv["message"].startswith("This is Baseline")

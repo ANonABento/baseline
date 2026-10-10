@@ -137,7 +137,7 @@ ECAPA, spoof pretrained, persona LLM Ollama `qwen3.5:4b`, `HF_HUB_OFFLINE=1`; en
 | role | visitor plays | AI plays | Baseline analyzes |
 |---|---|---|---|
 | `agent` | the bank agent | a fraudster calling as Margaret Chen (CUST-004217), per `scenario` | the AI caller's TTS audio vs Margaret's voiceprint; its LLM text is the transcript (no STT) |
-| `scammer` | a fraudster trying to take over Margaret's account | a polite bank agent ("Jordan", First Harbor Bank) who follows verification procedure | the visitor's mic (VAD + STT + all detectors) vs Margaret's voiceprint |
+| `scammer` | a fraudster trying to take over Margaret's account | a polite bank agent ("Jordan", First City Bank) who follows verification procedure | the visitor's mic (VAD + STT + all detectors) vs Margaret's voiceprint |
 
 The `say` voice `Samantha` is the voice Margaret's demo voiceprint was enrolled from, so in role `agent`
 it plays a perfect clone (speaker check passes; spoof + fraud catch it).
