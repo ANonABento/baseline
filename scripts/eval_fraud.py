@@ -239,7 +239,7 @@ def compute_metrics(results: list[CallResult]) -> dict[str, Any]:
         "n_benign": len(benign),
         "detection_rate": _rate(tp, len(scams)),
         "false_alarm_rate": _rate(fp, len(benign)),
-        "precision": _rate(tp, tp + fp),
+        "precision": _rate(tp, tp + fp) if scams else None,
         "strong_scam_rate": _rate(sum(r.strong for r in scams), len(scams)),
         "strong_benign_rate": _rate(sum(r.strong for r in benign), len(benign)),
         "median_alert_turn": statistics.median([r.alert_turn for r in detected]) if detected else None,

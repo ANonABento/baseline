@@ -10,7 +10,7 @@
       "severity": 0.9,
       "requires_all": [
         ["change my phone number", "update my phone number", "change the phone number", "update the phone number", "new phone number", "new number", "change my email", "update my email", "change the email", "update the email", "new email", "change my address", "update my address", "change the address", "new address", "re:\\b(change|update)\\s+(my|the)\\s+(phone|number|email|address|contact)"],
-        ["re:\\bwir(e|ed|ing)\\b", "transfer", "send money", "move money", "move the money", "withdraw", "re:\\$\\s?\\d", "re:\\b\\d[\\d,]*\\s+(dollars|thousand)", "thousand dollars", "hundred dollars", "new account", "new payee"]
+        ["re:\\bwir(e|ed|ing)\\b", "re:\\btransfer(s|red|ring)?\\b(?!\\s+(you|the call|your call|this call|me to))", "send money", "move money", "move the money", "withdraw", "re:\\$\\s?\\d", "re:\\b\\d[\\d,]*\\s+(dollars|thousand)", "thousand dollars", "hundred dollars", "new account", "new payee"]
       ],
       "suggested_agent_action": "Do not process the change or the payment in this call. Verify identity by calling back on the phone number already on file (not the new one), and place a hold on outgoing transfers per account-takeover policy.",
       "say_this": "For your security, I'll call you back on the number we already have on file before making any changes or payments.",
@@ -34,7 +34,7 @@
       "description": "Caller insists a wire or transfer must go out right now, often to a new recipient. Urgency is the most common lever in authorized-push-payment fraud.",
       "severity": 0.55,
       "requires_all": [
-        ["re:\\bwir(e|ed|ing)\\b", "transfer", "send money", "send the money", "move money"],
+        ["re:\\bwir(e|ed|ing)\\b", "re:\\btransfer(s|red|ring)?\\b(?!\\s+(you|the call|your call|this call|me to))", "send money", "send the money", "move money"],
         ["right now", "immediately", "urgent", "urgently", "today", "as soon as possible", "asap", "emergency", "before its too late", "cant wait"]
       ],
       "suggested_agent_action": "Slow the call down. Ask who the recipient is and how the customer knows them; offer a cooling-off hold before releasing the wire.",
@@ -108,7 +108,7 @@
       "category": "tech_support",
       "description": "Customer installed or was told to install remote-access software (AnyDesk, TeamViewer, Quick Assist) or let someone 'fix' their computer or bank account.",
       "severity": 0.75,
-      "triggers": ["anydesk", "any desk", "teamviewer", "team viewer", "quick assist", "remote access", "screen share", "share my screen", "control my computer", "into my computer", "install an app", "tech support", "microsoft support", "apple support", "virus on my computer"],
+      "triggers": ["anydesk", "any desk", "teamviewer", "team viewer", "quick assist", "remote access", "screen share", "share my screen", "control my computer", "into my computer", "install an app", "tech support", "microsoft support", "apple support", "virus on my computer", "technical support", "windows support", "remote desktop", "access your computer", "access to your computer", "access my computer", "access to my computer", "re:\\b(virus|malware|spyware)\\s+on\\s+(your|my|the)\\s+(computer|laptop|pc|device|system)", "re:\\b(computer|laptop|pc|device|system)\\s+(is|has been|was)\\s+(infected|compromised|hacked)", "infected with malware", "infected with a virus"],
       "suggested_agent_action": "Advise disconnecting the device from the internet and not logging in to online banking. Lock online access and reset credentials before any transaction.",
       "say_this": "To keep your account safe, please disconnect that device from the internet and don't let anyone access it while we talk.",
       "source": {"name": "FBI: Common frauds and scams", "url": "https://www.fbi.gov/how-we-can-help-you/scams-and-safety/common-frauds-and-scams"}
@@ -199,7 +199,7 @@
       "category": "advance_fee",
       "description": "Customer must pay a fee or taxes to claim a prize or lottery winnings.",
       "severity": 0.65,
-      "triggers": ["won the lottery", "won a lottery", "sweepstakes", "won a prize", "claim my prize", "claim the prize", "processing fee", "taxes on my winnings", "publishers clearing house"],
+      "triggers": ["won the lottery", "won a lottery", "sweepstakes", "won a prize", "claim my prize", "claim the prize", "processing fee", "taxes on my winnings", "publishers clearing house", "selected to receive", "lucky winner", "lucky winners", "claim your prize", "claim your reward", "youve won", "you have won", "you won a", "i won a", "re:\\bfree\\s+\\$?[\\d,]+\\s+gift\\s+card"],
       "suggested_agent_action": "Explain that real prizes never require paying a fee first. Pause the payment.",
       "say_this": "Real prizes never ask you to pay a fee first, so I'd recommend we don't send this payment.",
       "source": {"name": "FTC Consumer Advice: Scam Alerts", "url": "https://consumer.ftc.gov/features/scam-alerts"}
@@ -221,10 +221,24 @@
       "category": "payment_method",
       "description": "Customer is withdrawing a large amount of cash that someone will pick up in person or that must be mailed. Growing pattern in grandparent and government-impersonation scams.",
       "severity": 0.75,
-      "triggers": ["courier", "someone will pick it up", "pick up the money", "pick up the cash", "coming to get the money", "mail the cash", "overnight the cash", "in a box", "withdraw it in cash", "all in cash"],
+      "triggers": ["send a courier", "sending a courier", "courier will", "courier is coming", "courier to pick", "courier to collect", "courier will collect", "someone will pick it up", "pick up the money", "pick up the cash", "coming to get the money", "mail the cash", "overnight the cash", "in a box", "withdraw it in cash", "all in cash"],
       "suggested_agent_action": "Ask who is collecting the cash. Legitimate agencies and relatives' lawyers do not send couriers; escalate before releasing large cash withdrawals.",
       "say_this": "Can I ask who is collecting the cash? Banks and government agencies never send someone to pick up money.",
       "source": {"name": "FTC Consumer Advice: Scam Alerts", "url": "https://consumer.ftc.gov/features/scam-alerts"}
+    },
+    {
+      "id": "credential_request",
+      "name": "Request for full credentials",
+      "category": "credential_phishing",
+      "description": "Someone asks for, or the customer reports being asked for, full secrets: social security number, online banking login or password, full card number, PIN, or account number to 'process a refund' or 'claim a prize'. Banks and legitimate companies don't collect these on an unsolicited call.",
+      "severity": 0.6,
+      "requires_all": [
+        ["need your", "confirm your", "provide your", "provide me with your", "give me your", "tell me your", "read me your", "verify your", "asked for my", "asked me for my", "wanted my", "wants my", "asking for my", "need my"],
+        ["social security number", "ssn", "bank account number", "bank account information", "bank account details", "account login", "login credentials", "login details", "online banking password", "your password", "my password", "credit card number", "credit card information", "credit card details", "card number", "card details", "pin number", "your pin", "my pin", "license key", "routing number"]
+      ],
+      "suggested_agent_action": "Remind the customer that the bank and legitimate companies never ask for full card numbers, PINs or passwords on a call. If any were shared, lock online access, reissue the card and reset credentials.",
+      "say_this": "Just so you know, we'll never ask for your full card number, PIN or passwords, and nobody else should either.",
+      "source": {"name": "FTC: How to recognize and avoid phishing scams", "url": "https://consumer.ftc.gov/articles/how-recognize-and-avoid-phishing-scams"}
     },
     {
       "id": "verification_evasion",
