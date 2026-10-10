@@ -3,3 +3,7 @@ timestamp,git_sha,dataset,n,n_scam,n_benign,detection_rate,false_alarm_rate,prec
 2026-10-09T22:13:20-07:00,2f51f2a,bothbosu_test,150,75,75,0.493,0.027,0.949,0.133,0.0,2,0.379,,11.0,1.56,keywords,,,customer,keywords baseline
 2026-10-09T22:13:20-07:00,2f51f2a,lakshan,150,0,150,,0.027,0.0,,0.0,,,,11.3,1.3,keywords,,,customer,keywords baseline
 2026-10-09T22:13:20-07:00,2f51f2a,bothbosu_dev,200,100,100,0.54,0.02,0.964,0.15,0.0,2.0,0.394,,11.0,1.53,keywords,,,customer,keywords baseline
+2026-10-09T22:16:12-07:00,87f4384,held_out,42,21,21,0.333,0.19,0.636,0.19,0.048,2,0.514,0.857,3.4,0.88,keywords,,,customer,keywords tuned on bothbosu_dev
+2026-10-09T22:16:12-07:00,87f4384,bothbosu_test,150,75,75,0.92,0.0,1.0,0.52,0.0,1,0.247,,13.3,1.88,keywords,,,customer,keywords tuned on bothbosu_dev
+2026-10-09T22:16:12-07:00,87f4384,lakshan,150,0,150,,0.027,,,0.0,,,,12.7,1.47,keywords,,,customer,keywords tuned on bothbosu_dev
+2026-10-09T22:16:12-07:00,87f4384,bothbosu_dev,200,100,100,0.95,0.0,1.0,0.48,0.0,1,0.248,,13.3,1.85,keywords,,,customer,keywords tuned on bothbosu_dev
