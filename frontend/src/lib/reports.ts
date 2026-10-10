@@ -1,7 +1,7 @@
 // Call reports: every call is recorded client-side as its event log (so the report page
 // works in mock mode and if the backend report endpoint is down), and backend reports are
 // normalized into the same event log, then replayed through the session reducer.
-import type { MsgOf, ServerMsg } from "./contract.ts";
+import type { MsgOf, ReportAudio, ServerMsg } from "./contract.ts";
 import { INITIAL, sessionReducer, type SessionState } from "./session.ts";
 
 export interface Recorded {
@@ -164,4 +164,21 @@ export function eventsFromBackend(id: string, raw: unknown): Recorded[] {
     at: t0 + (isFinite(callS) ? Math.max(callS, last) : last) * 1000,
   });
   return out;
+}
+
+// ---------------------------------------------------------------- report audio
+
+/** The report's `audio` block, or null (missing on older reports, malformed, or no url). */
+export function audioFromBackend(raw: unknown): ReportAudio | null {
+  const a = obj(obj(raw).audio);
+  const url = s(a.url);
+  if (!url) return null;
+  return { url, duration_s: n(a.duration_s), channels: { left: "ai", right: s(obj(a.channels).right) === "visitor" ? "visitor" : null } };
+}
+
+/** The line being spoken at time t (t_start <= t < t_end), latest start wins on overlap. */
+export function activeLineAt<L extends { utterance_id: number; t_start: number; t_end: number }>(lines: readonly L[], t: number): L | null {
+  let hit: L | null = null;
+  for (const l of lines) if (l.t_start <= t && t < l.t_end && (!hit || l.t_start >= hit.t_start)) hit = l;
+  return hit;
 }

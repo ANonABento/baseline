@@ -15,6 +15,10 @@ interface Props {
   who: Record<Speaker, string>;
   follow?: boolean;
   empty?: React.ReactNode;
+  /** utterance being played back (report audio) */
+  playing?: number | null;
+  /** report audio: clicking a line seeks here */
+  onSeek?: (t: number) => void;
 }
 
 export function NoteView({ note, hl, onClick, onHover }: { note: Note; hl: boolean; onClick?: () => void; onHover?: (on: boolean) => void }) {
@@ -37,7 +41,7 @@ export function NoteView({ note, hl, onClick, onHover }: { note: Note; hl: boole
   );
 }
 
-export function Transcript({ lines, notes, active, onActive, scrollTo, who, follow = true, empty }: Props) {
+export function Transcript({ lines, notes, active, onActive, scrollTo, who, follow = true, empty, playing = null, onSeek }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
   const [hover, setHover] = useState<string | null>(null);
@@ -78,8 +82,26 @@ export function Transcript({ lines, notes, active, onActive, scrollTo, who, foll
         const segs = segmentText(l.text, ns);
         const focus = litNote?.utterance_id === l.utterance_id;
         return (
-          <div key={l.utterance_id} id={`line-${l.utterance_id}`} className={`tline tline--${l.speaker} ${focus ? "tline--focus" : ""}`}>
-            <span className="tline__time">{fmtTime(l.t_start)}</span>
+          <div
+            key={l.utterance_id}
+            id={`line-${l.utterance_id}`}
+            className={`tline tline--${l.speaker} ${focus ? "tline--focus" : ""} ${onSeek ? "tline--seek" : ""} ${playing === l.utterance_id ? "tline--playing" : ""}`}
+            onClick={
+              onSeek &&
+              ((e) => {
+                // notes and annotated spans keep their own click
+                if ((e.target as HTMLElement).closest("button, .span, a")) return;
+                onSeek(l.t_start);
+              })
+            }
+          >
+            {onSeek ? (
+              <button type="button" className="tline__time" onClick={() => onSeek(l.t_start)} aria-label={`Play from ${fmtTime(l.t_start)}`}>
+                {fmtTime(l.t_start)}
+              </button>
+            ) : (
+              <span className="tline__time">{fmtTime(l.t_start)}</span>
+            )}
             <span className="tline__who">{who[l.speaker]}</span>
             <p className="tline__text">
               {segs.map((s) =>

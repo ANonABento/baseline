@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { fmtTime, SIGNAL_LABEL } from "../analysis";
 import { Baseline } from "../components/Baseline";
+import { CallAudio } from "../components/CallAudio";
 import { TopBar } from "../components/Chrome";
 import { Transcript } from "../components/Transcript";
 import { fetchReport, fetchReportList, isMockSetting, loadConfig } from "../lib/client";
 import { buildNotes, spikesFromNotes, TIER_GLYPH, topEvidence, verdictOf, type Note } from "../lib/notes";
-import { linkTo } from "../lib/prefs";
-import { eventsFromBackend, listReports, loadLocal, replay, type Recorded } from "../lib/reports";
+import { linkTo, useReducedMotion } from "../lib/prefs";
+import { activeLineAt, audioFromBackend, eventsFromBackend, listReports, loadLocal, replay, type Recorded } from "../lib/reports";
 import type { SignalName } from "../types";
 import { SCENARIO_LABEL } from "./Lobby";
 
@@ -57,6 +58,38 @@ export function Report({ id }: { id: string }) {
   const notes = useMemo(() => (state ? buildNotes(state.lines, state.signals, state.evidence.items) : []), [state]);
   const [active, setActive] = useState<string | null>(null);
   const [scrollTo, setScrollTo] = useState<{ id: number; n: number } | null>(null);
+
+  // call audio (backend reports only; mock/local reports have none)
+  const audio = useMemo(() => (data?.source === "backend" ? audioFromBackend(data.raw) : null), [data]);
+  const audioEl = useRef<HTMLAudioElement>(null);
+  const [playT, setPlayT] = useState(0);
+  const reduced = useReducedMotion();
+  const playingId = audio && state && playT > 0 ? (activeLineAt(state.lines, playT)?.utterance_id ?? null) : null;
+  const userScrolled = useRef(0);
+  useEffect(() => {
+    const mark = () => (userScrolled.current = Date.now());
+    const keys = (e: KeyboardEvent) => ["PageUp", "PageDown", "ArrowUp", "ArrowDown", "Home", "End"].includes(e.key) && mark();
+    window.addEventListener("wheel", mark, { passive: true });
+    window.addEventListener("touchmove", mark, { passive: true });
+    window.addEventListener("keydown", keys);
+    return () => {
+      window.removeEventListener("wheel", mark);
+      window.removeEventListener("touchmove", mark);
+      window.removeEventListener("keydown", keys);
+    };
+  }, []);
+  // keep the spoken line in view while playing, unless the reader is scrolling
+  useEffect(() => {
+    if (playingId == null || audioEl.current?.paused || Date.now() - userScrolled.current < 3000) return;
+    document.getElementById(`line-${playingId}`)?.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+  }, [playingId, reduced]);
+  const seek = (t: number) => {
+    const a = audioEl.current;
+    if (!a) return;
+    a.currentTime = t;
+    setPlayT(t);
+    a.play().catch(() => undefined);
+  };
 
   if (missing)
     return (
@@ -133,6 +166,7 @@ export function Report({ id }: { id: string }) {
               Take another call
             </a>
           </div>
+          {audio && <CallAudio audio={audio} el={audioEl} time={playT} onTime={setPlayT} />}
         </header>
 
         <section className="report__section report__timeline" aria-label="Timeline">
@@ -140,6 +174,7 @@ export function Report({ id }: { id: string }) {
           <Baseline
             spikes={spikes}
             activeId={active}
+            cursor={audio && playT > 0 ? Math.min(1, playT / axis) : null}
             onSpike={(nid) => {
               setActive(nid);
               const n = notes.find((x) => x.id === nid);
@@ -159,6 +194,8 @@ export function Report({ id }: { id: string }) {
               onActive={setActive}
               scrollTo={scrollTo}
               follow={false}
+              playing={playingId}
+              onSeek={audio ? seek : undefined}
               who={{ ai: "AI", visitor: "Visitor" }}
               empty={<p className="transcript__empty">Nobody spoke on this call.</p>}
             />

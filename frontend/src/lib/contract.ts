@@ -25,6 +25,15 @@ export interface SessionRequest {
   role: Role | "random";
   scenario: string;
   voice: string;
+  /** opt in to saving the visitor's mic in the report audio (the AI caller is always saved) */
+  record_audio?: boolean;
+}
+
+/** Report audio: stereo WAV, left = AI caller, right = visitor (null when not recorded). t=0 is the transcript origin. */
+export interface ReportAudio {
+  url: string;
+  duration_s: number;
+  channels: { left: "ai"; right: "visitor" | null };
 }
 
 export interface SessionResponse {

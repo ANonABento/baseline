@@ -52,6 +52,7 @@ export function Lobby({ onJoin, error }: Props) {
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [camId, setCamId] = useState<string>("");
   const [micId, setMicId] = useState<string>("");
+  const [recordVoice, setRecordVoice] = useState(false);
 
   useEffect(() => {
     loadConfig().then(setCfg, (e: Error) => setCfgErr(e.message));
@@ -148,6 +149,14 @@ export function Lobby({ onJoin, error }: Props) {
             )}
           </div>
           <p className="privacy">Your camera never leaves your device. Baseline analyzes voice and words only.</p>
+          <label className="option option--check">
+            <input type="checkbox" checked={recordVoice} onChange={(e) => setRecordVoice(e.target.checked)} />
+            <span className="option__mark" />
+            <span className="option__text">
+              Save my voice with the call report
+              <span className="option__hint">The caller's voice is always saved. Reports are public.</span>
+            </span>
+          </label>
         </section>
 
         <section className="config" aria-label="Call setup">
@@ -197,7 +206,7 @@ export function Lobby({ onJoin, error }: Props) {
           </fieldset>
 
           <div className="join">
-            <button className="btn btn--big" type="button" disabled={!cfg} onClick={() => onJoin({ role, scenario, voice })}>
+            <button className="btn btn--big" type="button" disabled={!cfg} onClick={() => onJoin({ role, scenario, voice, record_audio: recordVoice })}>
               Join call
             </button>
             {(error || cfgErr) && <p className="warning" role="alert">{error ?? `Backend unreachable: ${cfgErr}`}</p>}
