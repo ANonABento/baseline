@@ -15,7 +15,7 @@ Filtered from the event page. Source of truth: Partiful / MentorMates.
   Top 5 teams present in the final round.
 - **Teams:** encouraged to include at least one engineering student.
 
-## Schedule (Thu Oct 9 → Fri Oct 10, 2026)
+## Schedule (Fri Oct 9 → Sat Oct 10, 2026)
 | Time | Event |
 |---|---|
 | 4:00–5:30 PM | Registration, team formation, mentor sign-up |
