@@ -3,7 +3,7 @@
 > *"To detect what's real and fake, we must define a baseline."*
 
 **Event:** Building from the Farm (Stanford Founders Club × SF Tech Week 2026). **Theme:** Future of Work for Enterprise. **Track:** Customer Layer.
-**Constraints:** 18-hour overnight build (Thu Oct 9, 7 PM → **submit Fri Oct 10, 9:00 AM on MentorMates**) · 1–2 builders · $0 spend (local models + sponsor credits) · must demo flawlessly · runs on a MacBook (M5, 24 GB). An RTX 5090 is a *possible* upgrade, never a dependency.
+**Constraints:** 18-hour overnight build (Fri Oct 9, 7 PM → **submit Sat Oct 10, 9:00 AM on MentorMates**) · 2 builders · $0 spend (local models + sponsor credits) · must demo flawlessly · runs on a MacBook (M5, 24 GB). An RTX 5090 is a *possible* upgrade, never a dependency.
 
 ---
 
@@ -56,6 +56,17 @@
   - **Later:** a free consumer app bundled by banks or carriers, cross-subsidized by B2B.
 - **On-prem is a feature:** banks can't ship call audio to third-party clouds. "Runs on one laptop / one GPU box in your data center" is a sales point, and it's where the 5090 fits the story.
 - **Competition to name if asked:** Pindrop (enterprise call-center auth and deepfake detection) and Google's on-device scam detection on Pixel. **Our angle:** fusing three independent baselines (enrolled voice, synthetic audio, fraud script), cheap enough for a small credit union.
+
+### Borrowed from Substrata (sales-call analytics), adapted for fraud
+Substrata analyzes pauses, interruptions, turn-taking, pitch/rate changes, topic avoidance and stress, then packages them into inferred psychology ("hidden resistance," "upper-hand ratio"). It doesn't prove lying, false claims, or predictive validity. **Our positioning is the opposite: transparent, outcome-calibrated evidence.** Every flag shows the quoted line, the measured signal, and our measured accuracy.
+
+Methods worth borrowing because they're cheap and map to fraud:
+- **Verification evasion** (LLM + playbook): the caller deflects identity questions, or pushes urgency right when asked to verify. Strong account-takeover cue.
+- **Coached-customer cues** (LLM + playbook): "he says I need to…", "they told me not to tell you"; long pauses before answering simple questions. Stretch: a second voice in the background, detected with ECAPA clustering.
+- **Response timing & speech-rate shifts** vs. the caller's own baseline (prosody module): shown as "pressure," never as "deception."
+- **Trigger timeline:** show *which line* caused each signal shift (also in the brain dump: "what kind of lines triggered them").
+
+Not borrowed: power dynamics, "hidden resistance," engagement/sentiment scoring. That's unverifiable psychology and the exact thing we critique.
 
 ### What we will *not* claim
 - **No "lie detection."** Voice-stress lie detection has weak scientific support. We show *deviation from the speaker's own baseline*, labeled "pressure / arousal."
