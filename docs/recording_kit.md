@@ -2,9 +2,8 @@
 
 Decision (Dae, 2026-10-10): the open-data-only rule is **lifted for Kevin's and one teammate's own voices**, for (a) the "real human mic" class in the spoof eval and (b) enrolling the customer voiceprint. Everything else in `recording_protocol.md` stays retired (no staged-pressure scenes, no stress labels). Fakes from the Kevin_1Shot clone were also approved by Dae (done: `results/spoof_per_clip_v3_2026-10-10.csv`).
 
-## Before recording (each person, 2 minutes)
-1. Copy `docs/consent_template.md` to `data/train/consent/<id>.md` (gitignored), fill it in and date it. Use ids `kevin01`, `dae01`; no real names in filenames. Tick **clone** only if you agree to ElevenLabs cloning; tick **public display** only if you agree to the clip being committed to the repo (default no). Retention default: delete on or before 2026-11-10.
-2. Handling (from the protocol): audio lives only in `data/train/` (gitignored), never in iCloud/Drive/backup sync, disk encryption on, never sent to an LLM, agent tool or API. Do **not** upload these recordings to ElevenLabs or anywhere else.
+## Before recording
+No consent form needed (Dae approved Kevin's and his own recordings). Keep audio in `data/train/` (gitignored), out of cloud sync, and don't upload it anywhere.
 
 ## What to record (natural speech, your own voice, no persona needed)
 Two channels, each as 16-bit mono WAV at 16 kHz or higher (QuickTime/Voice Memos then convert, or `ffmpeg`):
