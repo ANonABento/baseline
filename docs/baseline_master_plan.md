@@ -117,19 +117,15 @@ Not borrowed: power dynamics, "hidden resistance," engagement/sentiment scoring.
 
 ---
 
-## 2.5 Voice + Content Model for Commercial Calls (key factor)
+## 2.5 Voice + Content Signal Summaries (key factor; model side)
 
-**Full plan: [`finetuning_plan.md`](finetuning_plan.md).** Source brief: `claude_voice_content_finetuning_brief.md` (supersedes the earlier "no deception score" handoff).
+**Full plan: [`finetuning_plan.md`](finetuning_plan.md).** Team decision 2026-10-10: **no lie detection.** The model summarizes observable voice and content signals and says, with hedges, what such patterns *can* mean. It emits no deception, bluff or fabrication score or label. All outputs are `PREDICTION`s.
 
-Estimate possible bluffing, fabrication, rehearsed delivery and expressed-vs-genuine interest by jointly analyzing **the voice signal, what is said, and conversation history**, with live hints and a timestamped post-call report. All outputs are `PREDICTION`s.
-
-- **Target-specific scores, never one "lying %":** `negotiating_bluff`, `fabrication`, `interest_intent_mismatch`, `read_or_rehearsed_delivery`, plus emotion and delivery-change trajectories. No averaging of unrelated targets.
-- **Model scores, not percentages of truth.** Until per-target calibration is validated on held-out speakers, outputs carry `calibration_status: "not_established"` and `calibrated_probability: null`. A 0.74 is not a 74% real-world probability. `insufficient_evidence` is a normal output.
-- **Architecture:** pretrained audio encoder (WavLM / emotion2vec candidates, frozen first) + Whisper transcript + pretrained text encoder (DeBERTa-v3-base) + per-speaker history deltas, fused with modality dropout, then a call-level temporal model and one masked-loss head per target. Fine-tune, never train from scratch.
-- **Ground truth:** controlled negotiations with private information cards (true limits, assigned intent, fact sheets). Staged behavior: it does not establish real-call reliability.
-- **Evaluation:** text-only vs audio-only vs fused on speaker/call/scenario-disjoint splits; does audio add value for the actual target? Report false-positive/false-negative rates, calibration and abstention. A false accusation is a consequential error.
-- **Scope:** consent-based commercial conversations only. Not for hiring, candidate ranking, lending decisions or biometric emotion screening.
-- **Ownership:** V owns audio features, encoders, heads, data and eval; C owns the content/claim analysis prompts, hint wording and UI. New fields go in optional `DetectorResult.details` keys; announce before merging.
+- **Outputs:** emotion estimate (stressed, angry, worried, calm, engaged), stress-related change vs the speaker's own baseline (with persistence and recovery), delivery markers (choppy, monotone/read-like, response latency), content observations (responsiveness, specificity, contradictions with earlier statements flagged as *inconsistencies*), and hedged interpretation notes with a neutral follow-up question. Example: "sustained rise in stress-related vocal signals after the verification question; can reflect pressure, uncertainty, or other causes."
+- **Model:** pretrained audio encoder (WavLM / emotion2vec candidates, frozen first) + Whisper transcript + pretrained text encoder, fused with per-speaker history deltas and modality dropout, plus a call-level temporal layer. Fine-tune, never train from scratch.
+- **Validation:** text-only vs audio-only vs fused (does audio add value?), manipulation checks under scripted conditions (pressure, script vs spontaneous), calibration where percentages are shown, false-alarm rate on calm and honest-but-anxious speakers. If simple prosody z-scores match the model, ship those.
+- **Honest limits:** staged data and few speakers; the interpretation table is a set of hypotheses to verify against primary sources.
+- **Ownership:** V: audio/text encoders, heads, data, eval. C: application, hint wording and UI (elderly scam-prevention story). New fields go in optional `DetectorResult.details` keys; announce before merging.
 
 ---
 

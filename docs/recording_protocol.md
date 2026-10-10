@@ -1,6 +1,6 @@
 # Recording Protocol: Voice-State Data (V)
 
-> **NEEDS REVISION (2026-10-10).** The model target changed to joint voice+content analysis for commercial calls (`finetuning_plan.md`). Consent, safety, channels, QC and the grandparent scam scenes (C1-C4) still apply as scenarios. The **labels (§5) and session design (§4) are superseded** by the controlled-negotiation design with private cards in `finetuning_plan.md` §5-6; this file will be rewritten for the negotiation design. The application layer (elderly scam prevention, owned by C) is unchanged; the grandparent scenes remain useful as extra scenarios.
+> **NEEDS REVISION (2026-10-10).** The model target changed to voice+content signal summaries with **no lie detection** (`finetuning_plan.md`). Consent, safety, channels, QC and the grandparent scam scenes (C1-C4) still apply as scenarios. The **labels (§5) and session design (§4) are superseded** by the controlled-negotiation design with private cards in `finetuning_plan.md` §5-6; this file will be rewritten for the controlled-conversation design. The application layer (elderly scam prevention, owned by C) is unchanged; the grandparent scenes remain useful as extra scenarios.
 
 Status: **DRAFT, not yet run.** Owner: V. Supports the model in `baseline_master_plan.md` §2.5 and the demo in §5.
 

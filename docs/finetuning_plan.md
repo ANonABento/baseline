@@ -1,29 +1,39 @@
-# Fine-Tuning Plan: Joint Voice + Content Analysis for Commercial Calls
+# Fine-Tuning Plan: Voice + Content Signal Summaries (no lie detection)
 
-Status: **PLAN, nothing trained.** Owner: V. Date: 2026-10-10. Source brief: `claude_voice_content_finetuning_brief.md` (user-supplied; it supersedes the earlier handoff, so §2.5 of `baseline_master_plan.md` and the label parts of `recording_protocol.md` are being updated to match).
+Status: **PLAN, nothing trained.** Owner: V. Updated 2026-10-10 after team decision. Model side only; the application and pitch (slice C) stay human-connection oriented, e.g. scam prevention for elderly callers.
 
-Labels used below: **VERIFIED** = read on the model card/page this session (URL in §10). **UNVERIFIED** = from memory or not stated on the page; check before relying on it. All model outputs are `PREDICTION`s until tested on held-out data.
+**Decision (supersedes the earlier "target-specific deception scores" draft and the source brief's deception-score requirement):** the system does **not** detect lies and outputs **no** deception, bluff or fabrication score or label. It summarizes *observable voice and content signals* (high stress-related change, choppy delivery, monotone/read-like delivery, evasive or unresponsive answers) and states, with hedges, what such patterns *can* mean, including benign causes. The human decides.
 
-## 1. Scope and non-negotiables (from the brief)
-- **Model side only.** The brief's commercial scenarios (sales, negotiation, bluffing) are *examples* used to define targets and controlled ground truth. The application and pitch layer is owned by slice C and stays human-connection oriented (e.g. scam prevention for elderly callers). Consent-based conversations only. Not for candidate ranking, hiring, or biometric emotion screening.
-- Fine-tune pretrained models; no foundation model from scratch. A new task head is fine.
-- Voice is central: keep the waveform and use learned acoustic embeddings. Text is complementary evidence.
-- Analyze trajectories across the call, not isolated lines.
+Labels: **VERIFIED** = read on the model card/page this session (URLs in §10). **UNVERIFIED** = from memory or not stated. Everything the model outputs is a `PREDICTION` until tested on held-out data.
+
+## 1. Scope and non-negotiables
+- **Model side only.** The brief's commercial scenarios (negotiation, sales) are *examples* used to design controlled data. How an application uses the summaries is owned by C.
+- Fine-tune pretrained models; no foundation model from scratch (a new task head is fine).
+- Voice is central: keep the waveform and learn from acoustic embeddings; text is complementary evidence.
+- Analyze **trajectories** across the call (change vs the same speaker's own earlier delivery), not isolated lines.
 - Keep **observations**, **model interpretations** and **verified facts** separate in every output.
-- A deception score is in scope but **target-specific**. Before calibration is established, outputs are "model scores", never "X% chance he is lying".
-- Distinct targets, never collapsed: low purchase intent, uncertainty, rehearsal, bluffing, fabrication, intentional falsehood.
+- No inference of intent or honesty from tone. Contradictions with earlier statements or a fact sheet are reported as *inconsistencies*, not lies.
+- Consent-based conversations only. Not for hiring, candidate ranking, lending decisions or biometric emotion screening.
 
-## 2. Targets, heads and what each means
-| # | Target | Meaning | Ground truth | Notes |
-|---|---|---|---|---|
-| T1 | `negotiating_bluff` | speaker presents a negotiable constraint as fixed | seller's private card says the limit is flexible, yet speaker states it as fixed | seller role |
-| T2 | `fabrication` | answer asserts facts not supported by the speaker's fact sheet | fact sheet vs answer, annotated | needs "don't know" as the honest option |
-| T3 | `interest_intent_mismatch` | expressed interest vs verified private intent | buyer's private card (assigned intent) and a post-call commitment | buyer role |
-| T4 | `read_or_rehearsed_delivery` | delivery resembles reading/rehearsal | speaker was given a script to read vs speaking spontaneously | **not** a deception label |
-| T5 | `emotion` | perceived emotion and arousal/valence/dominance over time | annotators; speaker self-report kept separate | feeds the others |
-| T6 | `delivery_change` | within-speaker change vs own earlier delivery, persistence and recovery | computed, plus annotation | trajectory feature |
+## 2. What the model outputs
+| # | Output | What it is | Source of truth for training/validation |
+|---|---|---|---|
+| S1 | `emotion_estimate` | perceived emotion mix and arousal/valence/dominance per segment (stressed, angry, worried, calm, engaged) | human annotation of perceived emotion; self-report kept separate |
+| S2 | `stress_related_change` | size of change in pitch, energy, rate, pauses vs the speaker's own baseline, with persistence and recovery | computed features plus annotation; speaker check-in |
+| S3 | `delivery_markers` | choppiness (fragmented speech, irregular pauses), monotony, read-like/rehearsed delivery, response latency | computed features plus annotation (`delivery_mode`) |
+| S4 | `content_observations` | answer responsiveness, specificity, hedging, contradiction with earlier statements or a provided fact sheet | annotation plus fact-sheet check |
+| S5 | `interpretation_notes` | hedged mapping "pattern X can indicate Y, or Z, or W" with a suggested neutral follow-up question | rule/LLM-written from S1-S4, constrained to measured signals |
 
-**Overall deception score:** not built in v1. Allowed later only if its target and aggregation are defined and validated. Never an average of T1-T3.
+Each output is a model score or label with a confidence level and can be `insufficient_evidence`. **There is no deception, bluff or fabrication output.** Percentages, if shown, are model scores about the *signal* ("stress-related change: 0.62 vs her baseline"), not probabilities about truthfulness; calibration status is shown (`not_established` until validated).
+
+**Interpretation table (hypotheses, `UNVERIFIED`; every row needs a primary-source check before anyone presents it as fact).** Illustrative wording the agent may use:
+| Observed pattern (with timestamps) | Can be consistent with | Neutral follow-up |
+|---|---|---|
+| sustained stress-related rise after a specific question | pressure, discomfort with the topic, uncertainty, rehearsal breaking down, a stressor unrelated to the call, or an attempt to conceal something | ask a concrete, open question about that topic |
+| choppy/fragmented delivery with long pauses | searching for an answer, nervousness, poor connection, language fluency, or hesitation about what to disclose | give time; ask for an example |
+| monotone, evenly paced delivery | reading from notes, rehearsal, fatigue, or a calm temperament | ask an unexpected but fair follow-up |
+| answer that does not address the question | misunderstanding, evasion, distraction | restate the question |
+Wording rule: "increased stress-related vocal signals", never "the speaker is stressed" and never "is lying".
 
 ## 3. Pretrained checkpoints
 | Role | Candidate | Verified facts | Open questions |
@@ -46,51 +56,57 @@ Labels used below: **VERIFIED** = read on the model card/page this session (URL 
 - **Timestamp alignment:** Whisper word timestamps give text-to-audio alignment; verify alignment drift on 10 manually checked segments before use.
 
 ## 5. Dataset schema and annotation
-Use the brief's call-level schema (complete calls, speaker-separated segments, linked annotations), extended with explicit provenance:
+Complete calls, speaker-separated and timestamped, original audio kept beside text (transcripts alone are insufficient):
 ```json
-{"call_id":"call_014","scenario":"commercial_negotiation","consent_ids":["spk03","spk07"],
- "segments":[{"segment_id":"seg_008","speaker_id":"seller_014","role":"seller",
-   "audio_file":"call_014_seller_008.wav","start_seconds":92.4,"end_seconds":100.8,
+{"call_id":"call_014","scenario":"controlled_conversation","consent_ids":["spk03","spk07"],
+ "segments":[{"segment_id":"seg_008","speaker_id":"spk03","role":"role_a",
+   "audio_file":"call_014_spk03_008.wav","start_seconds":92.4,"end_seconds":100.8,
    "text":"That is the lowest price we can offer.","channel":"laptop","gain_db":null,
    "annotations":{"perceived_emotion":null,"arousal":null,"delivery_mode":"unknown","answer_responsiveness":"unknown"},
-   "annotation_sources":{"perceived_emotion":"human_annotation"}}],
- "events":[{"target":"negotiating_bluff","evidence_segment_ids":["seg_008"],
-   "ground_truth":"bluff|honest|unknown","ground_truth_source":"private_card"}],
- "speaker_card_ref":"card_seller_a","split":"train"}
+   "annotation_sources":{"perceived_emotion":"human_annotation","self_reported_stress":"speaker_check_in"}}],
+ "condition":{"name":"instructed_pressure_level_2","source":"scripted_condition"},
+ "split":"train"}
 ```
-Rules: `unknown` stays unknown and is **masked in the loss**; never 0. Keep apart: perceived emotion vs self-report; perceived deception vs verified; reading/rehearsal vs intentional falsehood; expressed interest vs verified intent; unsupported answers vs knowing fabrication. Define each scale and the annotator instruction sheet before labeling. Annotators are blind to cards and conditions; report weighted kappa; drop a label with kappa < 0.4.
+Rules: `unknown` is masked in the loss, never 0. Keep apart: perceived emotion vs self-report; reading/rehearsal vs anything about honesty. The `condition` field records the *experimental manipulation* (what the speaker was asked to do), not an inner state and not a deception label. Define scales and annotator instructions before labeling; annotators are blind to condition; report weighted kappa; drop a label with kappa < 0.4.
 
-## 6. Ground-truth strategy: controlled negotiations
-Private information cards make the truth known without guessing:
-- **Seller card:** product facts, true floor price, which constraints are flexible. Conditions: *honest* (states real limit), *bluff* (states a flexible limit as fixed), *improvise* (asked beyond the fact sheet; either says "I don't know" or invents), *rehearsed* (reads a prepared pitch) vs *spontaneous*.
-- **Buyer card:** true budget and assigned intent: *genuine*, *polite-but-uninterested* (feigns interest), *undecided*. Verified by the card plus a post-call commitment step.
-- **Surprise follow-ups** scripted for the counterpart ("what happens if we sign next week?", "can you show me the spec?") to create the rehearsed-to-unprepared contrast the brief describes.
-- Balance and randomize roles, conditions, scripts and recording setups across speakers so none predicts the label. Small incentive (e.g. prize for the best negotiator) so stakes are not zero. Debrief everyone; stop word available.
-- **Limit that must be stated on any slide:** staged, instructed behavior in a controlled task. It does not establish reliability on real calls; production needs separate validation.
-- Recruit volunteers beyond the team. With 2-4 speakers we can build the pipeline and a pilot, not a validated detector.
+## 6. Data collection: controlled conversations
+- Paired role-plays with private info cards (limits, facts, a persona) and scripted **conditions**: calm baseline; rising time pressure; surprise follow-ups; reading a prepared script vs speaking spontaneously; answering within vs beyond one's fact sheet.
+- Use conditions to **test whether the signals move** (does stress-related change rise under pressure? do read-like markers separate script from spontaneous?). We never train a model to output "honest vs dishonest".
+- Elderly-scam scenes (grandparent bail, fake bank security, etc., `recording_protocol.md` §7) stay as scenarios for the application layer.
+- Randomize roles, scripts, conditions and setups across speakers; small incentive so stakes are not zero; debrief; stop word.
+- **Limit for any slide:** staged, instructed behavior in a controlled task; it does not establish what these signals mean in real calls.
+- Recruit volunteers beyond the team: with 2-4 speakers we can build the pipeline and a pilot, not a validated model.
 
 ## 7. Model design
-**Audio branch.** Pretrained encoder, 16 kHz waveform in, frame states out. Start **frozen** with a learnable weighted sum of layer outputs and attention pooling per segment (frozen-first is deliberate given a tiny labeled set). If a pilot set exceeds roughly several hours of labeled speech from 20+ speakers (threshold is a judgement call, `UNVERIFIED`), unfreeze the top layers or use LoRA. Whether PEFT's LoRA covers these audio encoders is **UNVERIFIED** (the PEFT docs page fetched did not state modality support; test on the real model, fallback is unfreezing the top 2 layers). Keep the full-layer segment embedding, not just emotion probabilities, so delivery information survives to fusion.
-**Text branch.** Whisper transcript per segment plus a window of preceding turns, encoded by DeBERTa-v3-base (start frozen, LoRA or top layers later), plus LLM-extracted event features: claims, commitments, answer-responsiveness, specificity, hedging, contradictions with earlier statements or the fact sheet.
-**Speaker history.** Per speaker, rolling statistics of embeddings and acoustic features over earlier spontaneous speech; the model sees the *delta* from that speaker's own history, plus persistence and recovery over time.
-**Fusion.** Per segment: [audio embedding, text embedding, scalar acoustic features, history deltas, event features (question type, follow-up surprise, response latency)] into a cross-attention or concat-MLP block. Use **modality dropout** in training so audio-only and text-only predictions come from the same model, and so a stronger text signal cannot hide a useless audio branch.
-**Call-level temporal model.** A small GRU/Transformer over each speaker's segment sequence feeds the heads; event targets whose evidence segments are unknown use attention-based multiple-instance pooling (label at call/event level, model finds the evidence segments).
-**Heads and losses.** One head per target. Masked loss per head: BCE for binary, CE for categorical, ordinal/MSE for scales; class weights for imbalance; unknown labels contribute zero loss. Simple weighted sum of head losses with weights tuned on validation; no cross-target averaging at inference.
+**Audio branch.** Pretrained encoder, 16 kHz waveform in, frame states out. Start **frozen**: learnable weighted sum of layer outputs and attention pooling per segment (frozen-first is deliberate with a tiny labeled set). Unfreeze top layers or use LoRA only if the labeled set grows enough (threshold is a judgement call). PEFT/LoRA support for these audio encoders is **UNVERIFIED** (the PEFT page fetched did not say); test on the real model, fallback is unfreezing the top 2 layers. Keep full segment embeddings, not only emotion probabilities.
+**Text branch.** Whisper transcript per segment plus preceding turns, DeBERTa-v3-base (frozen first), plus LLM-extracted observations (claims, commitments, responsiveness, specificity, hedging, contradictions with earlier statements or the fact sheet), each quoted from the transcript.
+**Speaker history.** Rolling statistics of each speaker's earlier embeddings and acoustic features; the model sees the delta from that speaker's own history, plus persistence and recovery.
+**Fusion.** Per segment [audio embedding, text embedding, scalar acoustic features incl. loudness/quality, history deltas, question type, response latency] into a concat-MLP or cross-attention block with **modality dropout**, so audio-only and text-only predictions come from the same model and a strong text signal cannot hide a useless audio branch. A small GRU/Transformer over each speaker's segments handles trajectories.
+**Heads and losses.** Heads for S1-S3 (and `delivery_mode` / `responsiveness` classification). Masked loss: CE for categorical, ordinal/MSE for scales, class weights for imbalance; unknown labels contribute zero loss. S4-S5 come from the LLM layer constrained by measured signals; no learned honesty head exists.
 
 ## 8. Evaluation
-- **Splits:** by speaker, call and scenario at once; no speaker, script, role or setup appears in two splits. Prefer leave-one-speaker-out when N is small.
-- **Required comparison:** text-only, audio-only, fused. Audio ablation must not corrupt the transcript (zero or mask the audio branch rather than editing the text; verify text is byte-identical). Primary question: **does audio add predictive value for the actual target?** Report the delta with a bootstrap CI (resample calls, not segments).
-- **Baselines:** always-prior; hand-crafted prosody z-scores plus logistic regression; fact-sheet contradiction check on text.
-- **Metrics per target:** precision, recall, false-positive and false-negative rates (false accusation is a consequential error), AUC with CI, calibration curve and ECE, abstention rate and performance on non-abstained cases.
-- **Shortcut audit:** can speaker identity, role, script, device or loudness alone predict the label? If so, that is what the model learned.
-- **Robustness:** noise, gain, compression, mic distance, accents, speaking styles.
+- **Splits** by speaker, call and scenario at once; no speaker, script, role or setup in two splits; leave-one-speaker-out when N is small.
+- **Required comparison:** text-only vs audio-only vs fused for each of S1-S3. Audio ablations must not corrupt the transcript (mask the audio branch; verify the text is byte-identical). Question: **does audio add value for the signal we claim?** Report the delta with a bootstrap CI (resample calls, not segments).
+- **Manipulation checks:** do S2/S3 move in the expected direction under the scripted conditions (pressure, script-vs-spontaneous)? Report effect sizes with CIs per speaker and pooled.
+- **Baselines:** hand-crafted prosody z-scores + simple regression; energy-only; always-prior. If a fine-tuned model does not beat prosody z-scores, ship the z-scores and say so.
+- **Metrics:** per-output accuracy/F1 or correlation with annotators (for S1-S3), calibration curve and ECE where percentages are shown, abstention rate and performance on non-abstained cases; **false-alarm rate on calm and honest-but-anxious speakers** (an anxious person must not look suspect).
+- **Shortcut audit:** can speaker identity, role, script, device or loudness alone predict the label? Robustness to noise, gain, compression, mic distance, accents, speaking styles.
 
-## 9. Live inference, calibration, deployment
-- **Latency.** Existing repo measurements (3 demo clips, Mac, `results/history.csv`): Whisper large-v3-turbo via mlx, mean per-utterance total about 984 ms; speaker/spoof detectors tens to low hundreds of ms. Live target: score within ~1.5 s of the end of a turn, hints update per turn; post-call report runs batch on the full call. Fusion and heads are negligible next to the encoders. Expect the encoder passes for audio and text to be the cost; measure, do not assume.
-- **Calibration.** Per target, on a held-out calibration set from speakers not in training: temperature or isotonic scaling, ECE with CI. Until then `calibration_status: "not_established"`, `calibrated_probability: null`, UI says "model score". Even once calibrated, the statement is scoped: "in controlled negotiations like our test set, scores near 0.7 were bluffs about X% of the time". Add an abstain band; `insufficient_evidence` is a normal output.
-- **Output contract.** The brief's: `deception_assessment` (target, `model_score`, `calibrated_probability`, `calibration_status`, evidence segments, alternative explanations, status), `delivery_assessment`, `emotion_timeline`, `live_hints`, `post_call_summary`. No score without evidence segment IDs; no invented acoustic measurements; hints state acoustic observation, content, comparison interval, hypothesis and alternatives, e.g. "possible prepared response ... may reflect rehearsal, uncertainty or another explanation. Ask for a concrete example."
-- **Post-call report:** the seven items in the brief (trajectories, significant acoustic changes with timestamps, claims/inconsistencies, hypotheses, scores with calibration status, alternatives, discriminating follow-up questions), observations separated from inferred motives and verified facts.
-- **Consent, retention, access.** All-party consent before any recording or analysis, with a plain statement of what is scored. Raw audio and embeddings stay local, encrypted at rest; access limited to named team members; delete on request; retention proposal 30 days for raw audio unless the participant opts in longer (**decision for the team**). Embeddings of voices count as biometric-adjacent data. Humans decide; scores never trigger automated action. Not for hiring, lending or any decision about a person's rights.
+## 9. Live inference, output contract, deployment
+- **Latency.** Existing repo measurements (3 demo clips, Mac, `results/history.csv`): Whisper large-v3-turbo via mlx, mean per-utterance total about 984 ms; speaker/spoof detectors tens to low hundreds of ms. Target: update within ~1.5 s after each turn; post-call report runs batch. Measure, do not assume.
+- **Output contract (proposal, not agreed with C):**
+```json
+{"call_id":"...", "segment_id":"seg_008", "speaker_id":"...",
+ "observations":{"emotion_estimate":{"stressed":0.41,"calm":0.30,"angry":0.05},"stress_related_change":{"score":0.62,"vs":"own_baseline_0_20s","calibration_status":"not_established"},
+   "delivery_markers":{"choppiness":0.55,"monotony":0.2,"read_like":0.1},"content":{"responsive":false,"inconsistent_with":["seg_003"]}},
+ "interpretation_notes":["Sustained rise in stress-related vocal signals after the verification question; can reflect pressure, uncertainty, or other causes."],
+ "suggested_follow_up":"Ask an open question about that topic.",
+ "evidence":{"segments":["seg_007","seg_008"],"comparison_interval":[0,20]},
+ "status":"ok|insufficient_evidence","limitations":["Vocal signals do not establish internal state","No inference of honesty or intent"]}
+```
+  No score without evidence segment IDs; no invented acoustic measurements; observations, interpretations and verified facts in separate fields.
+- **Post-call report:** emotion and delivery trajectory per speaker, significant acoustic changes with timestamps, content observations and inconsistencies, interpretation notes with alternatives, unresolved evidence, discriminating follow-up questions.
+- **Consent, retention, access.** All-party consent before recording or analysis, stating exactly what is scored. Raw audio and embeddings local, encrypted at rest, named access only, deletion on request; retention proposal 30 days for raw audio (**team decision**). Voice embeddings are biometric-adjacent. Humans decide; outputs never trigger automated action.
 
 ## 10. Sources opened this session (2026-10-10)
 - https://huggingface.co/emotion2vec/emotion2vec_plus_large
@@ -103,12 +119,13 @@ Pages were summarized by the fetch tool, not read in full: quotes above come fro
 
 ## 11. Hackathon-feasible path (honest scope)
 1. Ship the pipeline with **frozen** encoders and small heads; no full fine-tune tonight.
-2. Run the controlled-negotiation pilot with whatever consenting volunteers we get (tens of calls at most).
-3. Report audio-only vs text-only vs fused with CIs; if audio adds nothing for a target, say so and show only the labeled signal that holds up.
-4. Demo shows live hints and a post-call report with `calibration_status: not_established`, evidence timestamps and alternatives.
+2. Pilot: controlled conversations with whatever consenting volunteers we get.
+3. Report audio-only vs text-only vs fused and the manipulation checks with CIs; if audio adds nothing, say so and show only the signal that holds up.
+4. Demo-side (C): live hints and post-call summary with observations, hedged interpretation notes and `calibration_status: not_established`.
 
 ## 12. Open decisions for the team
-- How the application layer (C) consumes these scores for the elderly scam-prevention story (e.g. scam-call scenes recorded as extra scenarios, hints worded for a protective, human tone). Decided: the application is not changed by this plan.
-- Who the volunteers are; whether we can run a compute job on the 5090 or stay on the Mac (MPS/mlx).
+- How the application layer (C) consumes these summaries for the elderly scam-prevention story; hint wording stays C's.
+- Volunteers beyond the team; 5090 availability vs the Mac (MPS/mlx).
 - Raw-audio retention period and consent wording.
-- Licence sign-off before shipping any checkpoint commercially (emotion2vec terms, WavLM LICENSE, audEERING is non-commercial).
+- Primary-source check of every row in the interpretation table (§2) before it is shown as fact.
+- Licence sign-off before shipping any checkpoint commercially (emotion2vec terms, WavLM LICENSE; audEERING is non-commercial).
