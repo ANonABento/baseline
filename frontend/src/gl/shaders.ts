@@ -44,9 +44,7 @@ varying vec3 vN; varying vec3 vView;
 void main(){
   vec3 N = normalize(vN);
   vec3 V = normalize(vView);
-  // soft side key from upper left: enough shadow to model the nose and brow, not enough to
-  // lose the far half of the face
-  vec3 L = normalize(vec3(-0.3, 0.7, 0.65));
+  vec3 L = normalize(vec3(-0.45, 0.75, 0.55));
   float diff = max(dot(N, L), 0.0);
   float rim = pow(1.0 - max(dot(N, V), 0.0), 2.6);
   float l = diff * 0.62 + rim * 0.42 + 0.02;
