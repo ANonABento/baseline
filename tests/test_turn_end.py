@@ -98,3 +98,26 @@ def test_ptt_waits_while_held_and_merges():
         return time.monotonic() - t0, turns
     dt, turns = asyncio.run(run())
     assert dt < 0.5 and [t.text for t in turns] == ["Yeah I got a text but", "I didn't click it."]
+
+
+def test_client_visitor_lines_use_call_time():
+    """Push-to-talk sends mic audio in bursts: segment times (mic seconds) must map to call time."""
+    import numpy as np
+
+    async def run():
+        lines = []
+
+        async def visitor_line(text, t0, t1, ms=None):
+            lines.append((text, t0, t1))
+
+        async def transcribe(_utt):
+            return "Who is this?"
+
+        call = SimpleNamespace(settings=SimpleNamespace(sample_rate=16000), stt=SimpleNamespace(transcribe=transcribe),
+                               col=SimpleNamespace(errors=[]), _ending=False, candidate=False, turn_q=asyncio.Queue(),
+                               _mic_to_call_time=lambda t: round(t + 12.0, 2), _visitor_line=visitor_line)
+        seg = SimpleNamespace(audio=np.zeros(16000, dtype=np.float32))
+        await LiveCall._stt_one(call, seg, None, 0, 1.0, 2.0, time.perf_counter())
+        return lines, call.turn_q.get_nowait()
+    lines, turn = asyncio.run(run())
+    assert lines == [("Who is this?", 13.0, 14.0)] and (turn.t_start, turn.t_end) == (13.0, 14.0)

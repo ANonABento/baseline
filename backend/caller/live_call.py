@@ -663,11 +663,13 @@ class LiveCall:
         stt_ms = round((time.perf_counter() - t) * 1000, 1)
         if not text or self._ending:
             return
+        # segment times count only mic samples received (push-to-talk sends bursts): use call time
+        c_start, c_end = self._mic_to_call_time(t_start), self._mic_to_call_time(t_end)
         if self.candidate:  # transcript + prosody come back through the pipeline and queue the turn
-            self.pipe.feed_utterance(seg.audio, self._mic_to_call_time(t_start), self._mic_to_call_time(t_end), text=text)
+            self.pipe.feed_utterance(seg.audio, c_start, c_end, text=text)
             return
-        await self._visitor_line(text, t_start, t_end, stt_ms)
-        self.turn_q.put_nowait(VisitorTurn(text, t_start, t_end, time.monotonic(), "audio",
+        await self._visitor_line(text, c_start, c_end, stt_ms)
+        self.turn_q.put_nowait(VisitorTurn(text, c_start, c_end, time.monotonic(), "audio",
                                            vad_end_at=vad_end, stt_ms=stt_ms))
 
     # ------------------------------------------------------------------ AI turns
