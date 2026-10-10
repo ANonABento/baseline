@@ -1,4 +1,4 @@
-// GLSL for the three render styles. Colors arrive as uniforms (see palette in stage.ts).
+// GLSL for the two render styles. Colors arrive as uniforms (see palette in stage.ts).
 
 export const NOISE = /* glsl */ `
 float hash11(float p){ p = fract(p * .1031); p *= p + 33.33; p *= p + p; return fract(p); }
@@ -135,72 +135,4 @@ void main(){
   float on = step(th, l * 0.98) * step(0.03, l);
   vec3 ink = mix(uInk, uRed, tear * step(0.6, uChaos) * step(0.8, hash21(vec2(floor(px.y / 3.0), tick))));
   gl_FragColor = vec4(ink * on, 1.0);
-}`;
-
-/** Head as a point cloud sampled from its surface. */
-export const HEAD_POINTS_VERT = /* glsl */ `
-attribute vec3 aNormal; attribute float aRand;
-uniform float uTime; uniform float uChaos; uniform float uLevel; uniform float uResolve; uniform float uPx;
-varying float vL; varying float vRed;
-${NOISE}
-void main(){
-  vec3 p = position;
-  vec3 dir = normalize(vec3(hash11(aRand * 91.0) - 0.5, hash11(aRand * 37.0) - 0.5, hash11(aRand * 53.0) - 0.5) + aNormal * 0.6);
-  float wob = 0.5 + 0.5 * sin(uTime * 1.1 + aRand * 31.0);
-  float drift = vnoise(p * 2.0 + uTime * 0.3) * 0.5;
-  p += dir * uChaos * (0.1 + drift * 0.7) * (0.4 + wob) * (0.3 + aRand);
-  p += aNormal * (0.012 * sin(uTime * 0.6 + p.y * 4.0)) * (1.0 - uResolve);
-  vec3 N = normalize(normalMatrix * aNormal);
-  vec4 mv = modelViewMatrix * vec4(p, 1.0);
-  vec3 V = normalize(-mv.xyz);
-  // near-frontal key from above so both halves of the face read (the head faces the viewer)
-  vec3 L = normalize(vec3(-0.12, 0.62, 0.78));
-  float diff = max(dot(N, L), 0.0);
-  float rim = pow(1.0 - max(dot(N, V), 0.0), 2.6);
-  vL = clamp((diff * 0.65 + rim * 0.45 + 0.05) * (0.75 + uLevel * 0.8 + uResolve * 0.2), 0.0, 1.2);
-  vL *= mix(0.12, 1.0, smoothstep(-0.15, 0.25, dot(N, V)));
-  vRed = step(1.0 - uChaos * 0.07, hash11(aRand * 13.0 + floor(uTime * 4.0)));
-  gl_PointSize = uPx * (0.6 + vL * 1.5) * (4.0 / -mv.z);
-  gl_Position = projectionMatrix * mv;
-}`;
-
-/** Webcam / field as a grid of points; luminance drives size and a small depth lift. */
-export const GRID_POINTS_VERT = /* glsl */ `
-attribute vec2 aUv; attribute float aRand;
-uniform sampler2D uTex; uniform float uHasTex; uniform vec4 uCover; uniform float uTime; uniform float uChaos; uniform float uResolve;
-uniform sampler2D uMask; uniform float uHasMask;
-uniform float uPx; uniform float uLevel; uniform vec2 uAspect;
-varying float vL; varying float vRed;
-${NOISE}
-void main(){
-  float l;
-  if (uHasTex > 0.5) {
-    vec2 uv = vec2(1.0 - aUv.x, aUv.y) * uCover.xy + uCover.zw;
-    vec3 c = texture2D(uTex, uv).rgb;
-    l = smoothstep(0.08, 0.85, dot(c, vec3(0.299, 0.587, 0.114)));
-    l *= personMask(uMask, uv, uHasMask);
-  } else {
-    vec2 q = aUv * vec2(3.0, 2.2);
-    float n = vnoise(vec3(q, uTime * 0.12)) * 0.6 + vnoise(vec3(q * 2.3, uTime * 0.2 + 4.0)) * 0.3;
-    float c = 1.0 - length((aUv - 0.5) * vec2(1.3, 1.0)) * 1.4;
-    l = clamp(n * 0.9 * smoothstep(0.0, 0.7, c) + uLevel * 0.25, 0.0, 1.0);
-  }
-  vec2 p = aUv * 2.0 - 1.0;
-  vec2 dir = vec2(hash11(aRand * 71.0) - 0.5, hash11(aRand * 17.0) - 0.5);
-  p += dir * uChaos * 0.5 * (0.3 + l) * (0.5 + 0.5 * sin(uTime * 1.3 + aRand * 20.0));
-  p.y += l * 0.02 * (1.0 - uResolve);
-  vL = l;
-  vRed = step(1.0 - uChaos * 0.07, hash11(aRand * 5.0 + floor(uTime * 4.0))) * step(0.1, l);
-  gl_PointSize = uPx * (0.15 + l * 1.05);
-  gl_Position = vec4(p, 0.0, 1.0);
-}`;
-
-export const POINTS_FRAG = /* glsl */ `
-uniform vec3 uInk; uniform vec3 uRed; uniform vec3 uDim;
-varying float vL; varying float vRed;
-void main(){
-  vec2 c = gl_PointCoord - 0.5;
-  if (dot(c, c) > 0.25) discard;
-  vec3 col = mix(mix(uDim, uInk, clamp(vL, 0.0, 1.0)), uRed, vRed);
-  gl_FragColor = vec4(col * clamp(vL * 1.3 + 0.08, 0.0, 1.0), 1.0);
 }`;

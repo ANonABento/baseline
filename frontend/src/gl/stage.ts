@@ -1,23 +1,20 @@
 // One WebGL canvas that draws a source (3D head, webcam, or an abstract field) in one of
-// three styles: ASCII glyph shader, 1-bit ordered dither, or point cloud. Controls are
+// two styles: ASCII glyph shader or 1-bit ordered dither. Controls are
 // plain mutable numbers (targets) that the frame loop eases toward, so React never
 // re-renders per frame.
 import * as THREE from "three";
-import { loadHead, sampleSurface } from "./head";
+import { loadHead } from "./head";
 import { personMask, type PersonMask } from "../lib/segment";
 import {
   ASCII_FRAG,
   DITHER_FRAG,
-  GRID_POINTS_VERT,
   HEAD_FRAG,
-  HEAD_POINTS_VERT,
   HEAD_VERT,
-  POINTS_FRAG,
   QUAD_VERT,
   SOURCE_FRAG,
 } from "./shaders";
 
-export type RenderStyle = "ascii" | "dither" | "points";
+export type RenderStyle = "ascii" | "dither";
 export type SourceKind = "head" | "video";
 
 export interface Controls {
@@ -121,9 +118,6 @@ export class Stage {
   // post
   private postScene = new THREE.Scene();
   private postMat: THREE.ShaderMaterial | null = null;
-  // points
-  private ptsScene = new THREE.Scene();
-  private ptsMat: THREE.ShaderMaterial | null = null;
   private headGeo: THREE.BufferGeometry | null = null;
   private onVis = () => this.loop();
 
@@ -136,7 +130,6 @@ export class Stage {
     this.rt = new THREE.WebGLRenderTarget(4, 4, { depthBuffer: true });
     this.headCam.position.set(0, 0.12, 4.9);
     this.srcScene.add(this.headGroup);
-    this.ptsScene.add(this.quadCam);
     this.setVideo(opts.video ?? null);
     this.ro = new ResizeObserver(() => this.resize());
     this.ro.observe(opts.canvas);
@@ -172,17 +165,16 @@ export class Stage {
     this.videoTex?.dispose();
     this.videoTex = v ? new THREE.VideoTexture(v) : null;
     if (this.videoTex) this.videoTex.colorSpace = THREE.NoColorSpace;
-    for (const m of [this.srcMat, this.ptsMat]) {
-      if (m?.uniforms.uTex) {
-        m.uniforms.uTex.value = this.videoTex;
-        m.uniforms.uHasTex.value = this.videoTex ? 1 : 0;
-        m.uniforms.uMask.value = this.mask?.texture ?? null;
-      }
+    const u = this.srcMat?.uniforms;
+    if (u) {
+      u.uTex.value = this.videoTex;
+      u.uHasTex.value = this.videoTex ? 1 : 0;
+      u.uMask.value = this.mask?.texture ?? null;
     }
   }
 
   private cssScale(): number {
-    return this.opts.scale ?? (this.style === "ascii" ? 11 : this.style === "dither" ? 2 : 5);
+    return this.opts.scale ?? (this.style === "ascii" ? 11 : 2);
   }
 
   private clear(scene: THREE.Scene, keep: THREE.Object3D[] = []) {
@@ -199,7 +191,6 @@ export class Stage {
   /** (Re)build the scenes for the current style and source. */
   private build() {
     this.clear(this.postScene);
-    this.clear(this.ptsScene, [this.quadCam]);
     for (const o of [...this.headGroup.children]) {
       this.headGroup.remove(o);
       const m = o as THREE.Mesh;
@@ -207,7 +198,7 @@ export class Stage {
       if (m.geometry !== this.headGeo) m.geometry.dispose();
     }
     this.clear(this.srcScene, [this.headGroup]);
-    this.headMat = this.srcMat = this.postMat = this.ptsMat = null;
+    this.headMat = this.srcMat = this.postMat = null;
     const common = () => ({
       uTime: { value: 0 },
       uChaos: { value: 0 },
@@ -217,42 +208,7 @@ export class Stage {
     const quad = new THREE.PlaneGeometry(2, 2);
     const colors = { uInk: { value: INK }, uDim: { value: DIM }, uRed: { value: RED } };
 
-    if (this.style === "points") {
-      if (this.opts.source === "head") {
-        if (!this.headGeo) return;
-        this.ptsMat = new THREE.ShaderMaterial({
-          vertexShader: HEAD_POINTS_VERT,
-          fragmentShader: POINTS_FRAG,
-          uniforms: { ...common(), ...colors, uPx: { value: 2 } },
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-        });
-        const pts = new THREE.Points(sampleSurface(this.headGeo, 26000), this.ptsMat);
-        this.headGroup.add(pts);
-        this.ptsScene.add(this.headGroup);
-      } else {
-        this.ptsMat = new THREE.ShaderMaterial({
-          vertexShader: GRID_POINTS_VERT,
-          fragmentShader: POINTS_FRAG,
-          uniforms: {
-            ...common(),
-            ...colors,
-            uPx: { value: 4 },
-            uTex: { value: this.videoTex },
-            uHasTex: { value: this.videoTex ? 1 : 0 },
-            uMask: { value: this.mask?.texture ?? null },
-            uHasMask: { value: 0 },
-            uCover: { value: new THREE.Vector4(1, 1, 0, 0) },
-            uAspect: { value: new THREE.Vector2(1, 1) },
-          },
-          depthWrite: false,
-        });
-        this.ptsScene.add(new THREE.Points(this.gridGeometry(), this.ptsMat));
-      }
-      return;
-    }
-
-    // ascii / dither: source pass into the render target, then a post quad
+    // source pass into the render target, then a post quad (glyphs or dither)
     if (this.opts.source === "head") {
       if (this.headGeo) {
         this.headMat = new THREE.ShaderMaterial({ vertexShader: HEAD_VERT, fragmentShader: HEAD_FRAG, uniforms: common() });
@@ -303,31 +259,6 @@ export class Stage {
     this.resize();
   }
 
-  private gridGeometry(): THREE.BufferGeometry {
-    const spacing = this.cssScale();
-    const cols = Math.max(24, Math.min(220, Math.round(this.w / spacing)));
-    const rows = Math.max(18, Math.min(180, Math.round(this.h / spacing)));
-    const n = cols * rows;
-    const pos = new Float32Array(n * 3);
-    const uv = new Float32Array(n * 2);
-    const rnd = new Float32Array(n);
-    for (let y = 0; y < rows; y++)
-      for (let x = 0; x < cols; x++) {
-        const i = y * cols + x;
-        uv[i * 2] = (x + 0.5) / cols;
-        uv[i * 2 + 1] = (y + 0.5) / rows;
-        rnd[i] = Math.random();
-      }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    g.setAttribute("aUv", new THREE.BufferAttribute(uv, 2));
-    g.setAttribute("aRand", new THREE.BufferAttribute(rnd, 1));
-    g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 10);
-    return g;
-  }
-
-  private gridKey = "";
-
   private resize() {
     const c = this.opts.canvas;
     const w = Math.max(1, c.clientWidth);
@@ -351,18 +282,6 @@ export class Stage {
       u.uRes.value.set(pw, ph);
       if (u.uCell) u.uCell.value = s;
       if (u.uPx) u.uPx.value = Math.max(1, Math.round(s));
-    }
-    if (this.ptsMat) this.ptsMat.uniforms.uPx.value = this.opts.source === "head" ? 1.6 * this.dpr * Math.sqrt(h / 420) : s;
-    if (this.style === "points" && this.opts.source === "video") {
-      const key = `${Math.round(w / 40)}x${Math.round(h / 40)}`;
-      if (key !== this.gridKey && this.ptsMat) {
-        this.gridKey = key;
-        const pts = this.ptsScene.children.find((o) => (o as THREE.Points).isPoints) as THREE.Points | undefined;
-        if (pts) {
-          pts.geometry.dispose();
-          pts.geometry = this.gridGeometry();
-        }
-      }
     }
     this.renderOnce();
   }
@@ -416,7 +335,7 @@ export class Stage {
       if (u.uCover) u.uCover.value = this.cover();
       if (u.uHasMask) u.uHasMask.value += ((this.mask?.ready ? 1 : 0) - u.uHasMask.value) * Math.min(1, dt * 4);
     };
-    [this.headMat, this.srcMat, this.postMat, this.ptsMat].forEach(set);
+    [this.headMat, this.srcMat, this.postMat].forEach(set);
 
     if (this.opts.source === "head") {
       // facing the viewer and breathing (~4.5 s cycle: slow in, quicker out), with only
@@ -430,11 +349,6 @@ export class Stage {
       this.headGroup.rotation.y = drift ? Math.sin(t * 0.09) * 0.05 : 0;
     }
 
-    if (this.style === "points") {
-      this.renderer.setRenderTarget(null);
-      this.renderer.render(this.ptsScene, this.opts.source === "head" ? this.headCam : this.quadCam);
-      return;
-    }
     this.renderer.setRenderTarget(this.rt);
     this.renderer.render(this.srcScene, this.opts.source === "head" ? this.headCam : this.quadCam);
     this.renderer.setRenderTarget(null);
@@ -449,7 +363,6 @@ export class Stage {
     this.io.disconnect();
     document.removeEventListener("visibilitychange", this.onVis);
     this.clear(this.postScene);
-    this.clear(this.ptsScene);
     this.clear(this.srcScene);
     this.videoTex?.dispose();
     this.mask?.release();

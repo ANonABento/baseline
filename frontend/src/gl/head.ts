@@ -2,7 +2,6 @@
 // loaded once and normalized; procedural fallback if the file can't load.
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { MeshSurfaceSampler } from "three/examples/jsm/math/MeshSurfaceSampler.js";
 
 let cached: Promise<THREE.BufferGeometry> | null = null;
 
@@ -61,26 +60,4 @@ export function loadHead(): Promise<THREE.BufferGeometry> {
     );
   });
   return cached;
-}
-
-/** Surface samples for the point-cloud style: position, normal, random seed per point. */
-export function sampleSurface(geo: THREE.BufferGeometry, count: number): THREE.BufferGeometry {
-  const mesh = new THREE.Mesh(geo);
-  const sampler = new MeshSurfaceSampler(mesh).build();
-  const pos = new Float32Array(count * 3);
-  const nrm = new Float32Array(count * 3);
-  const rnd = new Float32Array(count);
-  const p = new THREE.Vector3();
-  const n = new THREE.Vector3();
-  for (let i = 0; i < count; i++) {
-    sampler.sample(p, n);
-    pos.set([p.x, p.y, p.z], i * 3);
-    nrm.set([n.x, n.y, n.z], i * 3);
-    rnd[i] = Math.random();
-  }
-  const out = new THREE.BufferGeometry();
-  out.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-  out.setAttribute("aNormal", new THREE.BufferAttribute(nrm, 3));
-  out.setAttribute("aRand", new THREE.BufferAttribute(rnd, 1));
-  return out;
 }
