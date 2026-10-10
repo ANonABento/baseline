@@ -1,9 +1,10 @@
 """Public "try it live" API: lobby config, session creation, the live-call WebSocket, reports.
 
     GET  /api/config                 lobby options + queue/TTS/LLM status
-    POST /api/session                {role, scenario, voice} (each may be "random") -> {session_id, ws_url}
+    POST /api/session                {role, scenario, voice, record_audio?} -> {session_id, ws_url}
     WS   /ws/session/{session_id}    queue -> call; contract in backend/README.md "Live call API"
     GET  /api/report/{id}            full end-of-call report (data/reports/<id>.json)
+    GET  /api/report/{id}/audio      call recording WAV (data/reports/<id>.wav), Range-capable
     GET  /api/reports?limit=20       newest report summaries
 
 `LiveService` holds the process-wide pieces (session manager, TTS, STT, brain factory). Tests
@@ -20,12 +21,13 @@ from collections.abc import Callable
 from contextlib import suppress
 
 from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from caller.brain import BrainFactory
 from caller.live_call import LiveCall
 from caller.personas import CUSTOMER, SCENARIOS, build_persona
-from caller.report import list_reports, load_report
+from caller.report import list_reports, load_report, valid_report_id
 from caller.tts import TTSProvider, make_tts
 from ml import voiceprints
 from pipeline import CallPipeline
@@ -130,6 +132,7 @@ class SessionRequest(BaseModel):
     role: str = "random"
     scenario: str = "random"
     voice: str = "random"
+    record_audio: bool = False  # also record the visitor's mic (right channel of the report WAV)
 
 
 def _pick(value: str, options: list[str], what: str) -> str:
@@ -159,6 +162,16 @@ async def api_report(report_id: str) -> dict:
     if r is None:
         raise HTTPException(404, "report not found")
     return r
+
+
+@router.get("/api/report/{report_id}/audio")
+async def api_report_audio(report_id: str) -> FileResponse:
+    if not valid_report_id(report_id):
+        raise HTTPException(404, "audio not found")
+    path = service().settings.reports_dir / f"{report_id}.wav"
+    if not path.is_file():
+        raise HTTPException(404, "audio not found")
+    return FileResponse(path, media_type="audio/wav")
 
 
 @router.get("/api/reports")

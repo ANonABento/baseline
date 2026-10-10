@@ -16,6 +16,9 @@ Shape (stable; GET /api/report/{id} returns it verbatim):
   "latencies": {turns: [{turn, source, visitor_end_to_first_audio_ms, speech_end_to_first_audio_ms?, stt_ms?,
                          llm_first_sentence_ms, tts_first_audio_ms}],
                 mean_turn_ms, p50_turn_ms, max_turn_ms, pipeline: [per-utterance timings]},
+  "audio": null | {url: "/api/report/<id>/audio", duration_s, channels: {left: "ai", right: "visitor"|null}},
+           (data/reports/<id>.wav: 16-bit PCM stereo at settings.sample_rate, t=0 = transcript t origin;
+            left = AI caller audio as heard, right = visitor mic only if the session asked record_audio)
   "errors": [str]
 }
 """
