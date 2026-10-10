@@ -30,6 +30,8 @@ make dev-frontend                 # terminal 2, open the URL, pick a clip, press
 
 > **Updated ~11:30 PM:** the frontend is being redesigned as a public "try it live" site (lobby → queue → live call with an AI fraudster → call report). **V's frontend tasks are paused. Focus 100% on voice models, data and eval.** The real models (mlx-whisper, silero, ECAPA, pretrained spoof) are already merged. Don't edit `app.py`, `pipeline.py` or anything in `frontend/`: agents are building the live-call backend and the new UI there right now.
 
+> **Model direction (2026-10-10, V):** beyond spoof/speaker, V now also builds the voice + content model described in [`finetuning_plan.md`](finetuning_plan.md) (target-specific scores, frozen pretrained encoders first, controlled-negotiation ground truth, audio-vs-text ablations). It is model side only: C owns how the application and pitch use it (human-connection story, e.g. scam prevention for elderly callers). Interface: optional `DetectorResult.details` keys, announced before merge, no renames. Scores carry `calibration_status` and are never shown as literal probabilities of lying.
+
 **Owns:** `backend/detectors/{speaker,spoof,prosody}.py`, `backend/segmenter.py`, `backend/providers/stt_*`, `backend/ml/`, `scripts/` (except `eval_fraud.py`), `data/` (except `text_eval/`).
 
 **Setup:** `make setup ML=1 && make enroll-demo && make test`. Weights download to `~/.cache/huggingface` (~5 GB), so start now.

@@ -5,6 +5,8 @@
 A real-time co-pilot for bank call-center agents (Customer Layer track). It flags voice-clone account takeovers and customers being coached by scammers by comparing each call against three baselines: the customer's enrolled voice, what real human audio sounds like, and what legitimate requests look like.
 
 - [docs/baseline_master_plan.md](docs/baseline_master_plan.md): plan, architecture, 18-hour schedule
+- [docs/finetuning_plan.md](docs/finetuning_plan.md): voice + content model plan (targets, checkpoints, data, evaluation, calibration); model side only
+- [docs/recording_protocol.md](docs/recording_protocol.md): consent, safety and recording protocol for model data (draft, being revised)
 - [docs/event_info.md](docs/event_info.md): hackathon theme, judging, schedule
 - [docs/brain_dump.md](docs/brain_dump.md): original raw notes
 - [backend/README.md](backend/README.md): pipeline, WebSocket event contract, stub-mode sidecars
@@ -38,7 +40,7 @@ make build                  # production build of the dashboard
 ```
 backend/    FastAPI app, pipeline, providers/, detectors/, fusion, kb/fraud_playbook.json
 frontend/   React + Vite + TypeScript + Tailwind agent dashboard
-scripts/    eval.py, make_clips.py
+scripts/    eval.py, make_clips.py, build_eval_set.py (real vs synthetic spoof eval set), train_spoof.py, enroll.py
 tests/      pytest suite (run from backend/: `uv run pytest`)
 data/       demo/ (small tracked clips + sidecars), eval/ (labels.csv; audio gitignored), enroll/, train/ (gitignored)
 results/    history.csv (eval runs over time, tracked)
@@ -49,3 +51,13 @@ results/    history.csv (eval runs over time, tracked)
 `data/eval/labels.csv` columns: `file,speaker,is_synthetic,is_fraud,condition,notes` (`file` relative to the
 CSV). `eval.py` reports spoof accuracy (vs `is_synthetic`), fraud accuracy (vs `is_fraud`) and end-to-end
 accuracy (alert >= caution vs synthetic-or-fraud), with false-alarm / miss rates and a per-condition breakdown.
+
+### Spoof eval set (`data/eval/labels_spoof.csv`)
+
+Built by `scripts/build_eval_set.py` (seeded; manifest in `data/eval/spoof/MANIFEST.json`): 40 real LibriSpeech
+test-clean clips (CC BY 4.0, speaker-disjoint, read audiobook speech) vs 40 macOS `say` and 40 pitch-shifted fakes.
+Needs `data/external/LibriSpeech/test-clean` (download from openslr.org, gitignored). Run with real providers:
+`SPOOF_PROVIDER=pretrained VAD_PROVIDER=silero SPEAKER_PROVIDER=ecapa STT_PROVIDER=stub LLM_PROVIDER=stub uv run --project backend --extra ml python scripts/eval.py --labels data/eval/labels_spoof.csv --note "..."`.
+First result (exploratory): the pretrained detector flags 40/40 `say` and 40/40 pitch-shifted fakes but also 15/40 real
+human clips (37.5%). The end-to-end false-alarm column is confounded by the speaker module on this set; read `p_fake`.
+No ElevenLabs or team-mic audio yet, so this does **not** show the live demo works.
