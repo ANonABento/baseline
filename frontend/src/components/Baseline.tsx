@@ -37,7 +37,7 @@ const COLORS = {
   flag: "#f0353d",
   cursor: "#2c2c2a",
 };
-const AMP: Record<Tier, number> = { noted: 0.22, watch: 0.5, flag: 0.92 };
+const AMP: Record<Tier, number> = { noted: 0.24, watch: 0.5, flag: 0.78 };
 const RANK: Record<Tier, number> = { noted: 1, watch: 2, flag: 3 };
 
 interface Live extends LineSpike {

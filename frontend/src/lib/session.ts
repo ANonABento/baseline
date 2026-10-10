@@ -63,7 +63,7 @@ const LEVEL_RANK = { none: 0, caution: 1, high: 2 } as const;
 
 /** Seconds since the call started, for the timeline axis. */
 export function elapsed(s: SessionState, now: number): number {
-  if (!s.startedAt) return 0;
+  if (s.startedAt == null) return 0;
   return Math.max(0, ((s.endedAt ?? now) - s.startedAt) / 1000);
 }
 

@@ -94,7 +94,8 @@ export function buildNotes(lines: TranscriptEvent[], signals: SignalEvent[], evi
       if (!tier || TIER_RANK[tier] <= highest) continue;
       highest = TIER_RANK[tier];
       const title = lane === "fraud" ? "Fraud pattern" : AUDIO_TITLES[lane][tier === "flag" ? "flag" : "watch"];
-      const sim = typeof s.details?.similarity === "number" ? ` Similarity ${(s.details.similarity as number).toFixed(2)}.` : "";
+      const simV = s.details?.similarity;
+      const sim = typeof simV === "number" && !/similarity/i.test(s.reason) ? ` Similarity ${simV.toFixed(2)}.` : "";
       notes.push({
         id: `${lane}:${s.utterance_id}:${tier}`,
         utterance_id: s.utterance_id,

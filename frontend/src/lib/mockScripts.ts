@@ -128,14 +128,25 @@ const spoof = (score: number, reason?: string): AudioSig => ({
   signal: "spoof",
   score,
   confidence: 0.7,
-  reason: reason ?? (score >= 0.5 ? `Synthetic-speech artifacts in ${Math.round(score * 100)}% of windows` : "Audio consistent with a live human voice"),
+  reason:
+    reason ??
+    (score >= 0.5
+      ? `Synthetic-speech artifacts in ${Math.round(score * 100)}% of windows`
+      : score >= 0.25
+        ? `Faint vocoder artifacts in ${Math.round(score * 100)}% of windows`
+        : "Audio consistent with a live human voice"),
   details: { windows: [score - 0.08, score + 0.04, score].map((v) => Math.max(0, Math.min(1, v))) },
 });
 const speaker = (score: number, sim: number): AudioSig => ({
   signal: "speaker",
   score,
   confidence: 0.8,
-  reason: score >= 0.5 ? "Voice is far from the enrolled voiceprint" : score >= 0.25 ? "Voice drifting from the enrolled voiceprint" : "Voice matches the enrolled voiceprint",
+  reason:
+    score >= 0.5
+      ? `Similarity ${sim.toFixed(2)} to the enrolled voiceprint, below the 0.55 accept line`
+      : score >= 0.25
+        ? `Similarity ${sim.toFixed(2)} to the enrolled voiceprint, borderline`
+        : `Similarity ${sim.toFixed(2)} to the enrolled voiceprint`,
   details: { similarity: sim },
 });
 const prosody = (score: number, reason: string): AudioSig => ({ signal: "prosody", score, confidence: 0.5, reason });

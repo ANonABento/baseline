@@ -41,7 +41,7 @@ export interface StageOptions {
 }
 
 const INK = new THREE.Color("#ecebe6");
-const DIM = new THREE.Color("#3a3a37");
+const DIM = new THREE.Color("#5e5d59");
 const RED = new THREE.Color("#f0353d");
 const GLYPHS = " .:-=+*#%@";
 
@@ -55,9 +55,11 @@ export function webglAvailable(): boolean {
 }
 
 function glyphAtlas(): THREE.CanvasTexture {
+  // cells match the on-screen character cell (0.62 : 1) so glyphs aren't squashed
   const size = 64;
+  const cw = Math.round(size * 0.62);
   const c = document.createElement("canvas");
-  c.width = size * GLYPHS.length;
+  c.width = cw * GLYPHS.length;
   c.height = size;
   const ctx = c.getContext("2d")!;
   const draw = () => {
@@ -66,8 +68,8 @@ function glyphAtlas(): THREE.CanvasTexture {
     ctx.fillStyle = "#fff";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = `500 ${size * 0.92}px "Geist Mono", ui-monospace, Menlo, monospace`;
-    for (let i = 0; i < GLYPHS.length; i++) ctx.fillText(GLYPHS[i], i * size + size / 2, size * 0.54);
+    ctx.font = `500 ${size * 0.86}px "Geist Mono", ui-monospace, Menlo, monospace`;
+    for (let i = 0; i < GLYPHS.length; i++) ctx.fillText(GLYPHS[i], i * cw + cw / 2, size * 0.54);
   };
   draw();
   const tex = new THREE.CanvasTexture(c);
@@ -91,7 +93,8 @@ export class Stage {
   private renderer: THREE.WebGLRenderer;
   private opts: StageOptions;
   private style: RenderStyle;
-  private clock = new THREE.Clock();
+  private last = performance.now();
+  private elapsed = 0;
   private raf = 0;
   private idle = 0;
   private visible = true;
@@ -126,7 +129,7 @@ export class Stage {
     this.renderer.setClearColor(0x000000, 1);
     this.renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
     this.rt = new THREE.WebGLRenderTarget(4, 4, { depthBuffer: true });
-    this.headCam.position.set(0, 0.05, 5.6);
+    this.headCam.position.set(0, 0.12, 4.9);
     this.srcScene.add(this.headGroup);
     this.ptsScene.add(this.quadCam);
     this.setVideo(opts.video ?? null);
@@ -325,8 +328,9 @@ export class Stage {
     const ph = Math.round(h * this.dpr);
     this.rt.setSize(pw, ph);
     this.headCam.aspect = w / h;
-    // keep the whole head in frame on tall/narrow tiles
-    this.headCam.position.z = w / h < 0.9 ? 5.6 / Math.max(0.5, w / h / 0.9) : 5.6;
+    // fit ~2.5 units of height (and ~1.9 of width) whatever the tile's aspect
+    const tanHalf = Math.tan(THREE.MathUtils.degToRad(this.headCam.fov / 2));
+    this.headCam.position.z = Math.max(1.25 / tanHalf, 0.95 / (tanHalf * (w / h)));
     this.headCam.updateProjectionMatrix();
     const s = this.cssScale() * this.dpr;
     const u = this.postMat?.uniforms;
@@ -377,9 +381,12 @@ export class Stage {
 
   private renderOnce() {
     if (this.disposed) return;
-    const dt = Math.min(0.1, this.clock.getDelta());
+    const nowMs = performance.now();
+    const dt = Math.min(0.1, (nowMs - this.last) / 1000);
+    this.last = nowMs;
+    this.elapsed += dt;
     if (this.levelFn) this.target.level = this.levelFn();
-    const t = this.clock.elapsedTime * (this.opts.reducedMotion ? 0.25 : 1);
+    const t = this.elapsed * (this.opts.reducedMotion ? 0.25 : 1);
     const ease = (k: keyof Controls, rate: number) => {
       this.cur[k] += (this.target[k] - this.cur[k]) * Math.min(1, dt * rate);
     };

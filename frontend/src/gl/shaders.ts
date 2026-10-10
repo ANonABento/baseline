@@ -94,13 +94,14 @@ void main(){
   off += (vec2(hash21(cell + 3.1), hash21(cell + 7.7)) - 0.5) * uChaos * 6.0;
   vec2 sc = clamp(cell + floor(off), vec2(0.0), cells - 1.0);
   float l = texture2D(uSrc, (sc + 0.5) * cellSize / uRes).r;
+  l = smoothstep(0.015, 0.72, l);
   float shimmer = (hash21(cell + floor(uTime * 2.0)) - 0.5) * 0.08 * (1.0 - uResolve);
   l = clamp(l + shimmer, 0.0, 1.0);
   float idx = floor(l * (uGlyphs - 1.0) + 0.5);
   if (r < uChaos * 0.35 && l > 0.04) idx = floor(hash21(cell + tick) * uGlyphs);
   vec2 g = fract(frag / cellSize);
   float a = texture2D(uAtlas, vec2((idx + g.x) / uGlyphs, g.y)).r;
-  vec3 ink = mix(uDim, uInk, smoothstep(0.15, 0.85, l) * (0.85 + uResolve * 0.15));
+  vec3 ink = mix(uDim, uInk, smoothstep(0.05, 0.75, l) * (0.85 + uResolve * 0.15));
   float red = step(1.0 - uChaos * 0.18, hash21(cell * 1.3 + tick));
   ink = mix(ink, uRed, red * step(0.05, l));
   gl_FragColor = vec4(ink * a, 1.0);
@@ -125,7 +126,7 @@ void main(){
   float l = texture2D(uSrc, clamp((px + 0.5) * uPx / uRes, 0.0, 1.0)).r;
   l = pow(l, 1.15 - uResolve * 0.2);
   float th = bayer8(px) + (hash21(px + tick) - 0.5) * uChaos * 0.5;
-  float on = step(th, l * 0.98);
+  float on = step(th, l * 0.98) * step(0.03, l);
   vec3 ink = mix(uInk, uRed, tear * step(0.6, uChaos) * step(0.5, hash21(vec2(px.y, 9.0))));
   gl_FragColor = vec4(ink * on, 1.0);
 }`;
@@ -150,6 +151,7 @@ void main(){
   float diff = max(dot(N, L), 0.0);
   float rim = pow(1.0 - max(dot(N, V), 0.0), 2.6);
   vL = clamp((diff * 0.65 + rim * 0.45 + 0.05) * (0.75 + uLevel * 0.8 + uResolve * 0.2), 0.0, 1.2);
+  vL *= mix(0.12, 1.0, smoothstep(-0.15, 0.25, dot(N, V)));
   vRed = step(1.0 - uChaos * 0.22, hash11(aRand * 13.0 + floor(uTime * 4.0)));
   gl_PointSize = uPx * (0.6 + vL * 1.5) * (4.0 / -mv.z);
   gl_Position = projectionMatrix * mv;
