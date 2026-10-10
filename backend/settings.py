@@ -30,11 +30,18 @@ class Settings(BaseSettings):
 
     # --- providers ---
     stt_provider: Literal["stub"] = "stub"  # add "mlx_whisper", "elevenlabs", ... later
-    llm_provider: Literal["auto", "stub", "openai"] = "auto"  # auto = openai if key present
+    # LLM fraud analyzer. Presets + selection logic: providers/llm_presets.py.
+    # auto = nebius if NEBIUS_API_KEY, else nvidia if NVIDIA_API_KEY, else stub. "openai" = legacy alias of nebius.
+    llm_provider: Literal["auto", "stub", "openai", "nebius", "nvidia", "ollama"] = "auto"
     nebius_api_key: str = ""
-    llm_base_url: str = "https://api.studio.nebius.com/v1/"
-    llm_model: str = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-    llm_timeout_s: float = 8.0
+    nvidia_api_key: str = ""
+    llm_api_key: str = ""  # optional generic override for whichever preset is selected
+    llm_base_url: str = ""  # empty = preset default
+    llm_model: str = ""  # empty = preset default (confirm the id in the provider console)
+    llm_timeout_s: float = 3.0  # per call; on timeout the fraud detector falls back to keywords
+    llm_max_tokens: int = 220
+    llm_json_mode: bool = True  # response_format=json_object (auto-disabled if the endpoint rejects it)
+    llm_context_utterances: int = 16  # rolling transcript window sent to the LLM
     # In stub STT mode, read `<clip>.txt` next to a replayed WAV as the transcript.
     use_sidecar_transcripts: bool = True
 
@@ -52,9 +59,10 @@ class Settings(BaseSettings):
     customer_id: str = "CUST-004217"
 
     def resolved_llm_provider(self) -> str:
-        if self.llm_provider == "auto":
-            return "openai" if self.nebius_api_key else "stub"
-        return self.llm_provider
+        """Returns nebius, nvidia, ollama or stub: what make_llm will actually build."""
+        from providers.llm_presets import resolve_provider_name
+
+        return resolve_provider_name(self)
 
 
 @lru_cache
