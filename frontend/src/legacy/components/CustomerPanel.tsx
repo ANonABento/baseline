@@ -1,4 +1,4 @@
-import type { Customer } from "../types";
+import type { Customer } from "../../types";
 import { Panel } from "./Panel";
 
 export function CustomerPanel({ customer }: { customer: Customer | null }) {

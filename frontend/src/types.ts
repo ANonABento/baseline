@@ -83,6 +83,10 @@ export interface FraudPatternEvidence {
   utterance_id: number;
   source: string;
   suggested_agent_action: string;
+  /** one calm line the agent can read out (newer backends) */
+  say_this?: string;
+  /** source URL when the backend sends `source` as {name, url} */
+  source_url?: string;
 }
 
 export interface FraudEvidenceDetails {

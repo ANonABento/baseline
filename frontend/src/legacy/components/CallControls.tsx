@@ -1,4 +1,4 @@
-import type { Clip } from "../types";
+import type { Clip } from "../../types";
 import { IconMic, IconPlay, IconStop } from "./icons";
 import { cx, Panel } from "./Panel";
 

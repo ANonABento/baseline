@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { SIGNAL_LABEL } from "../analysis";
-import type { AlertEvent, SignalName } from "../types";
+import { SIGNAL_LABEL } from "../../analysis";
+import type { AlertEvent, SignalName } from "../../types";
 import { IconAlert, IconArrowRight, IconCheck, IconInfo, IconLink, IconX, SignalIcon } from "./icons";
 import { cx } from "./Panel";
 
