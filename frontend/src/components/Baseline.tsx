@@ -139,7 +139,9 @@ export function Baseline({ spikes = [], agitation = 0, ambient, pulse, cursor = 
           const wob = 1 + (reduced ? 0 : Math.sin(t * 9 + s.x * 40) * 0.06 * (s.tier === "flag" ? 1 : 0.3));
           y += e * Math.sin(dx * (1.15 / width) * 2.4) * AMP[s.tier] * maxA * ks[i] * wob * (s.id === act ? 1.15 : 1);
         }
-        return mid - y;
+        // overlapping spikes add up: squash softly into the canvas so peaks never clip
+        const lim = H / 2 - 3;
+        return mid - lim * Math.tanh(y / lim);
       };
 
       // cursor + elapsed span
