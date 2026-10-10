@@ -1,0 +1,96 @@
+{
+ "label": "EXPLORATORY",
+ "quick": false,
+ "datasets": [
+  "ravdess"
+ ],
+ "n_clips": 1440,
+ "n_speakers": 24,
+ "folds": 6,
+ "emotion_acc_by_dataset": {
+  "ravdess": {
+   "fused": 0.633,
+   "audio": 0.634,
+   "text": 0.128
+  }
+ },
+ "epochs": 40,
+ "device": "mps",
+ "table": {
+  "majority": {
+   "acc": 0.133
+  },
+  "logreg_scalars": {
+   "acc": 0.362,
+   "macro_f1": 0.33,
+   "ci95_over_speakers": [
+    0.331,
+    0.394
+   ]
+  },
+  "emotion_fused": {
+   "acc": 0.633,
+   "macro_f1": 0.628,
+   "ci95_over_speakers": [
+    0.579,
+    0.684
+   ]
+  },
+  "arousal_fused": {
+   "acc": 0.869,
+   "macro_f1": 0.868,
+   "ci95_over_speakers": [
+    0.833,
+    0.899
+   ]
+  },
+  "emotion_audio": {
+   "acc": 0.634,
+   "macro_f1": 0.629,
+   "ci95_over_speakers": [
+    0.578,
+    0.684
+   ]
+  },
+  "arousal_audio": {
+   "acc": 0.871,
+   "macro_f1": 0.87,
+   "ci95_over_speakers": [
+    0.838,
+    0.9
+   ]
+  },
+  "emotion_text": {
+   "acc": 0.128,
+   "macro_f1": 0.095,
+   "ci95_over_speakers": [
+    0.108,
+    0.15
+   ]
+  },
+  "arousal_text": {
+   "acc": 0.577,
+   "macro_f1": 0.55,
+   "ci95_over_speakers": [
+    0.55,
+    0.61
+   ]
+  },
+  "ece_emotion_fused": 0.024
+ },
+ "layer_weights_softmax": [
+  0.047,
+  0.064,
+  0.078,
+  0.094,
+  0.089,
+  0.14,
+  0.138,
+  0.109,
+  0.056,
+  0.044,
+  0.039,
+  0.053,
+  0.049
+ ]
+}
