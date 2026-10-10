@@ -1,0 +1,56 @@
+{
+ "label": "EXPLORATORY",
+ "n_clips": 1440,
+ "n_actors": 24,
+ "model": "microsoft/wavlm-base-plus (frozen)",
+ "tasks": {
+  "8-class emotion": {
+   "majority_baseline": 0.133,
+   "wavlm_layer3": {
+    "accuracy": 0.697,
+    "ci95_over_actors": [
+     0.642,
+     0.745
+    ]
+   },
+   "wavlm_layer6": {
+    "accuracy": 0.751,
+    "ci95_over_actors": [
+     0.705,
+     0.797
+    ]
+   },
+   "wavlm_layer9": {
+    "accuracy": 0.697,
+    "ci95_over_actors": [
+     0.656,
+     0.738
+    ]
+   }
+  },
+  "high vs low arousal": {
+   "majority_baseline": 0.533,
+   "wavlm_layer3": {
+    "accuracy": 0.832,
+    "ci95_over_actors": [
+     0.801,
+     0.861
+    ]
+   },
+   "wavlm_layer6": {
+    "accuracy": 0.872,
+    "ci95_over_actors": [
+     0.846,
+     0.897
+    ]
+   },
+   "wavlm_layer9": {
+    "accuracy": 0.876,
+    "ci95_over_actors": [
+     0.853,
+     0.899
+    ]
+   }
+  }
+ }
+}

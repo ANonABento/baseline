@@ -103,3 +103,12 @@ def test_bad_audio_never_raises(bad):
     assert vs.quality_problems(f)  # None or flagged (silence has no voiced speech)
     d = vs.assess(f, vs.SpeakerBaseline())
     assert d["status"] == "insufficient_evidence"
+
+
+def test_baseline_does_not_carry_over_between_calls():
+    det = ProsodyDetector()
+    c1, c2 = CallContext(), CallContext()  # pipeline makes a fresh CallContext per call
+    for i in range(4):
+        asyncio.run(det.analyze(Utterance(id=i, audio=voiced(150.0, seed=i), sample_rate=SR, t_start=i * 3.0, t_end=i * 3.0 + 2), c1))
+    r = asyncio.run(det.analyze(Utterance(id=0, audio=voiced(150.0, seed=1), sample_rate=SR, t_start=0.0, t_end=2.0), c2))
+    assert r.details["status"] == "building_baseline" and r.details["baseline_n"] == 1

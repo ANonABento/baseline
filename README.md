@@ -60,4 +60,15 @@ Needs `data/external/LibriSpeech/test-clean` (download from openslr.org, gitigno
 `SPOOF_PROVIDER=pretrained VAD_PROVIDER=silero SPEAKER_PROVIDER=ecapa STT_PROVIDER=stub LLM_PROVIDER=stub uv run --project backend --extra ml python scripts/eval.py --labels data/eval/labels_spoof.csv --note "..."`.
 First result (exploratory): the pretrained detector flags 40/40 `say` and 40/40 pitch-shifted fakes but also 15/40 real
 human clips (37.5%). The end-to-end false-alarm column is confounded by the speaker module on this set; read `p_fake`.
-No ElevenLabs or team-mic audio yet, so this does **not** show the live demo works.
+With 16 ElevenLabs `eleven_flash_v2_5` clips (4 stock voices, same transcripts; `scripts/make_elevenlabs_clips.py`) the spoof detector flags 12/16 (Wilson 95% CI 0.51 to 0.90). No real microphone or phone audio has been tested, so this does **not** show the live demo works and does not show real human mic audio is safe from false flags.
+
+## Voice-state signal and its limits (model side)
+
+Voice and content **signal summaries**, not lie detection: there is no deception or honesty output and none will be added. `backend/detectors/voice_state.py` (via the `prosody` signal) reports how an utterance's pitch, loudness, speech-rate proxy and pauses **differ from the same speaker's earlier delivery** (`details.delivery_change`, 0 to 1 or null; hedged `delivery_markers`; `status` is `ok`, `building_baseline` or `insufficient_evidence`; `calibration_status` is always `not_established`). A change can come from excitement, a noisy line, a new topic or a different microphone. The score is sign-agnostic, so any direction of change raises it.
+
+Exploratory evidence (open data only, no recordings of people; tables in `results/public_checks.md`, architecture in `docs/architecture.md`):
+- Held-out people, ordinary meeting speech (AMI): the shipped rule fired on a mean 9.5% of usable utterances per speaker-meeting session (95% CI 0.7 to 22.9%, 14 sessions from 9 speaker ids; median session 0%, one session 93%).
+- Acted emotion (RAVDESS, 12 held-out actors, single-clip rule): 79.9% of high-arousal clips flagged, 16.7% of held-out calm/neutral clips. Acted emotion is not real stress.
+- No open dataset has stress ground truth: S2 (change vs own baseline) is an unvalidated HYPOTHESIS. Thresholds were tuned on public data through three runs, so the held-out numbers are optimistic.
+- Robustness: splitting tune/report halves by meeting instead of person raised the AMI rate to 12.8% (CI 2.8 to 28.5%, 12 sessions), so 9.5% is probably optimistic. A frozen WavLM probe reaches 0.751 on acted 8-class emotion vs 0.430 for the hand-built features (not integrated).
+- Spoof: see the section above (15/40 real audiobook clips falsely flagged), so spoof or prosody alone should never drive a high alert.

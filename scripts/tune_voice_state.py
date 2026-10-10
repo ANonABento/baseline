@@ -21,6 +21,7 @@ then larger SUSTAIN_N (fewer false alarms). Earlier outputs are overwritten.
 
 from __future__ import annotations
 
+import argparse
 import itertools
 import json
 import sys
@@ -80,12 +81,19 @@ def ravdess_rates(rows, actors, n):
 
 
 def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--split", choices=("person", "meeting"), default="person",
+                    help="meeting = robustness check: halves share no meeting (and therefore no room/channel/topic)")
+    args = ap.parse_args()
     ami = pc.ami_utterances(30)
     rows = pc.ravdess_table(False)
-    spk_ids = sorted({sid for _, sid, _, _ in ami})  # split by PERSON, so no speaker is in both halves
+    key = 1 if args.split == "person" else 0  # tuple = (meeting, speaker, audio, feats)
+    spk_ids = sorted({x[key] for x in ami})  # person split: no speaker in both halves; meeting split: no meeting in both
     tune_ids = set(spk_ids[0::2])
-    tune_ami = [x for x in ami if x[1] in tune_ids]
-    rep_ami = [x for x in ami if x[1] not in tune_ids]
+    tune_ami = [x for x in ami if x[key] in tune_ids]
+    rep_ami = [x for x in ami if x[key] not in tune_ids]
+    if args.split == "meeting":  # people may repeat across meetings; report how many are in both halves
+        print("speaker ids in both halves:", len({x[1] for x in tune_ami} & {x[1] for x in rep_ami}))
     tune_act, rep_act = list(range(1, 13)), list(range(13, 25))
     grid = []
     for z, n, m, s in itertools.product((2.0, 2.5, 3.0, 4.0), (3, 5, 8), (1, 2), (2, 3)):
@@ -109,8 +117,9 @@ def main() -> None:
     out["git_sha"] = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=ROOT).stdout.strip() + "-dirty?"
     out["command"] = "python scripts/tune_voice_state.py"
     out["data_manifests"] = {n: json.loads((pc.EXT / n / "MANIFEST.json").read_text()) for n in ("ami", "ravdess")}
+    out["split"] = args.split
     out["n_ami_speaker_ids"] = {"tune": len(tune_ids), "report": len(spk_ids) - len(tune_ids)}
-    (ROOT / "results" / "tune_voice_state.json").write_text(json.dumps(out, indent=1))
+    (ROOT / "results" / ("tune_voice_state.json" if args.split == "person" else "tune_voice_state_meeting_split.json")).write_text(json.dumps(out, indent=1))
     print(json.dumps({"chosen": best, "report_half": report, "n_ok_settings": len(ok)}, indent=1))
 
 
