@@ -225,6 +225,7 @@ export class Stage {
           uHasTex: { value: this.videoTex ? 1 : 0 },
           uMask: { value: this.mask?.texture ?? null },
           uHasMask: { value: 0 },
+          uLevels: { value: new THREE.Vector2(0.08, 0.85) },
           uCover: { value: new THREE.Vector4(1, 1, 0, 0) },
         },
         depthTest: false,
@@ -334,6 +335,7 @@ export class Stage {
       u.uResolve.value = this.cur.resolve;
       if (u.uCover) u.uCover.value = this.cover();
       if (u.uHasMask) u.uHasMask.value += ((this.mask?.ready ? 1 : 0) - u.uHasMask.value) * Math.min(1, dt * 4);
+      if (u.uLevels && this.mask) u.uLevels.value.set(this.mask.levels[0], this.mask.levels[1]);
     };
     [this.headMat, this.srcMat, this.postMat].forEach(set);
 

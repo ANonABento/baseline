@@ -42,6 +42,10 @@ export class PersonMask {
   readonly texture: THREE.DataTexture;
   /** true once the first mask has landed */
   ready = false;
+  /** luminance [lo, hi] of the person (2nd / 98th percentile), smoothed; drives auto-levels */
+  levels: [number, number] = [0.08, 0.85];
+  private frame: CanvasRenderingContext2D | null = null;
+  private hist = new Uint32Array(64);
   private data = new Uint8Array(MW * MH);
   private acc = new Float32Array(MW * MH);
   private video: HTMLVideoElement;
@@ -106,7 +110,48 @@ export class PersonMask {
     }
     res.close();
     this.texture.needsUpdate = true;
+    this.measure();
     this.ready = true;
+  }
+
+  /** Luminance histogram of the masked pixels, at mask resolution. */
+  private measure() {
+    if (!this.frame) {
+      const c = document.createElement("canvas");
+      c.width = MW;
+      c.height = MH;
+      this.frame = c.getContext("2d", { willReadFrequently: true });
+      if (!this.frame) return;
+    }
+    this.frame.drawImage(this.video, 0, 0, MW, MH);
+    const px = this.frame.getImageData(0, 0, MW, MH).data;
+    const hist = this.hist;
+    hist.fill(0);
+    let n = 0;
+    for (let y = 0; y < MH; y++)
+      for (let x = 0; x < MW; x++) {
+        // mask rows are stored bottom-up
+        if (this.data[(MH - 1 - y) * MW + x] < 160) continue;
+        const i = (y * MW + x) * 4;
+        const l = (px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114) / 255;
+        hist[Math.min(63, Math.floor(l * 64))]++;
+        n++;
+      }
+    // too little of a person in frame: drift back to the fixed levels
+    let lo = 0.08;
+    let hi = 0.85;
+    if (n > MW * MH * 0.03) {
+      const pick = (q: number) => {
+        let acc = 0;
+        for (let b = 0; b < 64; b++) if ((acc += hist[b]) >= n * q) return (b + 0.5) / 64;
+        return 1;
+      };
+      lo = pick(0.02);
+      hi = Math.max(lo + 0.12, pick(0.98));
+    }
+    const k = this.ready ? 0.12 : 1;
+    this.levels[0] += (lo - this.levels[0]) * k;
+    this.levels[1] += (hi - this.levels[1]) * k;
   }
 
   retain() {

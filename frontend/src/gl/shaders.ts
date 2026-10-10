@@ -9,9 +9,16 @@ float vnoise(vec3 x){
   return mix(mix(mix(hash11(n+0.0), hash11(n+1.0), f.x), mix(hash11(n+57.0), hash11(n+58.0), f.x), f.y),
              mix(mix(hash11(n+113.0), hash11(n+114.0), f.x), mix(hash11(n+170.0), hash11(n+171.0), f.x), f.y), f.z);
 }
-// webcam person mask (selfie segmentation): 1 on the person, 0 on the background; on = 0 → no-op
-float personMask(sampler2D m, vec2 uv, float on){
-  return mix(1.0, smoothstep(0.3, 0.7, texture2D(m, uv).r), on);
+// webcam person mask (selfie segmentation): 1 on the person, 0 on the background
+float personMask(sampler2D m, vec2 uv){
+  return smoothstep(0.3, 0.7, texture2D(m, uv).r);
+}
+// silhouette edge from the mask gradient (mask is 160x120, so step ~1.5 texels)
+float personEdge(sampler2D m, vec2 uv){
+  vec2 d = vec2(1.5 / 160.0, 1.5 / 120.0);
+  float gx = texture2D(m, uv + vec2(d.x, 0.0)).r - texture2D(m, uv - vec2(d.x, 0.0)).r;
+  float gy = texture2D(m, uv + vec2(0.0, d.y)).r - texture2D(m, uv - vec2(0.0, d.y)).r;
+  return smoothstep(0.15, 0.45, length(vec2(gx, gy)));
 }
 `;
 
@@ -55,7 +62,7 @@ varying vec2 vUv;
 void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
 export const SOURCE_FRAG = /* glsl */ `
-uniform sampler2D uTex; uniform float uHasTex; uniform sampler2D uMask; uniform float uHasMask; uniform vec4 uCover; uniform float uTime; uniform float uLevel;
+uniform sampler2D uTex; uniform float uHasTex; uniform sampler2D uMask; uniform float uHasMask; uniform vec2 uLevels; uniform vec4 uCover; uniform float uTime; uniform float uLevel;
 varying vec2 vUv;
 ${NOISE}
 float field(vec2 uv){
@@ -69,9 +76,13 @@ void main(){
   if (uHasTex > 0.5) {
     vec2 uv = vec2(1.0 - vUv.x, vUv.y) * uCover.xy + uCover.zw;
     vec3 c = texture2D(uTex, uv).rgb;
-    l = dot(c, vec3(0.299, 0.587, 0.114));
-    l = smoothstep(0.08, 0.85, l);
-    l *= personMask(uMask, uv, uHasMask);
+    float raw = dot(c, vec3(0.299, 0.587, 0.114));
+    // with a mask: levels come from the person only (lo/hi percentiles), so a backlit or dim face
+    // still spans the dither range; a dotted outline keeps the silhouette readable against black
+    float person = clamp((raw - uLevels.x) / max(0.05, uLevels.y - uLevels.x), 0.0, 1.0);
+    person = smoothstep(0.0, 1.0, person * 0.92 + 0.04);
+    float masked = max(person * personMask(uMask, uv), personEdge(uMask, uv) * 0.5);
+    l = mix(smoothstep(0.08, 0.85, raw), masked, uHasMask);
   } else {
     l = field(vUv);
   }
