@@ -6,6 +6,8 @@ Baseline builds a **trust profile for voice interactions with stakes**: a credit
 
 **Demo:** scam-call simulation: a **human plays the scammer**, our AI pushes back and applies pressure (e.g. as the bank agent asking verification questions). The dashboard shows the scammer's signals and decisions as the call unfolds; at the end the observations are signed into a credential anyone can verify offline.
 
+**Demo status (code audit 2026-10-10):** the live call (`/call`, "You're the scammer") currently streams the transcript, fraud-pattern, speaker and spoof notes; the behavioural signals are computed (`voice_state.py`, `session_signals.py`) but not yet shown live, and the Digital Twin page, decision tagging during the call, credential issuance from the app and the notebook model are not wired in yet (credential works as a CLI: `scripts/credential.py`). Gaps and order of work: [docs/ui_spec_signals.md](docs/ui_spec_signals.md) §9.
+
 **Not a lie detector.** Deception is one possible reading of the signals, never a verdict; scores are uncalibrated model scores; a human decides; consent-based use only.
 
 *Context:* the build started as a real-time co-pilot for bank call-center agents (voice-clone account takeovers, customers coached by scammers: enrolled voice, spoof detection and an LLM fraud playbook, fused). That pipeline, the quickstart and the eval set below still apply.
@@ -13,7 +15,7 @@ Baseline builds a **trust profile for voice interactions with stakes**: a credit
 - [docs/baseline_master_plan.md](docs/baseline_master_plan.md): plan, architecture, 18-hour schedule
 - [docs/finetuning_plan.md](docs/finetuning_plan.md): model plan; two-stage signal model (signals first, optional deception readings), data, evaluation, safeguards
 - [docs/architecture.md](docs/architecture.md), [docs/ui_spec_signals.md](docs/ui_spec_signals.md): runtime, Digital Twin and credential contract
-- [docs/train_on_gpu_machine.md](docs/train_on_gpu_machine.md): full run of `notebooks/baseline_brief_architecture.ipynb` on the RTX 5090 (in progress)
+- [docs/train_on_gpu_machine.md](docs/train_on_gpu_machine.md): full run of `notebooks/baseline_brief_architecture.ipynb` on the RTX 5090 (done 2026-10-10; weights `data/models/baseline_brief_full.pt` via Git LFS, results `results/brief_architecture_full.json`)
 - [docs/recording_protocol.md](docs/recording_protocol.md): consent, safety and recording protocol for model data (draft, being revised)
 - [docs/event_info.md](docs/event_info.md): hackathon theme, judging, schedule
 - [docs/brain_dump.md](docs/brain_dump.md): original raw notes

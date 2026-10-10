@@ -47,7 +47,7 @@ Rules that keep V and C decoupled:
 
 What it is not: no deception key exists or will be added; the numbers are changes relative to the speaker's own earlier delivery, which can come from excitement, a noisy line, a new topic or a different microphone. **Calibration against real stress is not established** (no open dataset has stress ground truth), so S2 stays a `HYPOTHESIS` (the claim that no open dataset has stress ground truth rests on the survey in `research/open_datasets.md`, not re-verified).
 
-Not built (cut, with reason): response latency (needs both speakers' timing from C's pipeline), emotion estimate S1 (needs an encoder probe, workplan 2.2), content observations S4 (C).
+Built later (4b): response latency and the emotion estimate, as library code (`session_signals.py`, `ml/emotion.py`); not yet shown live in the UI (see `ui_spec_signals.md` §9). Not built: content observations S4 (C).
 
 ## 3. Data and evaluation
 
@@ -75,13 +75,13 @@ live call (C) -> per-utterance signals (V: prosody details incl. emotion_estimat
               -> call report JSON (C, caller/report.py)
               -> session_signals.analyse(report, pressure?)   (V)  -> report['behaviour']  (C stores)
               -> Digital Twin page (C): live state while the call runs, full summary at the end
-              -> scripts/credential.py issue (V logic; C calls at call end) -> credential JSON
+              -> scripts/credential.py issue (V logic; CLI today: no API endpoint or UI call at call end yet) -> credential JSON
               -> docs/verify.html (anyone, offline, WebCrypto Ed25519) or `credential.py verify`
 ```
 Signals added beyond the first four: response latency, talk-over count, talk-time share, mean turn length, hedges per 100 words, verification attempts, refusals, compliance phrases (keyword-based), delivery change by scripted pressure level (pressure is the scenario's own manipulation, so no stress label is needed), and the WavLM emotion estimate (acted-speech probe, `EMOTION_PROVIDER=wavlm`). Credential: payload = session id, SHA-256 of the report, signal summary, decisions, claims text; proof = Ed25519 over the exact signed text; issuer = `did:key`. The credential proves who signed which observations; it does not prove skill, honesty or suitability.
 
 ## 4c. Offline network: two-stage notebook (2026-10-10, not integrated)
-`notebooks/baseline_brief_architecture.ipynb`, trained on the RTX 5090 (results pending; [`train_on_gpu_machine.md`](train_on_gpu_machine.md)).
+`notebooks/baseline_brief_architecture.ipynb`, trained on the RTX 5090 on 2026-10-10 (weights `data/models/baseline_brief_full.pt`, results `results/brief_architecture_full.json`; summary and the known Stage A delivery bug in [`train_on_gpu_machine.md`](train_on_gpu_machine.md)).
 ```
 turn audio + transcript
   -> Stage A signal model: WavLM-base-plus (top 4 fine-tuned) + DeBERTa-v3-base (top 2) + acoustic scalars, modality dropout
