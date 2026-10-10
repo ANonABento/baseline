@@ -28,13 +28,15 @@ from datetime import datetime, timezone
 
 import numpy as np
 
+from caller import intervention
 from caller.brain import Brain
-from caller.personas import CUSTOMER, SCENARIOS, Persona
+from caller.personas import CUSTOMER, SCENARIOS, Persona, normalize_role
 from caller.recording import CallRecorder
 from caller.report import VERDICT_LABELS, save_report
-from caller.tts import TTSProvider
+from caller.tts import TTSProvider, baseline_voice
 from core import Utterance
-from events import Event, TranscriptEvent
+from detectors import client_risk
+from events import Event, SignalEvent, TranscriptEvent
 from pipeline import CallPipeline, pcm16_to_float
 from segmenter import Segmenter
 
@@ -51,7 +53,7 @@ class VisitorTurn:
     t_start: float
     t_end: float
     ready_at: float  # monotonic: when the turn's text was known
-    source: str  # "audio" | "text"
+    source: str  # "audio" | "text" | "resume" (carry on after Baseline spoke; not a visitor turn)
     vad_end_at: float | None = None  # monotonic: when the VAD closed the utterance (audio only)
     stt_ms: float | None = None
 
@@ -197,11 +199,29 @@ class LiveCall:
         self.customer_enrolled = customer_enrolled
         self.llm_info = llm_info
         self.on_end = on_end
-        self.role = session.role
-        # role agent: Baseline analyzes the AI caller; role scammer: the visitor's mic
-        self.analyzed_speaker = "ai" if self.role == "agent" else "visitor"
+        self.role = normalize_role(session.role)
+        self.scenario = SCENARIOS.get(session.scenario)
+        # role client: Baseline analyzes the AI caller (+ the visitor's words with client_risk);
+        # role scammer: the visitor's mic
+        self.analyzed_speaker = "ai" if self.role == "client" else "visitor"
         self.pipe = pipeline if pipeline is not None else CallPipeline(self._on_pipe_event, settings)
         self.pipe.emit = self._on_pipe_event
+        if self.role == "client" and not (self.scenario and self.scenario.claims_customer):
+            # the caller doesn't claim to be the enrolled customer: voice verification has nothing to compare
+            self.pipe.detectors = [d for d in self.pipe.detectors if d.name != "speaker"]
+        # interventions (role client)
+        self.policy = intervention.InterventionPolicy(min_gap_s=float(getattr(settings, "intervention_min_gap_s", 10.0)))
+        self.interventions: list[dict] = []
+        self.actions: list[dict] = []
+        self.suspect_t: float | None = None
+        self.first_flag_t: float | None = None
+        self.first_high_t: float | None = None
+        self._ai_gate = asyncio.Event()  # cleared while Baseline speaks: the AI caller must not talk
+        self._ai_gate.set()
+        self._gate_opened_at = 0.0
+        self._baseline_task: asyncio.Task | None = None
+        self._deferred_task: asyncio.Task | None = None
+        self.baseline_audio_s = 0.0
         self.col = Collected()
         self.t0 = time.monotonic()
         self.turn_q: asyncio.Queue[VisitorTurn] = asyncio.Queue()
@@ -255,11 +275,31 @@ class LiveCall:
         return d
 
     async def _emit_unanalyzed(self, speaker: str, text: str, t_start: float, t_end: float,
-                               latency_ms: float | None = None) -> None:
+                               latency_ms: float | None = None) -> int:
         uid = self._next_unanalyzed
         self._next_unanalyzed += 1
         await self.send_json(self._transcript(utterance_id=uid, speaker=speaker, analyzed=False, text=text,
                                               t_start=t_start, t_end=t_end, latency_ms=latency_ms))
+        return uid
+
+    async def _visitor_line(self, text: str, t_start: float, t_end: float, latency_ms: float | None = None) -> None:
+        """A visitor line that skips the audio pipeline (role client). Baseline still checks the
+        client's own words (client_risk) and fuses that soft signal with the caller's."""
+        uid = await self._emit_unanalyzed("visitor", text, t_start, t_end, latency_ms)
+        if self.role != "client" or self._ending:
+            return
+        t0 = time.perf_counter()
+        caller = [x["text"] for x in self.col.transcript if x["speaker"] == "ai"][-2:]
+        r = client_risk.assess(text, caller)
+        f = self.pipe.fusion
+        f.update(r)
+        await self._on_pipe_event(SignalEvent(**r.model_dump(), utterance_id=uid,
+                                              latency_ms=round((time.perf_counter() - t0) * 1000, 2)))
+        await self._on_pipe_event(f.trust_event(uid))
+        alert = f.alert_if_changed()
+        if alert is not None:
+            self.pipe.last_alert = alert
+            await self._on_pipe_event(alert)
 
     async def _on_pipe_event(self, ev: Event) -> None:
         d = ev.model_dump()
@@ -278,11 +318,123 @@ class LiveCall:
             self.col.trust.append(d | {"t": t})
         elif ev.type == "alert":
             self.col.alerts.append(d | {"t": t})
+            if ev.level != "none" and self.first_flag_t is None:
+                self.first_flag_t = t
+            if ev.level == "high" and self.first_high_t is None:
+                self.first_high_t = t
+            await self.send_json(d)
+            if self.role == "client":
+                await self._consider_intervention(ev.level)
+            return
         elif ev.type == "status":
             if d.get("state") == "error":
                 self.col.errors.append(d.get("message", ""))
             return  # not part of the live contract
         await self.send_json(d)
+
+    # ------------------------------------------------------------------ interventions (role client)
+
+    def _reasons(self) -> list[str]:
+        f = self.pipe.fusion
+        pats = set(f.evidence["fraud"].patterns) if "fraud" in f.evidence else set()
+        cl = f.evidence.get("client")
+        kind = cl.details.get("kind") if cl else None
+        rid = cl.details.get("reason_id") if cl else None
+        asked = cl.details.get("asked") if cl else None
+        return intervention.candidates(pats, kind, rid, self.session.scenario, f.evidence.keys(), asked)
+
+    async def _consider_intervention(self, level: str) -> None:
+        if self._ending:
+            return
+        d = self.policy.decide(level, self._reasons(), self.now())
+        if d.reason_id is not None:
+            await self._intervene(level, d.reason_id)
+        elif d.defer_s is not None and (self._deferred_task is None or self._deferred_task.done()):
+            async def later(delay: float) -> None:
+                await asyncio.sleep(delay + 0.05)
+                await self._consider_intervention(self.pipe.fusion.level)
+            self._deferred_task = asyncio.create_task(later(d.defer_s))
+
+    async def _intervene(self, level: str, reason_id: str) -> None:
+        t = self.now()
+        self.policy.record(level, reason_id, t)
+        speak = level == "high" and (self._baseline_task is None or self._baseline_task.done())
+        # introduce Baseline the first time it shows up, and the first time it speaks
+        first = not self.interventions or (speak and not any(i["spoken"] for i in self.interventions))
+        message = intervention.message_for(reason_id, first=first)
+        self.interventions.append({"t": t, "level": level, "reason_id": reason_id, "message": message, "spoken": speak})
+        await self.send_json({"type": "intervention", "level": level, "message": message, "reason_id": reason_id})
+        if level == "high" and not self.actions:
+            for a in intervention.ACTIONS:
+                self.actions.append({"t": self.now(), "kind": a["kind"], "message": a["message"]})
+                await self.send_json(dict(a))
+        if speak:
+            self._baseline_task = asyncio.create_task(self._speak_baseline(message, reason_id), name="baseline-voice")
+
+    async def _speak_baseline(self, text: str, reason_id: str) -> None:
+        """Baseline's voice, to the visitor only: pause the AI caller, then stream TTS frames between
+        baseline_audio_start / baseline_audio_end. Never added to the fraudster's history or the pipeline."""
+        self._ai_gate.clear()
+        started = False
+        resume = False
+        try:
+            if self.ai_task is not None and not self.ai_task.done():
+                resume = True  # the caller was mid-reply: let it carry on after Baseline has spoken
+                self.ai_task.cancel()  # sends stop_audio; the cut line is recorded as interrupted
+                await asyncio.wait({self.ai_task})
+            st = self.settings
+            sr = st.sample_rate
+            chunk = int(sr * st.audio_chunk_ms / 1000) * 2
+            lead = st.audio_lead_ms / 1000
+            await self.send_json({"type": "baseline_audio_start", "reason_id": reason_id, "text": text,
+                                  "sample_rate": sr})
+            started = True
+            buf = bytearray()
+            next_at: float | None = None
+            total = 0
+
+            async def send(frame: bytes) -> None:
+                nonlocal next_at, total
+                now = time.monotonic()
+                next_at = now if next_at is None else max(next_at, now)
+                wait = (next_at - now) - lead
+                if wait > 0:
+                    await asyncio.sleep(wait)
+                await self.send_bytes(frame)
+                next_at += len(frame) / 2 / sr
+                total += len(frame) // 2
+
+            async for pcm in self.tts.stream(text, baseline_voice(self.tts, self.settings)):
+                buf += pcm
+                while len(buf) >= chunk:
+                    frame = bytes(buf[:chunk])
+                    del buf[:chunk]
+                    await send(frame)
+            if len(buf) >= 2:
+                await send(bytes(buf[: len(buf) - len(buf) % 2]))
+            if next_at is not None:
+                delay = next_at - time.monotonic()
+                if delay > 0:
+                    await asyncio.sleep(delay)
+            self.baseline_audio_s += total / sr
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            log.exception("Baseline voice failed")
+            self.col.errors.append(f"Baseline voice failed: {e}")
+        finally:
+            if started:
+                await self.send_json({"type": "baseline_audio_end", "reason_id": reason_id})
+            self._ai_gate.set()
+            self._gate_opened_at = time.monotonic()
+            if resume and not self._ending:
+                self.turn_q.put_nowait(VisitorTurn("", self.now(), self.now(), time.monotonic(), "resume"))
+
+    async def suspect(self) -> None:
+        """The visitor pressed "This feels like a scam" (recorded once)."""
+        if self.suspect_t is None and not self._ending:
+            self.suspect_t = self.now()
+        await self.send_json({"type": "suspect_ack", "t": self.suspect_t})
 
     # ------------------------------------------------------------------ lifecycle
 
@@ -292,7 +444,21 @@ class LiveCall:
                 "customer": {"id": CUSTOMER.id, "name": CUSTOMER.name, "account_mask": CUSTOMER.account_mask,
                              "enrolled": self.customer_enrolled},
                 "audio": {"sample_rate": self.settings.sample_rate, "format": "pcm_s16le"},
-                "max_call_s": int(self.settings.max_call_seconds)}
+                "max_call_s": int(self.settings.max_call_seconds),
+                "scenario_label": self.scenario.label if self.scenario else None,
+                "visitor_as": self._visitor_as()}
+
+    def _visitor_as(self) -> str:
+        if self.role == "scammer":
+            return f"Posing as {CUSTOMER.name}"
+        if self.session.scenario == "grandchild":
+            return f"{CUSTOMER.name}'s grandparent"
+        return CUSTOMER.name
+
+    def you_vs_baseline(self) -> dict:
+        return {"visitor_flag_t": self.suspect_t, "baseline_flag_t": self.first_flag_t,
+                "baseline_high_t": self.first_high_t,
+                "interventions": len(self.interventions), "actions": [a["kind"] for a in self.actions]}
 
     async def start(self) -> None:
         self.t0 = time.monotonic()
@@ -305,7 +471,7 @@ class LiveCall:
         await self.send_json(self.call_started_event())
         self._tasks = [asyncio.create_task(self._turn_worker(), name="turns"),
                        asyncio.create_task(self._timer(), name="timer")]
-        if self.role == "agent":
+        if self.role == "client":
             self._tasks.append(asyncio.create_task(self._stt_worker(), name="stt"))
 
     async def _timer(self) -> None:
@@ -340,7 +506,7 @@ class LiveCall:
             self.barge_in()
         for seg in segs:
             self._last_vad_end_at = time.monotonic()
-            if self.role == "agent":
+            if self.role == "client":
                 self.stt_q.put_nowait((seg, self._last_vad_end_at))
         if segs or (self.visitor_speaking and not in_speech):
             if self.visitor_speaking:
@@ -355,7 +521,7 @@ class LiveCall:
         if self.role == "scammer":
             self.pipe.feed_text(text, t, t)  # transcript comes back through _on_pipe_event -> turn queue
         else:
-            await self._emit_unanalyzed("visitor", text, t, t)
+            await self._visitor_line(text, t, t)
             self.turn_q.put_nowait(VisitorTurn(text, t, t, time.monotonic(), "text"))
 
     async def _stt_worker(self) -> None:
@@ -377,7 +543,7 @@ class LiveCall:
             stt_ms = round((time.perf_counter() - t) * 1000, 1)
             if not text or self._ending:
                 continue
-            await self._emit_unanalyzed("visitor", text, t_start, t_end, stt_ms)
+            await self._visitor_line(text, t_start, t_end, stt_ms)
             self.turn_q.put_nowait(VisitorTurn(text, t_start, t_end, time.monotonic(), "audio",
                                                vad_end_at=vad_end, stt_ms=stt_ms))
 
@@ -403,7 +569,9 @@ class LiveCall:
                 turns.append(self.turn_q.get_nowait())
             for t in turns:
                 self.brain.add_visitor(t.text)
-            await self._run_ai_turn(turns[-1])
+            await self._ai_gate.wait()  # Baseline is speaking to the client
+            real = [t for t in turns if t.source != "resume"]
+            await self._run_ai_turn(real[-1] if real else None)
 
     async def _run_ai_turn(self, turn: VisitorTurn | None, fixed: str | None = None) -> None:
         self.ai_task = asyncio.create_task(self._ai_turn(turn, fixed))
@@ -419,6 +587,7 @@ class LiveCall:
         timing = None
         if turn is not None:
             ref = turn.vad_end_at if (turn.source == "audio" and turn.vad_end_at) else turn.ready_at
+            ref = max(ref, self._gate_opened_at)  # time Baseline spent speaking is not reply latency
             timing = TurnTiming(turn=len(self.col.turns) + 1, source=turn.source, start_at=ref,
                                 vad_end_at=turn.vad_end_at, stt_ms=turn.stt_ms)
             self.col.turns.append(timing)
@@ -484,7 +653,7 @@ class LiveCall:
                 # earlier by the LLM + TTS latency), so report playback and the transcript line up
                 t_start = round(play_off, 2)
                 t_end = round(play_off + len(audio) / self.settings.sample_rate, 2)
-                if self.role == "agent":
+                if self.role == "client":
                     # Baseline analyzes the caller channel: the AI's own audio, with its script as text
                     self.pipe.feed_utterance(audio, t_start, t_end, text=spoken)
                 else:
@@ -499,6 +668,11 @@ class LiveCall:
             return self.report_id
         self._ending = True
         self.end_reason = reason
+        for t in (self._deferred_task, self._baseline_task):
+            if t is not None and not t.done():
+                t.cancel()
+                with suppress(asyncio.CancelledError, Exception):
+                    await t
         if self.ai_task is not None and not self.ai_task.done():
             self.ai_task.cancel()
             with suppress(asyncio.CancelledError, Exception):
@@ -526,7 +700,9 @@ class LiveCall:
         await self.send_json({"type": "call_ended", "reason": reason, "report_id": self.report_id,
                               "reveal": {"role": self.role, "scenario": self.session.scenario,
                                          "persona_label": self.persona.label, "voice": self.session.voice,
-                                         "tts": self.tts.name}})
+                                         "tts": self.tts.name, "summary": self.persona.summary,
+                                         "you_vs_baseline": self.you_vs_baseline(),
+                                         "interventions": self.interventions, "actions": self.actions}})
         with suppress(Exception):
             await self.pipe.close()
         if self.on_end is not None:
@@ -582,6 +758,10 @@ class LiveCall:
             "signals": self.col.signals,
             "trust": self.col.trust,
             "alerts": self.col.alerts,
+            "interventions": self.interventions,
+            "actions": self.actions,
+            "suspicion": {"t": self.suspect_t},
+            "you_vs_baseline": self.you_vs_baseline(),
             "verdict": {
                 "level": f.level if f.level != "none" else alert.level,
                 "label": VERDICT_LABELS.get(alert.level, alert.level),

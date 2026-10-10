@@ -97,8 +97,9 @@ class Settings(BaseSettings):
     fire_threshold: float = 0.5  # a signal "fires" when score >= this and confidence >= min_conf
     fire_min_confidence: float = 0.3
 
-    # --- enrolled customer shown on the dashboard (placeholder) ---
-    customer_name: str = "Margaret Chen"
+    # --- the bank's client (live calls: the person Baseline protects; dashboard: enrolled customer) ---
+    # Speaker verification compares against data/enroll/<customer_id>.npy (scripts/enroll.py).
+    customer_name: str = "Kevin"
     customer_id: str = "CUST-004217"
 
     # --- live "try it" calls (sessions.py, caller/, live_api.py) ---
@@ -115,8 +116,15 @@ class Settings(BaseSettings):
     # optional list of cloned voices: "Label:voice_id,Label 2:voice_id2" (replaces the premade list)
     elevenlabs_voices: str = ""
     elevenlabs_model: str = "eleven_flash_v2_5"
+    # Baseline's own voice for spoken interventions (role client, level high). Never offered as a caller voice.
+    baseline_voice_id: str = "EXAVITQu4vr4xnSDxMaL"  # ElevenLabs "Sarah", calm
+    baseline_say_voice: str = "Samantha"  # used when TTS is macOS `say`
+    intervention_min_gap_s: float = 10.0  # at most one intervention per this many seconds (new reasons)
     # Persona LLM for the AI caller / AI bank agent (OpenAI-compatible presets, providers/llm_presets.py)
-    caller_llm_provider: Literal["stub", "nebius", "nvidia", "ollama"] = "ollama"
+    # auto = nebius if NEBIUS_API_KEY else ollama (independent of the fraud analyzer's LLM_PROVIDER)
+    caller_llm_provider: Literal["auto", "stub", "nebius", "nvidia", "ollama"] = "auto"
+    caller_llm_reasoning_effort: str = ""  # empty = preset default (nebius gpt-oss: low, ollama: none)
+    caller_llm_first_timeout_s: float = 4.0  # no first sentence by then -> Ollama for this turn
     caller_llm_base_url: str = ""
     caller_llm_model: str = ""
     caller_llm_timeout_s: float = 10.0

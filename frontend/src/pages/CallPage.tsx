@@ -19,6 +19,7 @@ export function CallPage() {
             state={state}
             aiLevel={s.aiLevel}
             onHangup={s.hangup}
+            onSuspect={s.suspect}
             onText={s.sendText}
             onPcm={s.sendPcm}
             onBargeIn={s.bargeIn}

@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 
 import live_api
 from caller.brain import StubBrain
-from caller.personas import SCENARIOS, build_persona, clean_line, split_sentences
+from caller.personas import CLIENT_SCENARIOS, SCAMMER_SCENARIOS, SCENARIOS, build_persona, clean_line, split_sentences
 from caller.tts import ElevenLabsTTS, MacSayTTS, StubTTS, make_tts, parse_voice_list
 from providers.base import STTProvider
 from sessions import SessionManager
@@ -116,15 +116,25 @@ async def test_unattached_session_expires_and_bad_attach():
 # ----------------------------------------------------------------------------- personas
 
 
-@pytest.mark.parametrize("scenario", list(SCENARIOS))
+@pytest.mark.parametrize("scenario", list(CLIENT_SCENARIOS))
 def test_fraudster_persona_prompt(scenario):
-    p = build_persona("agent", scenario)
+    p = build_persona("client", scenario)
+    assert build_persona("agent", scenario) == p  # deprecated alias
     sp = p.system_prompt
     assert "AUTHORIZED FRAUD-TRAINING SIMULATION" in sp
-    assert "Margaret Chen" in sp and SCENARIOS[scenario].goals in sp
+    assert "Kevin" in sp and SCENARIOS[scenario].goals in sp and "Margaret" not in sp
     assert "two short sentences" in sp and "never break character" in sp
     assert p.openers and p.stub_lines and p.summary
     assert p.label.startswith("AI fraudster")
+    assert p.role == "client"
+
+
+def test_grandchild_persona_addresses_the_grandparent():
+    p = build_persona("client", "grandchild")
+    assert "GRANDPARENT" in p.system_prompt and "Grandma" in p.system_prompt
+    assert CLIENT_SCENARIOS["grandchild"].claims_customer and CLIENT_SCENARIOS["grandchild"].clone_voice
+    assert not CLIENT_SCENARIOS["fake_bank"].claims_customer
+    assert all(s.role == "scammer" for s in SCAMMER_SCENARIOS.values())
 
 
 def test_bank_agent_persona_follows_verification():
@@ -137,7 +147,7 @@ def test_bank_agent_persona_follows_verification():
 
 
 def test_clean_line_and_sentence_split():
-    assert clean_line('Margaret: *sighs* "Okay. Two. Three."') == "Okay. Two."
+    assert clean_line('Kevin: *sighs* "Okay. Two. Three."') == "Okay. Two."
     assert clean_line("<think>hmm</think>Hi there, it's me.") == "Hi there, it's me."
     done, rest = split_sentences("Hi. I lost my phone. And I need")
     assert done == ["Hi. I lost my phone."] and rest == "And I need"
@@ -161,10 +171,12 @@ def test_tts_fallback_selection(monkeypatch):
 
 
 def test_elevenlabs_voice_list():
-    assert parse_voice_list("Margaret (clone):abc, Daniel:def,  ,ghi") == [
-        {"id": "abc", "label": "Margaret (clone)"}, {"id": "def", "label": "Daniel"}, {"id": "ghi", "label": "ghi"}]
+    assert parse_voice_list("Kevin (clone):abc, Daniel:def,  ,ghi") == [
+        {"id": "abc", "label": "Kevin (clone)"}, {"id": "def", "label": "Daniel"}, {"id": "ghi", "label": "ghi"}]
     t = make_tts(Settings(elevenlabs_api_key="k", elevenlabs_voices="A:abc,B:def", elevenlabs_voice_id="def"))
-    assert [v["id"] for v in t.voices()] == ["def", "abc"] and t.default_voice() == "def"
+    assert [v["id"] for v in t.voices()][:2] == ["def", "abc"] and t.default_voice() == "def"
+    assert "CwhRBWXzGAHq8TQ4Fs17" in [v["id"] for v in t.voices()]  # stock caller voices stay available
+    assert t.valid_voice("EXAVITQu4vr4xnSDxMaL") and "EXAVITQu4vr4xnSDxMaL" not in [v["id"] for v in t.voices()]
     t = make_tts(Settings(elevenlabs_api_key="k", elevenlabs_voices="A:abc,B:def"))
     assert t.default_voice() == "abc"
     t = make_tts(Settings(elevenlabs_api_key="k", elevenlabs_voice_id="zzz"))
@@ -241,31 +253,40 @@ def test_config_and_session_validation(tmp_path):
     client, svc = make_client(tmp_path)
     with client:
         c = client.get("/api/config").json()
-        assert c["roles"] == ["agent", "scammer"]
+        assert c["roles"] == ["client", "scammer"]
         assert {s["id"] for s in c["scenarios"]} == set(SCENARIOS)
-        assert all(set(s) == {"id", "label"} for s in c["scenarios"])
+        assert all(set(s) == {"id", "label", "role", "brief"} for s in c["scenarios"])
+        assert c["customer"]["name"] == "Kevin"
+        assert {s["id"] for s in c["scenarios"] if s["role"] == "client"} == {"fake_bank", "grandchild", "irs",
+                                                                              "tech_support"}
         assert c["voices"] == svc.tts.voices()
         assert c["max_concurrent"] == 1 and c["queue_length"] == 0 and c["active_calls"] == 0
         assert c["tts"] == "stub" and set(c["llm"]) == {"provider", "model"}
         assert client.post("/api/session", json={"role": "pilot"}).status_code == 400
         assert client.post("/api/session", json={"scenario": "nope"}).status_code == 400
         assert client.post("/api/session", json={"voice": "nope"}).status_code == 400
+        assert client.post("/api/session", json={"role": "scammer", "scenario": "grandchild"}).status_code == 400
         sid = new_session(client)  # all random
         s = svc.manager.get(sid)
-        assert s.role in ("agent", "scammer") and s.scenario in SCENARIOS
+        assert s.role in ("client", "scammer") and SCENARIOS[s.scenario].role == s.role
+        s = svc.manager.get(new_session(client, role="agent"))  # deprecated alias
+        assert s.role == "client" and s.scenario in CLIENT_SCENARIOS
+        s = svc.manager.get(new_session(client, scenario="grandchild"))  # scenario implies the role
+        assert s.role == "client"
         assert client.get("/api/report/does-not-exist").status_code == 404
 
 
-def test_role_agent_full_call_contract(tmp_path):
+def test_role_client_full_call_contract(tmp_path):
     client, svc = make_client(tmp_path)
     with client:
-        sid = new_session(client, role="agent", scenario="account_takeover", voice="stub-a")
+        sid = new_session(client, role="client", scenario="fake_bank", voice="stub-a")
         with client.websocket_connect(f"/ws/session/{sid}") as ws:
             seen = recv_until(ws, lambda m: m["type"] == "call_started")
             q = jsons(seen, "queue")
             assert q and set(q[0]) == {"type", "position", "queue_length", "eta_s"}
             cs = jsons(seen, "call_started")[0]
-            assert cs["session_id"] == sid and cs["role"] == "agent" and cs["scenario"] == "account_takeover"
+            assert cs["session_id"] == sid and cs["role"] == "client" and cs["scenario"] == "fake_bank"
+            assert cs["visitor_as"] == "Kevin" and cs["scenario_label"]
             assert cs["voice"] == "stub-a" and cs["max_call_s"] == 240
             assert cs["audio"] == {"sample_rate": 16000, "format": "pcm_s16le"}
             assert set(cs["customer"]) == {"id", "name", "account_mask", "enrolled"}
@@ -276,10 +297,11 @@ def test_role_agent_full_call_contract(tmp_path):
             assert {"type": "speaking", "who": "ai", "state": "start"} in seen
             assert {"type": "speaking", "who": "ai", "state": "end"} in seen
             t = jsons(seen, "transcript")[-1]
-            assert t["analyzed"] is True and "Margaret" in t["text"] and t["utterance_id"] == 0
+            assert t["analyzed"] is True and "Kevin" in t["text"] and t["utterance_id"] == 0
             assert all(0 <= m["rms"] <= 1 for m in jsons(seen, "ai_level"))
             seen = recv_until(ws, lambda m: m["type"] == "trust")
-            assert {m["signal"] for m in jsons(seen, "signal")} >= {"fraud", "speaker", "spoof"}
+            sigs = {m["signal"] for m in jsons(seen, "signal")}
+            assert sigs >= {"fraud", "spoof"} and "speaker" not in sigs  # the caller doesn't claim to be Kevin
 
             # typed visitor turn -> unanalyzed transcript -> AI replies (analyzed)
             ws.send_text(json.dumps({"type": "text", "text": "Sure. Can you confirm your date of birth?"}))
@@ -287,19 +309,21 @@ def test_role_agent_full_call_contract(tmp_path):
             vis = [m for m in jsons(seen, "transcript") if m["speaker"] == "visitor"]
             assert vis and vis[0]["analyzed"] is False and vis[0]["utterance_id"] >= 1000
             ws.send_text(json.dumps({"type": "text", "text": "Okay, what else?"}))
-            seen = recv_until(ws, lambda m: m["type"] == "alert")
+            seen = recv_until(ws, lambda m: m["type"] == "transcript" and m.get("speaker") == "ai")
             ws.send_text(json.dumps({"type": "ping"}))
             ws.send_text(json.dumps({"type": "hangup"}))
             seen = recv_until(ws, lambda m: m["type"] == "call_ended")
             end = jsons(seen, "call_ended")[0]
             assert end["reason"] == "hangup" and end["report_id"] == sid
-            assert set(end["reveal"]) == {"role", "scenario", "persona_label", "voice", "tts"}
-            assert end["reveal"]["tts"] == "stub" and end["reveal"]["scenario"] == "account_takeover"
+            assert set(end["reveal"]) >= {"role", "scenario", "persona_label", "voice", "tts", "summary",
+                                          "you_vs_baseline", "interventions", "actions"}
+            assert end["reveal"]["tts"] == "stub" and end["reveal"]["scenario"] == "fake_bank"
 
         r = client.get(f"/api/report/{sid}").json()
         assert set(r) >= {"id", "created_at", "ended_reason", "meta", "durations", "transcript", "signals", "trust",
                           "alerts", "verdict", "fraud_evidence", "latencies", "errors"}
-        assert r["meta"]["role"] == "agent" and r["meta"]["analyzed_channel"] == "ai"
+        assert r["meta"]["role"] == "client" and r["meta"]["analyzed_channel"] == "ai"
+        assert set(r) >= {"interventions", "actions", "suspicion", "you_vs_baseline"}
         assert r["meta"]["persona"]["label"].startswith("AI fraudster")
         assert {x["speaker"] for x in r["transcript"]} == {"ai", "visitor"}
         assert r["verdict"]["level"] in ("caution", "high") and r["verdict"]["caught"] is True
@@ -307,7 +331,7 @@ def test_role_agent_full_call_contract(tmp_path):
         assert r["latencies"]["turns"] and r["latencies"]["turns"][0]["visitor_end_to_first_audio_ms"] is not None
         assert r["durations"]["call_s"] > 0
         lst = client.get("/api/reports?limit=5").json()
-        assert lst[0]["id"] == sid and lst[0]["role"] == "agent"
+        assert lst[0]["id"] == sid and lst[0]["role"] == "client"
         assert svc.manager.active_calls == 0
 
 
@@ -320,7 +344,7 @@ def test_role_scammer_text_is_analyzed(tmp_path):
             seen = recv_until(ws, lambda m: m["type"] == "transcript")
             ai = jsons(seen, "transcript")[0]
             assert ai["speaker"] == "ai" and ai["analyzed"] is False and "First Harbor" in ai["text"]
-            ws.send_text(json.dumps({"type": "text", "text": "This is Margaret. I lost my phone, please change "
+            ws.send_text(json.dumps({"type": "text", "text": "This is Kevin. I lost my phone, please change "
                                      "my phone number and wire nine thousand dollars to my contractor today, it's urgent."}))
             seen = recv_until(ws, lambda m: m["type"] == "alert")
             vis = [m for m in jsons(seen, "transcript") if m["speaker"] == "visitor"]
@@ -338,10 +362,10 @@ def tone(seconds, amp=0.3):
     return (amp * np.sin(2 * np.pi * 200 * t) * 32767).astype("<i2").tobytes()
 
 
-def test_role_agent_mic_audio_goes_through_stt(tmp_path):
+def test_role_client_mic_audio_goes_through_stt(tmp_path):
     client, svc = make_client(tmp_path)
     with client:
-        sid = new_session(client, role="agent", scenario="safe_account", voice="stub-b")
+        sid = new_session(client, role="client", scenario="irs", voice="stub-b")
         with client.websocket_connect(f"/ws/session/{sid}") as ws:
             recv_until(ws, lambda m: m["type"] == "call_started")
             recv_until(ws, lambda m: m["type"] == "speaking" and m["who"] == "ai" and m["state"] == "end")
@@ -375,7 +399,7 @@ def test_call_audio_recording(tmp_path, record):
     with client:
         assert client.get("/api/report/does-not-exist/audio").status_code == 404
         assert client.get("/api/report/bad..id/audio").status_code == 404
-        sid = new_session(client, role="agent", scenario="safe_account", voice="stub-b", record_audio=record)
+        sid = new_session(client, role="client", scenario="fake_bank", voice="stub-b", record_audio=record)
         assert svc.manager.get(sid).requested["record_audio"] is record
         with client.websocket_connect(f"/ws/session/{sid}") as ws:
             recv_until(ws, lambda m: m["type"] == "speaking" and m["who"] == "ai" and m["state"] == "end")
@@ -412,7 +436,7 @@ def test_call_audio_write_failure_keeps_report(tmp_path, monkeypatch):
     monkeypatch.setattr(CallRecorder, "write_wav", boom)
     client, svc = make_client(tmp_path)
     with client:
-        sid = new_session(client, role="agent", scenario="safe_account", voice="stub-b")
+        sid = new_session(client, role="client", scenario="fake_bank", voice="stub-b")
         with client.websocket_connect(f"/ws/session/{sid}") as ws:
             recv_until(ws, lambda m: m["type"] == "speaking" and m["who"] == "ai" and m["state"] == "end")
             ws.send_text(json.dumps({"type": "hangup"}))
@@ -438,7 +462,7 @@ def test_barge_in_stops_ai_audio(tmp_path):
     client, svc = make_client(tmp_path, barge_in_ms=200, audio_lead_ms=100)
     svc.tts = StubTTS(seconds_per_word=0.5, max_seconds=4.0)  # long opener so we can interrupt it
     with client:
-        sid = new_session(client, role="agent", scenario="account_takeover", voice="stub-a")
+        sid = new_session(client, role="client", scenario="fake_bank", voice="stub-a")
         with client.websocket_connect(f"/ws/session/{sid}") as ws:
             recv_until(ws, lambda m: m["type"] == "speaking" and m["who"] == "ai" and m["state"] == "start")
             for i in range(0, 16000, 3200):
@@ -452,7 +476,7 @@ def test_barge_in_stops_ai_audio(tmp_path):
 def test_queue_two_clients_and_timeout(tmp_path):
     client, svc = make_client(tmp_path, max_call_seconds=3, call_warning_seconds=1)
     with client:
-        a = new_session(client, role="agent", scenario="verification_evasion", voice="stub-a")
+        a = new_session(client, role="client", scenario="tech_support", voice="stub-a")
         b = new_session(client, role="scammer", scenario="random", voice="stub-b")
         with client.websocket_connect(f"/ws/session/{a}") as wa:
             recv_until(wa, lambda m: m["type"] == "call_started")
@@ -526,8 +550,8 @@ async def _reply(persona, text, fail=False):
 
 
 async def test_llm_brain_two_sentences_reasoning_off_and_history():
-    p = build_persona("agent", "account_takeover")
-    out, client, b = await _reply(p, "Margaret: Sure thing. I lost my phone yesterday. Third sentence. Fourth.")
+    p = build_persona("client", "fake_bank")
+    out, client, b = await _reply(p, "Alex: Sure thing. I lost my phone yesterday. Third sentence. Fourth.")
     assert out == ["Sure thing.", "I lost my phone yesterday."]
     assert client.kwargs["reasoning_effort"] == "none" and client.kwargs["stream"] is True
     msgs = client.kwargs["messages"]
@@ -545,6 +569,49 @@ async def test_llm_brain_redacts_bank_record_and_falls_back():
 
 async def test_llm_brain_first_clause_cut():
     p = build_persona("scammer", "random")
-    out, _, _ = await _reply(p, "Hello Margaret, I will need your full name, date of birth, ZIP code, and a "
+    out, _, _ = await _reply(p, "Hello Kevin, I will need your full name, date of birth, ZIP code, and a "
                                 "passcode sent to your phone first. Then we can proceed. Extra.")
     assert out[0].endswith(",") and len(out) == 3 and out[2] == "Then we can proceed."
+
+
+async def test_llm_brain_strips_leaked_reasoning():
+    from caller.brain import strip_reasoning
+
+    assert strip_reasoning("analysis The user wants a code.") == ("", True)
+    assert strip_reasoning("analysisThe user...assistantfinalHi Kevin, it's Alex.") == ("Hi Kevin, it's Alex.", False)
+    assert strip_reasoning("<think>hmm") == ("", True)
+    assert strip_reasoning("Plain line.") == ("Plain line.", False)
+    p = build_persona("client", "fake_bank")
+    out, _, _ = await _reply(p, "analysis We should ask for the code. assistantfinal Hi Kevin. Can you read me the code?")
+    assert out == ["Hi Kevin. Can you read me the code?"]
+
+
+async def test_llm_brain_falls_back_to_ollama_then_script():
+    from caller.brain import LLMBrain, LLMRoute
+
+    p = build_persona("client", "irs")
+    good = _FakeClient("Officer Ross here. You owe back taxes.")
+    b = LLMBrain(p, _FakeClient("", fail=True), "gpt-oss", "nebius", reasoning_effort="low",
+                 fallback=LLMRoute(good, "qwen3.5:4b", "ollama", "none", 90), first_timeout_s=2)
+    b.add_visitor("hello")
+    out = [x async for x in b.reply()]
+    assert out == ["Officer Ross here.", "You owe back taxes."] and b.last_route == "ollama"
+    assert good.kwargs["reasoning_effort"] == "none"
+    b = LLMBrain(p, _FakeClient("", fail=True), "gpt-oss", "nebius",
+                 fallback=LLMRoute(_FakeClient("", fail=True), "q", "ollama"))
+    b.add_visitor("hello")
+    assert [x async for x in b.reply()] == [p.stub_lines[0]] and b.last_route == "stub"
+
+
+def test_caller_llm_resolution():
+    from caller.brain import BrainFactory, caller_provider_name
+
+    assert caller_provider_name(Settings(caller_llm_provider="auto", nebius_api_key="")) == "ollama"
+    assert caller_provider_name(Settings(caller_llm_provider="auto", nebius_api_key="k")) == "nebius"
+    assert caller_provider_name(Settings(caller_llm_provider="nebius", nebius_api_key="")) == "ollama"
+    f = BrainFactory(Settings(caller_llm_provider="auto", nebius_api_key="k"))
+    assert f.info()["provider"] == "nebius" and f.info()["model"] == "openai/gpt-oss-120b"
+    assert f.info()["fallback"] == {"provider": "ollama", "model": "qwen3.5:4b"}
+    assert f.cfg.reasoning_effort == "low"
+    f = BrainFactory(Settings(caller_llm_provider="ollama", caller_llm_model="qwen3:8b"))
+    assert f.info() == {"provider": "ollama", "model": "qwen3:8b"}

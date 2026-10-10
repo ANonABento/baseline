@@ -1,7 +1,7 @@
 // Call reports: every call is recorded client-side as its event log (so the report page
 // works in mock mode and if the backend report endpoint is down), and backend reports are
 // normalized into the same event log, then replayed through the session reducer.
-import type { MsgOf, ReportAudio, ServerMsg } from "./contract.ts";
+import type { MsgOf, ReportAudio, Role, ServerMsg, YouVsBaseline } from "./contract.ts";
 import { INITIAL, sessionReducer, type SessionState } from "./session.ts";
 
 export interface Recorded {
@@ -105,12 +105,13 @@ export function eventsFromBackend(id: string, raw: unknown): Recorded[] {
   const started: MsgOf<"call_started"> = {
     type: "call_started",
     session_id: s(sess.session_id ?? sess.id, id),
-    role: (s(sess.role ?? reveal.role, "agent") as "agent" | "scammer"),
+    role: s(sess.role ?? reveal.role, "client") as Role,
     scenario: s(sess.scenario ?? reveal.scenario),
     voice: s(sess.voice ?? reveal.voice),
     customer: { id: s(cust.id), name: s(cust.name, "Unknown caller"), account_mask: s(cust.account_mask), enrolled: !!cust.enrolled },
     audio: { sample_rate: 16000, format: "pcm_s16le" },
     max_call_s: n(sess.max_call_s, 0),
+    scenario_label: typeof sess.scenario_label === "string" ? sess.scenario_label : null,
   };
   out.push({ msg: started, at: t0 });
   type Timed = { t: number; msg: ServerMsg };
@@ -145,6 +146,15 @@ export function eventsFromBackend(id: string, raw: unknown): Recorded[] {
       },
     });
   }
+  for (const iv of arr(r.interventions)) {
+    const level = s(iv.level) === "high" ? "high" : "caution";
+    timed.push({ t: n(iv.t), msg: { type: "intervention", level, message: s(iv.message), reason_id: s(iv.reason_id) } });
+  }
+  for (const a of arr(r.actions)) {
+    timed.push({ t: n(a.t), msg: { type: "action", kind: s(a.kind) as "bank_hold", message: s(a.message) } });
+  }
+  const suspT = obj(r.suspicion).t;
+  if (typeof suspT === "number") timed.push({ t: suspT, msg: { type: "suspect_ack", t: suspT } });
   timed.sort((a, b) => a.t - b.t);
   const last = Math.max(0, ...timed.filter((x) => isFinite(x.t)).map((x) => x.t));
   for (const x of timed) out.push({ msg: x.msg, at: t0 + (isFinite(x.t) ? x.t : last) * 1000 });
@@ -154,11 +164,13 @@ export function eventsFromBackend(id: string, raw: unknown): Recorded[] {
       reason: s(r.ended_reason ?? r.reason ?? sess.end_reason, "ended"),
       report_id: id,
       reveal: {
-        role: (s(reveal.role ?? sess.role, "agent") as "agent"),
+        role: s(reveal.role ?? sess.role, "client") as Role,
         scenario: s(reveal.scenario ?? sess.scenario),
         persona_label: s(reveal.persona_label),
         voice: s(reveal.voice ?? sess.voice),
         tts: s(reveal.tts),
+        summary: s(persona.summary) || undefined,
+        you_vs_baseline: (r.you_vs_baseline as YouVsBaseline | undefined) ?? undefined,
       },
     },
     at: t0 + (isFinite(callS) ? Math.max(callS, last) : last) * 1000,

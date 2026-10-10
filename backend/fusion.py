@@ -11,9 +11,11 @@
 - Evidence latches for the call: once a signal has fired, its strongest reading stays in the
   alert (fraud patterns are merged by id), so the alert never loses its reasons when a
   smoothed score dips back under the threshold.
-- Alert level: none (nothing fired), caution (one hard signal, or only the soft prosody
-  signal), high (>= HIGH_MIN_HARD_SIGNALS independent hard signals among speaker / spoof /
-  fraud have fired during the call). The level never de-escalates within a call.
+- Alert level: none (nothing fired), caution (one hard signal, or only soft signals:
+  prosody, client), high (>= HIGH_MIN_HARD_SIGNALS independent hard signals among speaker /
+  spoof / fraud have fired during the call, OR one hard caller signal plus the soft `client`
+  signal: the protected client is about to comply / share a secret with a suspicious caller).
+  The level never de-escalates within a call.
 - alert_if_changed() emits only on a material change: the level changes, or at the same
   level a NEW signal or NEW fraud pattern id joins the evidence. Re-worded reasons and score
   jitter do not produce new alert events.
@@ -25,11 +27,13 @@ from dataclasses import dataclass, field
 
 from events import AlertEvent, AlertLevel, Citation, DetectorResult, TrustEvent
 
-WEIGHTS: dict[str, float] = {"spoof": 0.9, "fraud": 0.85, "speaker": 0.7, "prosody": 0.3}
+WEIGHTS: dict[str, float] = {"spoof": 0.9, "fraud": 0.85, "speaker": 0.7, "prosody": 0.3, "client": 0.5}
 HARD_SIGNALS = ("speaker", "spoof", "fraud")
-EMA_ALPHA: dict[str, float] = {"spoof": 0.6, "speaker": 0.6, "prosody": 0.5, "fraud": 1.0}
+# soft signal that escalates caution -> high only together with a hard caller signal
+CLIENT_SIGNAL = "client"
+EMA_ALPHA: dict[str, float] = {"spoof": 0.6, "speaker": 0.6, "prosody": 0.5, "fraud": 1.0, "client": 1.0}
 _LEVEL_ORDER: dict[str, int] = {"none": 0, "caution": 1, "high": 2}
-_REASON_ORDER = ("fraud", "spoof", "speaker", "prosody")  # stable order: strongest story first
+_REASON_ORDER = ("fraud", "client", "spoof", "speaker", "prosody")  # stable order: strongest story first
 _SEVERITY_RANK = {"high": 3, "medium": 2, "low": 1}
 
 # --- thresholds (Settings.fire_threshold / fire_min_confidence override the first two)
@@ -44,6 +48,7 @@ DEFAULT_ACTIONS = {
     "speaker": "Voice does not match the enrolled customer. Complete step-up verification before any change.",
     "prosody": "Caller sounds under pressure. Slow down and ask open questions.",
     "fraud": "Conversation matches a known fraud pattern. Slow down and verify before acting on any request.",
+    "client": "Don't share codes, card numbers or PINs, and don't send money. Hang up and call the bank back.",
 }
 HIGH_ACTION = (
     "Do not process any money movement or account changes on this call. "
@@ -155,7 +160,7 @@ class Fusion:
     def compute_level(self) -> AlertLevel:
         fired = set(self.fired()) | set(self.evidence)
         hard = [k for k in fired if k in HARD_SIGNALS]
-        if len(hard) >= HIGH_MIN_HARD_SIGNALS:
+        if len(hard) >= HIGH_MIN_HARD_SIGNALS or (hard and CLIENT_SIGNAL in fired):
             return "high"
         if fired:
             return "caution"
@@ -234,6 +239,8 @@ class Fusion:
             elif k == "prosody":
                 ev = self.evidence[k]
                 reasons.append(f"Caller sounds under pressure (score {ev.score:.2f})")
+            elif k == CLIENT_SIGNAL:
+                reasons.append(f"You: {self.evidence[k].reason}")
             else:
                 reasons.append(f"{k}: {self.evidence[k].reason}")
         return reasons

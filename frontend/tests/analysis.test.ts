@@ -19,7 +19,7 @@ const sig = (signal: SignalName, id: number, score: number, confidence = 0.8, de
 });
 
 const transcript = [
-  tr(1, 0.5, 5.5, "Hi, this is Margaret Chen. I need to update the phone number on my account."),
+  tr(1, 0.5, 5.5, "Hi, this is Kevin. I need to update the phone number on my account."),
   tr(2, 6.0, 10.8, "I got a new phone, so please change my phone number and my email too."),
   tr(3, 11.1, 16.0, "Once that's done, I need to wire nine thousand dollars to a new account today."),
   tr(4, 16.4, 19.5, "It's urgent, it has to go out right now."),

@@ -26,9 +26,9 @@ from pydantic import BaseModel
 
 from caller.brain import BrainFactory
 from caller.live_call import LiveCall
-from caller.personas import CUSTOMER, SCENARIOS, build_persona
+from caller.personas import CUSTOMER, ROLES, SCENARIOS, build_persona, normalize_role, scenarios_for
 from caller.report import list_reports, load_report, valid_report_id
-from caller.tts import TTSProvider, make_tts
+from caller.tts import TTSProvider, caller_voice, make_tts
 from ml import voiceprints
 from pipeline import CallPipeline
 from providers import make_stt
@@ -38,7 +38,6 @@ from settings import Settings, get_settings
 
 log = logging.getLogger("baseline.live")
 
-ROLES = ["agent", "scammer"]
 
 router = APIRouter()
 
@@ -100,8 +99,8 @@ async def warmup_live(settings: Settings) -> None:
             await warm(svc.tts.default_voice())
     if getattr(svc.brains, "provider", "stub") != "stub":
         try:
-            brain = svc.brains(build_persona("agent", "account_takeover"))
-            brain.add_ai(build_persona("agent", "account_takeover").openers[0])
+            brain = svc.brains(build_persona("client", "fake_bank"))
+            brain.add_ai(build_persona("client", "fake_bank").openers[0])
             brain.add_visitor("Hello, how can I help?")
             async for _ in brain.reply():
                 pass
@@ -117,14 +116,16 @@ async def warmup_live(settings: Settings) -> None:
 async def api_config() -> dict:
     svc = service()
     return {
-        "roles": ROLES,
-        "scenarios": [{"id": s.id, "label": s.label} for s in SCENARIOS.values()],
+        "roles": list(ROLES),
+        "scenarios": [{"id": s.id, "label": s.label, "role": s.role, "brief": s.brief} for s in SCENARIOS.values()],
+        "customer": {"id": CUSTOMER.id, "name": CUSTOMER.name, "account_mask": CUSTOMER.account_mask},
         "voices": svc.tts.voices(),
         "max_concurrent": svc.manager.max_concurrent,
         "queue_length": svc.manager.queue_length,
         "active_calls": svc.manager.active_calls,
         "tts": svc.tts.name,
         "llm": svc.llm_info(),
+        "caller_llm": svc.llm_info(),
     }
 
 
@@ -147,9 +148,18 @@ def _pick(value: str, options: list[str], what: str) -> str:
 @router.post("/api/session")
 async def api_session(req: SessionRequest, request: Request) -> dict:
     svc = service()
-    role = _pick(req.role, ROLES, "role")
-    scenario = _pick(req.scenario, list(SCENARIOS), "scenario")
-    voice = _pick(req.voice, [v["id"] for v in svc.tts.voices()], "voice")
+    role = _pick(normalize_role((req.role or "random").strip()), list(ROLES), "role")
+    sc_req = (req.scenario or "random").strip()
+    if sc_req != "random" and sc_req in SCENARIOS and SCENARIOS[sc_req].role != role:
+        if req.role in ("random", "", None):  # a scenario implies its role
+            role = SCENARIOS[sc_req].role
+        else:
+            raise HTTPException(400, f"scenario {sc_req!r} belongs to role {SCENARIOS[sc_req].role!r}, not {role!r}")
+    scenario = _pick(sc_req, list(scenarios_for(role)), "scenario")
+    if (req.voice or "random").strip() == "random":
+        voice = caller_voice(svc.tts, svc.settings, clone=bool(SCENARIOS[scenario].clone_voice))
+    else:
+        voice = _pick(req.voice, [v["id"] for v in svc.tts.voices()], "voice")
     s = svc.manager.create(role, scenario, voice, requested=req.model_dump())
     base = str(request.base_url).rstrip("/")
     ws_base = "wss://" + base[len("https://"):] if base.startswith("https://") else "ws://" + base.split("://", 1)[-1]
@@ -308,6 +318,8 @@ async def ws_session(ws: WebSocket, session_id: str) -> None:
                 await conn.send_json({"type": "pong"})
             elif kind == "text":
                 await call.feed_text(str(data.get("text", "")))
+            elif kind == "suspect":
+                await call.suspect()
             else:
                 await conn.send_json({"type": "error", "message": f"unknown message type: {kind!r}"})
     except WebSocketDisconnect:

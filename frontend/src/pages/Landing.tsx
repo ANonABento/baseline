@@ -46,6 +46,12 @@ const ROWS: { title: string; body: string; tech: string; spikes: LineSpike[] }[]
       { id: "d", x: 0.72, tier: "flag" },
     ],
   },
+  {
+    title: "Your side of the call",
+    body: "Are you about to read out a one-time code, or head out to buy gift cards? Baseline warns you out loud, and your bank holds the transfer.",
+    tech: "On-phone rules + bank actions",
+    spikes: [{ id: "e", x: 0.8, tier: "flag" }],
+  },
 ];
 
 function Code() {
@@ -82,7 +88,8 @@ export function Landing() {
           <span className="label">Incoming call, unverified</span>
           <h1 className="hero__title">Is this caller real?</h1>
           <p className="hero__sub">
-            Take a call from an AI caller. Baseline listens alongside you and flags the moment the voice, or the story, stops adding up.
+            A scammer is about to call you, maybe in a voice you know. Baseline runs on both sides of the call, at your bank and on your
+            phone, and steps in the moment the voice or the story stops adding up.
           </p>
           <div className="hero__actions">
             <a className="btn btn--big" href="/call" onClick={linkTo("/call")}>
@@ -128,9 +135,9 @@ export function Landing() {
           <span className="label">How it works</span>
           <div>
             <h2 className="section__title" id="how-title">
-              Three baselines, checked on every line.
+              Four baselines, checked on every line.
             </h2>
-            <p className="section__lede">Baseline knows what each customer sounds like and how legitimate calls go. It shows the agent when a call drifts from either.</p>
+            <p className="section__lede">Baseline knows what each customer sounds like, how legitimate calls go, and what a customer should never say to a caller. It runs on both sides of the call: in the bank's call center and in the bank's app on the customer's phone.</p>
           </div>
         </div>
         <div className="baselines">
@@ -199,7 +206,7 @@ export function Landing() {
 
       <footer className="footer">
         <div>
-          <p>Baseline. A real-time fraud co-pilot for bank call centers. Built at Building from the Farm, October 2026.</p>
+          <p>Baseline. Fraud protection for bank clients, on both sides of the call. Built at Building from the Farm, October 2026.</p>
           <p style={{ marginTop: "0.5rem" }}>
             Head model: Lee Perry-Smith, CC-BY 3.0, via the three.js examples. Statistics link to their sources.
           </p>

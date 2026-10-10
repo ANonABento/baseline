@@ -28,7 +28,14 @@ const AUDIO_TITLES: Record<Exclude<SignalName, "fraud">, Record<"watch" | "flag"
   speaker: { watch: "Voice drifting from enrolled print", flag: "Voice doesn't match enrolled customer" },
   spoof: { watch: "Possible synthetic artifacts", flag: "Synthetic voice" },
   prosody: { watch: "Pace and pitch shift", flag: "Pressure above caller's baseline" },
+  client: { watch: "You're going along with it", flag: "You're about to hand something over" },
 };
+
+/** The client's own words (signal "client"): secrets flag, compliance is a watch. */
+export function clientTier(s: Pick<SignalEvent, "score" | "confidence">): Tier | null {
+  if (s.confidence < FIRE_CONFIDENCE || s.score < 0.5) return null;
+  return s.score >= 0.85 ? "flag" : "watch";
+}
 
 export function severityTier(sev: Severity): Tier {
   return sev === "high" ? "flag" : sev === "medium" ? "watch" : "noted";
@@ -85,6 +92,25 @@ export function buildNotes(lines: TranscriptEvent[], signals: SignalEvent[], evi
     });
   }
 
+  // the client's own risky lines: one note per line (each is its own moment)
+  for (const s of signals.filter((x) => x.signal === "client")) {
+    const tier = clientTier(s);
+    if (!tier) continue;
+    const quote = typeof s.details?.quote === "string" ? (s.details.quote as string) : "";
+    const line = byId.get(s.utterance_id);
+    notes.push({
+      id: `client:${s.utterance_id}`,
+      utterance_id: s.utterance_id,
+      tier,
+      kind: "client",
+      title: s.reason || AUDIO_TITLES.client[tier === "flag" ? "flag" : "watch"],
+      body: "Baseline heard this on your side of the call. Codes, card numbers and PINs never go to a caller.",
+      quote,
+      span: line && quote ? findSpan(line.text, quote) : null,
+      score: s.score,
+    });
+  }
+
   const lanes: SignalName[] = evidence.length ? ["speaker", "spoof", "prosody"] : ["speaker", "spoof", "prosody", "fraud"];
   for (const lane of lanes) {
     let highest = 0;
@@ -93,7 +119,7 @@ export function buildNotes(lines: TranscriptEvent[], signals: SignalEvent[], evi
       const tier = lane === "fraud" ? (s.confidence >= FIRE_CONFIDENCE && s.score >= 0.5 ? "flag" : null) : audioTier(s);
       if (!tier || TIER_RANK[tier] <= highest) continue;
       highest = TIER_RANK[tier];
-      const title = lane === "fraud" ? "Fraud pattern" : AUDIO_TITLES[lane][tier === "flag" ? "flag" : "watch"];
+      const title = lane === "fraud" ? "Fraud pattern" : AUDIO_TITLES[lane as Exclude<SignalName, "fraud">][tier === "flag" ? "flag" : "watch"];
       const simV = s.details?.similarity;
       const sim = typeof simV === "number" && !/similarity/i.test(s.reason) ? ` Similarity ${simV.toFixed(2)}.` : "";
       notes.push({

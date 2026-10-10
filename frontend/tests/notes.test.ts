@@ -9,7 +9,7 @@ const sig = (signal: SignalName, id: number, score: number, confidence = 0.8, de
   type: "signal", utterance_id: id, signal, score, confidence, reason: `${signal} r${id}`, details, latency_ms: 0,
 });
 const lines = [
-  tr(1, 0, 4, "Hi, this is Margaret Chen."),
+  tr(1, 0, 4, "Hi, this is Kevin."),
   tr(2, 5, 9, "I got a new phone, so I need to update the number on file, and the email too."),
   tr(3, 10, 15, "Once that's done I need to wire nine thousand dollars to a new account. Today, it can't wait."),
 ];

@@ -9,7 +9,8 @@ transcript  One finished utterance.
             call stream (WS /ws/session/{id}); see backend/README.md "Live call API".
 signal      One detector result for one utterance.
             {type, utterance_id, signal, score, confidence, reason, details, latency_ms}
-            `signal` is one of speaker | spoof | prosody | fraud.
+            `signal` is one of speaker | spoof | prosody | fraud | client (live calls, role client:
+            risk in the protected client's OWN words, e.g. about to read out a one-time code).
             `score` is RISK in [0, 1] (higher = more suspicious), `confidence` in [0, 1].
 trust       Fused Trust Score after each utterance.
             {type, utterance_id, score (0-100, smoothed), raw (0-100, unsmoothed), components}
@@ -37,7 +38,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-SignalName = Literal["speaker", "spoof", "prosody", "fraud"]
+SignalName = Literal["speaker", "spoof", "prosody", "fraud", "client"]
 AlertLevel = Literal["none", "caution", "high"]
 
 

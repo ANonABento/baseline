@@ -22,7 +22,7 @@ dev-backend:      ## FastAPI on :8000 with reload
 dev-live:         ## live "try it" backend on :8000: real models, Ollama persona LLM, say/ElevenLabs TTS
 	@test -f data/enroll/CUST-004217.npy || $(MAKE) enroll-demo
 	cd backend && STT_PROVIDER=mlx VAD_PROVIDER=silero SPEAKER_PROVIDER=ecapa SPOOF_PROVIDER=pretrained \
-	  LLM_PROVIDER=$${LLM_PROVIDER:-auto} LLM_TIMEOUT_S=$${LLM_TIMEOUT_S:-3} CALLER_LLM_PROVIDER=$${CALLER_LLM_PROVIDER:-ollama} \
+	  LLM_PROVIDER=$${LLM_PROVIDER:-auto} LLM_TIMEOUT_S=$${LLM_TIMEOUT_S:-3} CALLER_LLM_PROVIDER=$${CALLER_LLM_PROVIDER:-auto} \
 	  HF_HUB_OFFLINE=1 $(UV) run --extra ml uvicorn app:app --host $${HOST:-127.0.0.1} --port $${PORT:-8000}
 
 dev-frontend:     ## Vite dashboard on :5173
@@ -37,8 +37,8 @@ eval:             ## offline eval over data/eval/labels.csv; NOTE="..." to annot
 clips:            ## regenerate demo clips with macOS `say` + ffmpeg
 	$(UV) run --project backend $(EXTRA) python scripts/make_clips.py
 
-enroll-demo:      ## demo voiceprint for CUST-004217 from a macOS `say -v Samantha` enrollment clip
-	$(UV) run --project backend --extra ml python scripts/enroll.py CUST-004217 --say Samantha --name "Margaret Chen"
+enroll-demo:      ## demo voiceprint for CUST-004217 (Kevin) from a macOS `say -v Samantha` clip; real: see backend/README.md
+	$(UV) run --project backend --extra ml python scripts/enroll.py CUST-004217 --say Samantha --name "Kevin"
 
 build:            ## production build of the dashboard
 	cd frontend && $(NPM) run build

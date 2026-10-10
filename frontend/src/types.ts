@@ -1,5 +1,5 @@
 // Mirrors backend/events.py
-export type SignalName = "speaker" | "spoof" | "prosody" | "fraud";
+export type SignalName = "speaker" | "spoof" | "prosody" | "fraud" | "client";
 export type AlertLevel = "none" | "caution" | "high";
 
 export interface TranscriptEvent {
