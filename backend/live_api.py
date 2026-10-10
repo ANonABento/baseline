@@ -221,6 +221,8 @@ async def ws_session(ws: WebSocket, session_id: str) -> None:
         await ws.close(code=4409)
         return
     seq = sess.attach_seq
+    if sess.promoted.is_set():  # no wait: still tell the client the queue is behind it (position 0)
+        await conn.send_json({"type": "queue", "position": 0, "queue_length": mgr.queue_length, "eta_s": 0})
     call: LiveCall | None = None
     receiver_closed = False
     try:
