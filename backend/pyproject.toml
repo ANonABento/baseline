@@ -6,12 +6,32 @@ requires-python = ">=3.11,<3.12"
 dependencies = [
     "fastapi==0.115.6",
     "uvicorn[standard]==0.34.0",
-    "numpy==2.2.1",
-    "soundfile==0.13.0",
+    "numpy==2.4.6",
+    "soundfile==0.14.0",
     "pydantic==2.10.4",
     "pydantic-settings==2.7.1",
     "httpx==0.28.1",
     "openai==1.59.3",
+]
+
+[project.optional-dependencies]
+# Real local models (STT, VAD, speaker verification, spoof). Install with
+#   uv sync --extra ml        and run with   uv run --extra ml ...
+# Without the extra everything falls back to the stub providers and tests skip ML cases.
+ml = [
+    "torch==2.14.1",
+    "torchaudio==2.11.0",
+    "transformers==5.19.0",
+    "huggingface-hub==2.2.0",
+    "safetensors==0.8.0",
+    "mlx==0.32.3; sys_platform == 'darwin'",
+    "mlx-whisper==0.4.3; sys_platform == 'darwin'",
+    "silero-vad==6.2.3",
+    "speechbrain==1.1.1",
+    "librosa==0.11.0",
+    "scipy==1.17.1",
+    "scikit-learn==1.9.1",
+    "joblib==1.6.0",
 ]
 
 [dependency-groups]

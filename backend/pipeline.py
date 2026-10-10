@@ -21,20 +21,19 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
-import soundfile as sf
 
 from core import CallContext, Utterance
 from detectors.base import Detector
 from detectors.fraud import FraudDetector
 from detectors.prosody import ProsodyDetector
-from detectors.speaker import SpeakerDetector
-from detectors.spoof import SpoofDetector
+from detectors.speaker import make_speaker_detector
+from detectors.spoof import make_spoof_detector
 from events import AlertEvent, DetectorResult, Event, SignalEvent, StatusEvent, TranscriptEvent
 from fusion import Fusion
 from providers import make_llm, make_stt
 from providers.base import STTProvider
 from providers.stt_stub import SidecarTranscriptSTT, sidecar_path_for
-from segmenter import EnergyVAD, Segment, Segmenter
+from segmenter import Segment, Segmenter, make_segmenter
 from settings import Settings, get_settings
 
 log = logging.getLogger(__name__)
@@ -56,14 +55,11 @@ def float_to_pcm16(x: np.ndarray) -> bytes:
 
 
 def load_wav(path: Path, target_sr: int = 16_000) -> np.ndarray:
-    """Load any soundfile-readable audio as float32 mono at target_sr.
-    Resampling is linear interpolation (fine for the stub pipeline; swap for soxr later)."""
-    audio, sr = sf.read(str(path), dtype="float32", always_2d=True)
-    audio = audio.mean(axis=1)
-    if sr != target_sr and len(audio):
-        n_out = int(round(len(audio) * target_sr / sr))
-        audio = np.interp(np.linspace(0, len(audio) - 1, n_out), np.arange(len(audio)), audio).astype(np.float32)
-    return audio
+    """Load any soundfile-readable audio as float32 mono at target_sr (polyphase resampling
+    with scipy when the ml extra is installed, linear interpolation otherwise)."""
+    from ml.audio import read_audio
+
+    return read_audio(path, target_sr)
 
 
 def load_clip_sidecars(wav: Path) -> tuple[list[str] | None, dict]:
@@ -83,7 +79,49 @@ def load_clip_sidecars(wav: Path) -> tuple[list[str] | None, dict]:
 # ---------------------------------------------------------------- pipeline
 
 def default_detectors(settings: Settings) -> list[Detector]:
-    return [SpeakerDetector(), SpoofDetector(), ProsodyDetector(), FraudDetector(make_llm(settings), timeout_s=settings.llm_timeout_s)]
+    return [make_speaker_detector(settings), make_spoof_detector(settings), ProsodyDetector(),
+            FraudDetector(make_llm(settings), timeout_s=settings.llm_timeout_s)]
+
+
+def warmup_models(settings: Settings | None = None) -> dict[str, float]:
+    """Blocking: load every configured real model and run one dummy inference (MPS/MLX first
+    inference is ~1 s, so do it before the first call). Returns seconds per component
+    (-1 = failed; it is retried lazily on first use). Each model warms up on its own
+    executor thread, so they load in parallel."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    settings = settings or get_settings()
+    jobs: dict[str, Callable[[], None]] = {}
+    stt = make_stt(settings)
+    if hasattr(stt, "warmup"):
+        jobs[f"stt:{stt.name}"] = stt.warmup
+    for d in default_detectors(settings):
+        if hasattr(d, "warmup"):
+            jobs[f"{d.name}:{type(d).__name__}"] = d.warmup
+    if settings.vad_provider == "silero":
+        def _vad() -> None:
+            seg = make_segmenter(settings)
+            seg.feed(np.zeros(settings.sample_rate, dtype=np.float32))
+            seg.reset()
+        jobs["vad:silero"] = _vad
+
+    def timed(fn: Callable[[], None]) -> float:
+        t = time.perf_counter()
+        fn()
+        return round(time.perf_counter() - t, 2)
+
+    out: dict[str, float] = {}
+    if not jobs:
+        return out
+    with ThreadPoolExecutor(max_workers=len(jobs)) as ex:
+        futs = {k: ex.submit(timed, fn) for k, fn in jobs.items()}
+        for k, f in futs.items():
+            try:
+                out[k] = f.result()
+            except Exception:
+                log.exception("warmup failed for %s (it will be retried lazily on first use)", k)
+                out[k] = -1.0
+    return out
 
 
 class CallPipeline:
@@ -96,10 +134,7 @@ class CallPipeline:
         self.default_stt = stt or make_stt(s)
         self.stt = self.default_stt
         self.detectors = detectors if detectors is not None else default_detectors(s)
-        self.segmenter = segmenter or EnergyVAD(
-            sample_rate=s.sample_rate, threshold_db=s.vad_threshold_db, min_speech_ms=s.vad_min_speech_ms,
-            hangover_ms=s.vad_hangover_ms, max_utterance_ms=s.vad_max_utterance_ms, preroll_ms=s.vad_preroll_ms,
-        )
+        self.segmenter = segmenter or make_segmenter(s)
         self.fusion = fusion or Fusion(s.fire_threshold, s.fire_min_confidence)
         self.ctx = CallContext()
         self._queue: asyncio.Queue = asyncio.Queue()
@@ -107,6 +142,14 @@ class CallPipeline:
         self._next_id = 0
         self.last_alert: AlertEvent | None = None
         self.signal_log: list[SignalEvent] = []
+        self.utterance_timings: list[dict] = []
+
+    @property
+    def providers(self) -> dict[str, str]:
+        """Implementations actually in use (after any fallback to stubs)."""
+        by_name = {d.name: type(d).__name__ for d in self.detectors}
+        return {"stt": self.default_stt.name, "vad": type(self.segmenter).__name__,
+                "speaker": by_name.get("speaker", "-"), "spoof": by_name.get("spoof", "-")}
 
     # -------------------------------------------------- lifecycle
 
@@ -123,6 +166,7 @@ class CallPipeline:
         self._next_id = 0
         self.last_alert = None
         self.signal_log = []
+        self.utterance_timings = []
         self._ensure_worker()
 
     def _ensure_worker(self) -> None:
@@ -209,11 +253,19 @@ class CallPipeline:
         except Exception:
             log.exception("STT failed")
             utt.text = ""
+        stt_ms = round((time.perf_counter() - t0) * 1000, 1)
         self.ctx.utterances.append(utt)
         if utt.text:
-            await self._safe_emit(TranscriptEvent(utterance_id=utt.id, t_start=utt.t_start, t_end=utt.t_end, text=utt.text))
+            await self._safe_emit(TranscriptEvent(utterance_id=utt.id, t_start=utt.t_start, t_end=utt.t_end,
+                                                  text=utt.text, latency_ms=stt_ms))
         text_tasks = [asyncio.create_task(self._run_detector(d, utt, t0)) for d in self.detectors if d.requires_text]
         await asyncio.gather(*audio_tasks, *text_tasks)
+        total_ms = round((time.perf_counter() - t0) * 1000, 1)
+        timing = {"utterance_id": utt.id, "audio_s": round(utt.duration, 2), "stt_ms": stt_ms, "total_ms": total_ms,
+                  **{f"{e.signal}_ms": e.latency_ms for e in self.signal_log if e.utterance_id == utt.id}}
+        self.utterance_timings.append(timing)
+        log.info("utt %d (%.1fs audio): %s", utt.id, utt.duration,
+                 " ".join(f"{k}={v}" for k, v in timing.items() if k.endswith("_ms")))
         await self._safe_emit(self.fusion.trust_event(utt.id))
         alert = self.fusion.alert_if_changed()
         if alert is not None:
@@ -233,19 +285,23 @@ class CallResult:
     transcript: str = ""
     mean_latency_ms: float = 0.0
     used_sidecar: bool = False
+    utterance_timings: list[dict] = field(default_factory=list)  # per utterance: stt_ms, <signal>_ms, total_ms
+    providers: dict[str, str] = field(default_factory=dict)
 
 
-def stt_for_clip(wav: Path, settings: Settings) -> tuple[STTProvider | None, dict]:
-    """In stub STT mode, use the sidecar transcript if present. Returns (stt override, stub hints)."""
+def stt_for_clip(wav: Path, settings: Settings, active_stt: STTProvider | None = None) -> tuple[STTProvider | None, dict]:
+    """In stub STT mode (configured, or a real provider that fell back to the stub), use the
+    sidecar transcript if present. Returns (stt override, stub hints)."""
     lines, hints = load_clip_sidecars(wav)
     stt = None
-    if settings.stt_provider == "stub" and settings.use_sidecar_transcripts and lines is not None:
+    is_stub = (active_stt.name == "stub") if active_stt is not None else settings.stt_provider == "stub"
+    if is_stub and settings.use_sidecar_transcripts and lines is not None:
         stt = SidecarTranscriptSTT(lines)
     return stt, hints
 
 
 async def analyze_wav(path: Path, settings: Settings | None = None, *, chunk_ms: int = 100,
-                      use_stub_hints: bool = True) -> CallResult:
+                      use_stub_hints: bool = True, customer_id: str = "") -> CallResult:
     """Run one file through the full pipeline as fast as possible (no real-time pacing).
     eval.py passes use_stub_hints=False so `.meta.json` demo hints never inflate accuracy."""
     settings = settings or get_settings()
@@ -255,8 +311,8 @@ async def analyze_wav(path: Path, settings: Settings | None = None, *, chunk_ms:
         result.events.append(ev)
 
     pipe = CallPipeline(collect, settings)
-    stt, hints = stt_for_clip(path, settings)
-    pipe.start_call(stt=stt, stub_hints=hints if use_stub_hints else {})
+    stt, hints = stt_for_clip(path, settings, pipe.default_stt)
+    pipe.start_call(customer_id=customer_id, stt=stt, stub_hints=hints if use_stub_hints else {})
     audio = load_wav(path, settings.sample_rate)
     step = int(settings.sample_rate * chunk_ms / 1000)
     for i in range(0, len(audio), step):
@@ -273,4 +329,6 @@ async def analyze_wav(path: Path, settings: Settings | None = None, *, chunk_ms:
     result.used_sidecar = stt is not None
     lat = [e.latency_ms for e in pipe.signal_log]
     result.mean_latency_ms = round(sum(lat) / len(lat), 1) if lat else 0.0
+    result.utterance_timings = pipe.utterance_timings
+    result.providers = pipe.providers
     return result
