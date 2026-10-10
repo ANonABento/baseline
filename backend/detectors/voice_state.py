@@ -152,6 +152,15 @@ _MARKER_TEXT = {
 
 
 def assess(f: dict[str, float] | None, base: SpeakerBaseline) -> dict:
+    """`_assess` plus `delivery_change`, the neutral name for `stress_related_change` (same value).
+    The score is sign-agnostic (abs z), so quieter/flatter/slower speech raises it too; user-facing
+    text should say "change vs earlier delivery", not stress."""
+    d = _assess(f, base)
+    d["delivery_change"] = d["stress_related_change"]
+    return d
+
+
+def _assess(f: dict[str, float] | None, base: SpeakerBaseline) -> dict:
     """Compare one utterance with the baseline. Returns the `details` payload:
 
     status               ok | building_baseline | insufficient_evidence

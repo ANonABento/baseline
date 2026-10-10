@@ -43,7 +43,7 @@ Rules that keep V and C decoupled:
 | Quality gate | under 1 s, clipped (>1% of samples), SNR proxy under 10 dB, too little voiced speech -> `insufficient_evidence`, `confidence = 0`, never joins the baseline | `quality_problems` |
 | Baseline | first 3 usable utterances of this call and speaker; robust centre and spread (median, MAD) with per-feature floors; frozen once ready so a pressure run cannot drag it along | `SpeakerBaseline` |
 | Change rule | a feature counts when abs(z) >= 2.5; at least 2 features together; reported only after 3 consecutive utterances (sustained); score maps the largest abs(z) to 0..1 | `assess` |
-| Output | `details`: `status`, `stress_related_change` (0..1 or null), `delivery_markers` (hedged strings, e.g. "higher pitch than this speaker's earlier delivery"), `emotion_estimate` (null for now), `calibration_status = not_established`, `z`, `features` | `assess` |
+| Output | `details`: `status`, `stress_related_change` (0..1 or null), `delivery_markers` (hedged strings, e.g. "higher pitch than this speaker's earlier delivery"), `emotion_estimate` (null for now), `calibration_status = not_established`; the change score is sign-agnostic (any direction of change raises it) and is shown to users as "change vs this speaker's earlier delivery", not as stress, `z`, `features` | `assess` |
 
 What it is not: no deception key exists or will be added; the numbers are changes relative to the speaker's own earlier delivery, which can come from excitement, a noisy line, a new topic or a different microphone. **Calibration against real stress is not established** (no open dataset has stress ground truth), so S2 stays a `HYPOTHESIS` (the claim that no open dataset has stress ground truth rests on the survey in `research/open_datasets.md`, not re-verified).
 
@@ -70,7 +70,7 @@ No recordings of people are made (decision 2026-10-10).
 | Application, content, UI, pitch | C (Kevin) | `events.py`, `fusion.py`, `pipeline.py`, `app.py`, `fraud*.py`, `kb/`, `providers/llm_*`, `frontend/` |
 
 ## 5. Evidence so far (exploratory; details in `results/public_checks.md`)
-On the held-out half the change rule's mean sustained-change rate per speaker-meeting session on ordinary AMI speech is 9.5% (CI 0.7 to 22.9%, 14 sessions) and 79.9% of acted high-arousal RAVDESS clips (held-out calm/neutral: 16.7%). That shows the signal moves with acted arousal; it does not show it tracks real stress.
+On the held-out half on held-out people the shipped sustained rule fired on a mean 9.5% of usable utterances per AMI speaker-meeting session (CI 0.7 to 22.9%, 14 sessions from 9 speaker ids; median session 0%, one session 93%; sessions share meetings with the tune half). A single-clip version without the persistence step flagged 79.9% of acted high-arousal RAVDESS clips and 16.7% of held-out calm/neutral clips (12 actors). That shows the signal moves with acted arousal; it does not show it tracks real stress.
 
 ## 6. Open interface items (waiting on C)
 0.4 accept the output contract, 0.5 which `details` keys `fusion.py` may read, 0.6 demo persona and clip source. Posted in the room; no reply as of the last read (sequence 14). Until C replies, the keys in section 2 are a **proposal**.

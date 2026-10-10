@@ -19,7 +19,7 @@ Labels: **VERIFIED** = read on the model card/page this session (URLs in §10). 
 | # | Output | What it is | Source of truth for training/validation |
 |---|---|---|---|
 | S1 | `emotion_estimate` | perceived emotion mix and arousal/valence/dominance per segment (stressed, angry, worried, calm, engaged) | human annotation of perceived emotion; self-report kept separate |
-| S2 | `stress_related_change` | size of change in pitch, energy, rate, pauses vs the speaker's own baseline, with persistence and recovery | computed features plus annotation; speaker check-in |
+| S2 | `stress_related_change` (contract key; shown to users as "change vs this speaker's earlier delivery"; the score is sign-agnostic: quieter, flatter or slower speech also raises it) | size of change in pitch, energy, rate, pauses vs the speaker's own baseline, with persistence and recovery | computed features plus annotation; speaker check-in |
 | S3 | `delivery_markers` | choppiness (fragmented speech, irregular pauses), monotony, read-like/rehearsed delivery, response latency | computed features plus annotation (`delivery_mode`) |
 | S4 | `content_observations` | answer responsiveness, specificity, hedging, contradiction with earlier statements or a provided fact sheet | annotation plus fact-sheet check |
 | S5 | `interpretation_notes` | hedged mapping "pattern X can indicate Y, or Z, or W" with a suggested neutral follow-up question | rule/LLM-written from S1-S4, constrained to measured signals |
@@ -29,11 +29,11 @@ Each output is a model score or label with a confidence level and can be `insuff
 **Interpretation table (hypotheses; evidence status from [`research/voice_signal_evidence.md`](research/voice_signal_evidence.md), read via a summarising fetch tool, 3 key PDFs unreadable, so treat as a first pass and re-check before external use).** Illustrative wording the agent may use:
 | Observed pattern (with timestamps) | Can be consistent with | Neutral follow-up | Evidence status |
 |---|---|---|---|
-| sustained stress-related rise after a specific question | pressure, discomfort with the topic, uncertainty, rehearsal breaking down, a stressor unrelated to the call, or an attempt to conceal something | ask a concrete, open question about that topic | PARTLY: a systematic review reports higher mean F0 under stress in 15 of 19 studies; effects vary by person; deception cues are weak (DePaulo 2003 abstract). The own-baseline premise is a HYPOTHESIS | |
+| sustained stress-related rise after a specific question | pressure, discomfort with the topic, uncertainty, rehearsal breaking down, a stressor unrelated to the call or a change of topic or channel | ask a concrete, open question about that topic | PARTLY: a systematic review reports higher mean F0 under stress in 15 of 19 studies; effects vary by person; deception cues are weak (DePaulo 2003 abstract). The own-baseline premise is a HYPOTHESIS | |
 | choppy/fragmented delivery with long pauses | searching for an answer, nervousness, poor connection, language fluency, or hesitation about what to disclose | give time; ask for an example | PARTLY/UNVERIFIED: pause evidence rests on one study as quoted in a review; "poor connection" and "fluency" are common-sense confounds, no source | |
 | monotone, evenly paced delivery | reading from notes, rehearsal, fatigue, or a calm temperament | ask an unexpected but fair follow-up | UNVERIFIED: no opened source covers read-vs-spontaneous prosody; HYPOTHESIS | |
 | answer that does not address the question | misunderstanding, evasion, distraction | restate the question | UNVERIFIED: weak support for evasion only; HYPOTHESIS | |
-Wording rule: "increased stress-related vocal signals", never "the speaker is stressed" and never "is lying".
+Wording rule (revised after the skeptical review): show "change vs this speaker's earlier delivery"; "stress-related" is a hypothesis about one possible cause, not a label the data supports; never "the speaker is stressed" and never "is lying".
 
 ## 3. Pretrained checkpoints
 | Role | Candidate | Verified facts | Open questions |
