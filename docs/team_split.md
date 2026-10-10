@@ -25,7 +25,7 @@ make dev-frontend                 # terminal 2, open the URL, pick a clip, press
 
 ---
 
-## V: Voice & Proof (Kevin)
+## V: Voice & Proof (teammate)
 *"Is this the real customer, and is it a real human?"*
 
 **Owns:**
@@ -44,7 +44,7 @@ make dev-frontend                 # terminal 2, open the URL, pick a clip, press
 
 ---
 
-## C: Conversation & Action (teammate)
+## C: Conversation & Action (Kevin)
 *"What is being asked, and what should the agent do?"*
 
 **Owns:**

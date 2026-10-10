@@ -181,17 +181,17 @@ tests/
 
 **Team of two, each running Claude Code, split into vertical slices: each person owns backend + frontend + part of the pitch for their slice.** Use SharedNet to coordinate agents. Each person works on their own branch and merges to `main` at every sync. Full briefs are in `docs/team_split.md`.
 
-- **V = Voice & Proof (Kevin):** "Is this the real customer, and a real human?"
+- **V = Voice & Proof (teammate):** "Is this the real customer, and a real human?"
   - Backend: `detectors/{speaker,spoof,prosody}.py`, `segmenter.py`, `providers/stt_*`, `scripts/`, `data/`, enrollment.
   - Frontend: `components/{SignalCards,CustomerPanel,TrustGauge}.tsx` + new `ProofStrip.tsx`, `EnrollPanel.tsx`.
   - Pitch: the proof section (accuracy chart, edge cases, latency) + demo audio + backup video.
-- **C = Conversation & Action (teammate):** "What is being asked, and what should the agent do?"
+- **C = Conversation & Action (Kevin):** "What is being asked, and what should the agent do?"
   - Backend: `providers/llm_*`, `detectors/fraud*.py`, `kb/`, `fusion.py`, `app.py`, `pipeline.py`.
   - Frontend: `App.tsx` layout, `components/{Transcript,AlertBanner,CallControls}.tsx` + new `Timeline.tsx` / `FraudEvidence.tsx`, `useCall.ts`, `mic.ts`.
   - Pitch: script, slides, MentorMates submission.
 - **Shared contract:** `events.py` / `types.ts` (event schema) and `DetectorResult`. Change them only after telling the other person. C owns fusion weights; V provides calibrated scores.
 
-| Time | V: Voice & Proof (Kevin) | C: Conversation & Action (teammate) | Sync |
+| Time | V: Voice & Proof (teammate) | C: Conversation & Action (Kevin) | Sync |
 |---|---|---|---|
 | now–10:30 PM | Record both voices; ElevenLabs clones; review + merge the real-models branch (STT, VAD, ECAPA, pretrained spoof) | Setup; Nebius key; real LLM fraud analyzer tuned on transcripts; verification-evasion + coaching patterns | **10:30:** a real clip replays with a real transcript + fraud flags |
 | 10:30 PM–1 AM | Generate ~60 eval clips + labels; enroll Margaret; **first history row**; Voice Match + Synthetic Audio cards show real scores + evidence | Layout pass; Transcript with trigger highlighting + Timeline; FraudEvidence (quote + citation); AlertBanner with suggested action | **1:00:** all-real end-to-end; delete the stub hint file |
