@@ -30,9 +30,9 @@ class Preset:
 
 PRESETS: dict[str, Preset] = {
     # Token Factory is the rebrand of Nebius AI Studio; legacy URL: https://api.studio.nebius.com/v1/
-    "nebius": Preset("https://api.tokenfactory.nebius.com/v1/", "meta-llama/Meta-Llama-3.1-8B-Instruct", "nebius_api_key"),
-    "nvidia": Preset("https://integrate.api.nvidia.com/v1", "meta/llama-3.1-8b-instruct", "nvidia_api_key"),
-    "ollama": Preset("http://localhost:11434/v1", "llama3.1:8b", None),
+    "nebius": Preset("https://api.tokenfactory.nebius.com/v1/", "Qwen/Qwen3-30B-A3B-Instruct-2507", "nebius_api_key"),
+    "nvidia": Preset("https://integrate.api.nvidia.com/v1", "nvidia/nemotron-3.5-lightning-30b-a3b", "nvidia_api_key"),
+    "ollama": Preset("http://localhost:11434/v1", "qwen3.5:4b", None),
 }
 
 

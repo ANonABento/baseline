@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     llm_api_key: str = ""  # optional generic override for whichever preset is selected
     llm_base_url: str = ""  # empty = preset default
     llm_model: str = ""  # empty = preset default (confirm the id in the provider console)
-    llm_timeout_s: float = 3.0  # per call; on timeout the fraud detector falls back to keywords
+    llm_timeout_s: float = 2.0  # per call; on timeout the fraud detector falls back to keywords
     llm_max_tokens: int = 220
     llm_json_mode: bool = True  # response_format=json_object (auto-disabled if the endpoint rejects it)
     llm_context_utterances: int = 16  # rolling transcript window sent to the LLM
