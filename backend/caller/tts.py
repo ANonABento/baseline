@@ -12,6 +12,7 @@ else stub (TTS_PROVIDER forces one). ElevenLabs falls back to `say` per utteranc
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 import shutil
@@ -97,26 +98,52 @@ class StubTTS(TTSProvider):
 # --------------------------------------------------------------------------- macOS say
 
 class MacSayTTS(TTSProvider):
+    """`say` costs ~0.85 s per call, mostly process start + voice load before it reads its input.
+    We keep one pre-spawned `say -f -` process per voice waiting on stdin (it loads while idle)
+    and hand it the text when needed: ~0.45 s to a finished 16 kHz WAV."""
+
     name = "say"
 
-    def __init__(self, binary: str = "say"):
+    def __init__(self, binary: str = "say", prespawn: bool = True):
         self.binary = shutil.which(binary) or binary
-        self._installed: set[str] | None = None
+        self.prespawn = prespawn
+        self._warm: dict[str, tuple[asyncio.subprocess.Process, str]] = {}
 
     def voices(self) -> list[dict]:
         return SAY_VOICES
+
+    async def _spawn(self, voice: str) -> tuple[asyncio.subprocess.Process, str]:
+        fd, path = tempfile.mkstemp(suffix=".wav", prefix="baseline_say_")
+        os.close(fd)
+        proc = await asyncio.create_subprocess_exec(
+            self.binary, "-v", voice, "-o", path, "--file-format=WAVE", "--data-format=LEI16@16000", "-f", "-",
+            stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE)
+        return proc, path
+
+    async def warm(self, voice: str) -> None:
+        if self.prespawn and voice not in self._warm:
+            self._warm[voice] = await self._spawn(voice)
+
+    async def close(self) -> None:
+        for proc, path in self._warm.values():
+            with contextlib.suppress(ProcessLookupError):
+                proc.kill()
+            Path(path).unlink(missing_ok=True)
+        self._warm.clear()
 
     async def stream(self, text: str, voice: str) -> AsyncIterator[bytes]:
         import soundfile as sf
 
         voice = voice if self.valid_voice(voice) else self.default_voice()
-        fd, path = tempfile.mkstemp(suffix=".wav", prefix="baseline_say_")
-        os.close(fd)
+        warm = self._warm.pop(voice, None)
+        if warm is not None and warm[0].returncode is not None:  # died while idle
+            Path(warm[1]).unlink(missing_ok=True)
+            warm = None
+        proc, path = warm or await self._spawn(voice)
         try:
-            proc = await asyncio.create_subprocess_exec(
-                self.binary, "-v", voice, "-o", path, "--file-format=WAVE", "--data-format=LEI16@16000", "--", text,
-                stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE)
-            _, err = await proc.communicate()
+            _, err = await proc.communicate(text.replace("\n", " ").encode("utf-8"))
+            if self.prespawn:  # next line's process loads while this one plays
+                self._warm[voice] = await self._spawn(voice)
             if proc.returncode != 0:
                 raise RuntimeError(f"say failed ({proc.returncode}): {err.decode(errors='ignore')[:200]}")
             audio, sr = sf.read(path, dtype="int16", always_2d=True)
