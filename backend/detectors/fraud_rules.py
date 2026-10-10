@@ -4,7 +4,8 @@ robust parser for LLM JSON output. No provider imports (keeps import graph acycl
 
 Evidence contract (what `FraudDetector` puts in `DetectorResult.details["patterns"]`):
     {"id", "name", "severity": "low"|"medium"|"high", "quote" (verbatim, <=160 chars),
-     "utterance_id", "source" (URL), "suggested_agent_action"}
+     "utterance_id", "source" (URL), "suggested_agent_action",
+     "say_this" (optional: one calm sentence the agent can say verbatim)}
 """
 
 from __future__ import annotations
@@ -40,6 +41,7 @@ class Pattern:
     source: dict[str, str]
     groups: list[list[re.Pattern[str]]]  # all groups must hit (single group for `triggers`)
     group_phrases: list[list[str]] = field(default_factory=list)
+    say_this: str = ""
 
     @property
     def severity_label(self) -> str:
@@ -125,6 +127,7 @@ def load_playbook(path: Path = PLAYBOOK_PATH) -> list[Pattern]:
                 source=p.get("source", {}),
                 groups=[[_compile(t) for t in g] for g in phrase_groups],
                 group_phrases=phrase_groups,
+                say_this=p.get("say_this", ""),
             )
         )
     return out
@@ -198,9 +201,10 @@ class Evidence:
     source: str
     suggested_agent_action: str
     severity_score: float = 0.0
+    say_this: str = ""
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        d = {
             "id": self.id,
             "name": self.name,
             "severity": self.severity,
@@ -209,6 +213,9 @@ class Evidence:
             "source": self.source,
             "suggested_agent_action": self.suggested_agent_action,
         }
+        if self.say_this:
+            d["say_this"] = self.say_this
+        return d
 
 
 def make_evidence(p: Pattern, quote: str, utterance_id: int) -> Evidence:
@@ -221,6 +228,7 @@ def make_evidence(p: Pattern, quote: str, utterance_id: int) -> Evidence:
         source=p.source_url,
         suggested_agent_action=p.suggested_agent_action,
         severity_score=p.severity,
+        say_this=p.say_this,
     )
 
 

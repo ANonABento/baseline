@@ -24,6 +24,7 @@ from providers.llm_stub import StubLLM, parse_numbered_transcript
 
 DEMO = Path(__file__).resolve().parent.parent / "data" / "demo"
 PATTERN_KEYS = {"id", "name", "severity", "quote", "utterance_id", "source", "suggested_agent_action"}
+OPTIONAL_PATTERN_KEYS = {"say_this"}  # calm line the agent can say verbatim (kb say_this)
 
 
 def demo_utts(name):
@@ -45,7 +46,7 @@ def assert_contract(details, utts):
     texts = dict(utts)
     pb = playbook_by_id()
     for p in details["patterns"]:
-        assert set(p) == PATTERN_KEYS
+        assert PATTERN_KEYS <= set(p) <= PATTERN_KEYS | OPTIONAL_PATTERN_KEYS
         assert isinstance(p["id"], str) and p["id"] in pb
         assert p["name"] == pb[p["id"]].name
         assert p["severity"] in ("low", "medium", "high")

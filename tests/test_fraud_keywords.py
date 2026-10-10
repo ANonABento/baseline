@@ -73,3 +73,20 @@ def test_benign_calls_do_not_fire(benign):
 def test_empty_transcript():
     a = keyword_assess("   ")
     assert a.score == 0.0 and a.confidence == 0.0
+
+
+def test_every_pattern_has_a_short_say_this_line():
+    data = json.loads(PLAYBOOK_PATH.read_text())
+    for p in data["patterns"]:
+        line = p.get("say_this", "")
+        assert line and len(line) <= 160 and line[-1] in ".?!", p["id"]
+        assert "scam" not in line.lower().split()[:3], p["id"]  # opens calmly, not with an accusation
+
+
+def test_say_this_surfaces_in_evidence_dicts():
+    from detectors.fraud import result_from_assessment
+
+    a = keyword_assess("My grandson was arrested and needs bail money.")
+    pats = result_from_assessment(a).details["patterns"]
+    assert pats and pats[0]["id"] == "grandparent_bail"
+    assert pats[0]["say_this"].startswith("Before we send anything")
