@@ -40,11 +40,17 @@ SR = 16_000
 
 def load_env() -> None:
     p = ROOT / ".env"
-    if p.exists():
-        for line in p.read_text().splitlines():
-            if line.strip() and not line.startswith("#") and "=" in line:
-                k, v = line.split("=", 1)
-                os.environ.setdefault(k.strip(), v.strip())
+    if not p.exists():
+        print(f"note: {p} not found (copy env.template to .env at the repo root)", file=sys.stderr)
+        return
+    for line in p.read_text(encoding="utf-8-sig").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.removeprefix("export ").split("=", 1)
+        v = v.strip().strip("\"'")
+        if v and not os.environ.get(k.strip()):  # a blank env var must not shadow the file
+            os.environ[k.strip()] = v
 
 
 # ------------------------------------------------------------------ scripts (ground truth lives here)
@@ -187,11 +193,15 @@ def main() -> None:
     key = os.environ.get("ELEVENLABS_API_KEY", "")
     if not a.dry_run and not key: sys.exit("ELEVENLABS_API_KEY is empty: fill it in .env (cp env.template .env) or use --dry-run")
     voices = dict(KNOWN_VOICES)
+    scammer_voices = list(SCAMMER_VOICES)
     if not a.dry_run:
         try:
             req = urllib.request.Request("https://api.elevenlabs.io/v1/voices", headers={"xi-api-key": key})
             for v in json.loads(urllib.request.urlopen(req, timeout=30).read())["voices"]:
                 if v.get("category") == "premade": voices.setdefault(v["name"].split(" - ")[0].lower(), v["voice_id"])
+            listed = {v["voice_id"] for v in json.loads(urllib.request.urlopen(req, timeout=30).read())["voices"]}
+            for name in [n for n in scammer_voices if voices[n] not in listed]:  # e.g. the clone lives in another account
+                print(f"voice '{name}' ({voices[name]}) is not in this ElevenLabs account: skipping it"); scammer_voices.remove(name)
         except Exception as e:  # noqa: BLE001
             print("voice listing unavailable (", e, "): using the known voice ids")
     cust_voices = [v for v in ("sarah", "laura", "charlie") if v in voices] or CUSTOMER_VOICES
@@ -205,7 +215,7 @@ def main() -> None:
             if a.llm:
                 for t, new in zip(call["turns"], llm_expand([t["text"] for t in call["turns"]], 1)): t["text"] = new
             roles = sorted({t["role"] for t in call["turns"]})
-            vmap = {r: (rng.choice(SCAMMER_VOICES) if r in ("scammer", "seller") else (rng.choice(cust_voices) if r in ("customer", "buyer") else rng.choice(["roger", "george", "callum"]))) for r in roles}
+            vmap = {r: (rng.choice(scammer_voices) if r in ("scammer", "seller") else (rng.choice(cust_voices) if r in ("customer", "buyer") else rng.choice(["roger", "george", "callum"]))) for r in roles}
             cdir = run / "calls" / call["call_id"]; cdir.mkdir(); t_now, segs, wavs = 0.0, [], []
             for k, t in enumerate(call["turns"]):
                 if not a.dry_run:
