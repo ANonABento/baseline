@@ -68,7 +68,8 @@ export class PcmPlayer {
 
   private async initWorklet() {
     try {
-      if (!this.ctx.audioWorklet) return;
+      // ?player=buffers: the old per-chunk path (A/B for playback glitches)
+      if (!this.ctx.audioWorklet || new URLSearchParams(location.search).get("player") === "buffers") return;
       await this.ctx.audioWorklet.addModule(`${import.meta.env.BASE_URL}pcm-player-worklet.js`);
       const node = new AudioWorkletNode(this.ctx, "pcm-player", { outputChannelCount: [1] });
       node.connect(this.gain);

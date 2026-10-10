@@ -14,7 +14,10 @@ class PcmPlayer extends AudioWorkletProcessor {
     this.env = 0; // fade envelope 0..1
     this.last = 0; // last interpolated sample (held while fading out)
     this.waited = 0; // output samples spent waiting to prebuffer
-    this.prebuffer = 0.06; // seconds buffered before (re)starting
+    // seconds buffered before (re)starting: streamed TTS arrives in bursts at the start of a clip,
+    // so starting on the first frame runs dry and stutters; give up waiting after `maxWait`
+    this.prebuffer = 0.16;
+    this.maxWait = 0.3;
     this.fadeStep = 1 / (0.005 * sampleRate);
     this.port.onmessage = (e) => {
       const m = e.data;
@@ -42,7 +45,7 @@ class PcmPlayer extends AudioWorkletProcessor {
       const avail = this.w - this.r;
       if (!this.playing && avail > 1) {
         this.waited++;
-        if (avail >= need || this.waited > this.prebuffer * sampleRate) {
+        if (avail >= need || this.waited > this.maxWait * sampleRate) {
           this.playing = true;
           this.waited = 0;
         }

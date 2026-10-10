@@ -29,9 +29,11 @@ export function micErrorMessage(e: unknown): string {
 
 export async function startMic(onChunk: (pcm: ArrayBuffer) => void, onLevel?: (level: number) => void, deviceId?: string): Promise<MicHandle> {
   if (!navigator.mediaDevices?.getUserMedia) throw new Error("getUserMedia not supported (needs https or localhost)");
+  // ?aec=0: no echo cancellation (use headphones). macOS voice processing also alters speaker output.
+  const aec = new URLSearchParams(location.search).get("aec") !== "0";
   const stream = await navigator.mediaDevices.getUserMedia({
-    // echoCancellation is required: without it the AI's voice from the speakers triggers barge-in
-    audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true, ...(deviceId ? { deviceId: { exact: deviceId } } : {}) },
+    // echoCancellation is required on speakers: without it the AI's voice triggers barge-in
+    audio: { channelCount: 1, echoCancellation: aec, noiseSuppression: true, autoGainControl: true, ...(deviceId ? { deviceId: { exact: deviceId } } : {}) },
   });
   const ctx = new AudioContext();
   const cleanupStream = () => stream.getTracks().forEach((t) => t.stop());
