@@ -3,6 +3,8 @@
 
 let stream: MediaStream | null = null;
 let video: HTMLVideoElement | null = null;
+/** mic picked in the lobby, reused by the call room */
+export const micChoice = { deviceId: "" };
 
 export async function startCamera(deviceId?: string): Promise<HTMLVideoElement> {
   stopCamera();
@@ -47,7 +49,10 @@ export function cameraError(e: unknown): string {
 
 /** Mic level meter for the lobby (AnalyserNode, nothing is sent anywhere). */
 export async function micMeter(onLevel: (v: number) => void, deviceId?: string): Promise<() => void> {
-  const s = await navigator.mediaDevices.getUserMedia({ audio: deviceId ? { deviceId: { exact: deviceId } } : true });
+  micChoice.deviceId = deviceId ?? "";
+  const s = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, ...(deviceId ? { deviceId: { exact: deviceId } } : {}) },
+  });
   const ctx = new AudioContext();
   const src = ctx.createMediaStreamSource(s);
   const an = ctx.createAnalyser();

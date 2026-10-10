@@ -94,8 +94,11 @@ export function eventsFromBackend(id: string, raw: unknown): Recorded[] {
   if (Array.isArray(r.events)) {
     return arr(r.events).map((e, i) => ({ msg: e as unknown as ServerMsg, at: n(e.at, i) }));
   }
+  // live backend: {meta:{role, scenario, voice, tts, persona:{label}, customer}, durations:{call_s}, ended_reason, ...}
   const sess = obj(r.session ?? r.meta);
-  const reveal = obj(r.reveal ?? sess.reveal);
+  const persona = obj(sess.persona);
+  const reveal = { persona_label: persona.label, tts: sess.tts, ...obj(r.reveal ?? sess.reveal) } as Obj;
+  const callS = n(obj(r.durations).call_s, n(sess.duration_s, NaN));
   const cust = obj(sess.customer ?? r.customer);
   const out: Recorded[] = [];
   const t0 = 0;
@@ -124,7 +127,7 @@ export function eventsFromBackend(id: string, raw: unknown): Recorded[] {
   for (const g of arr(r.signals)) {
     const uid = n(g.utterance_id);
     timed.push({
-      t: (tOf.get(uid) ?? 0) + 0.001,
+      t: n(g.t, (tOf.get(uid) ?? 0) + 0.001),
       msg: { type: "signal", utterance_id: uid, signal: s(g.signal) as "fraud", score: n(g.score), confidence: n(g.confidence), reason: s(g.reason), details: obj(g.details) },
     });
   }
@@ -148,7 +151,7 @@ export function eventsFromBackend(id: string, raw: unknown): Recorded[] {
   out.push({
     msg: {
       type: "call_ended",
-      reason: s(r.reason ?? sess.end_reason, "ended"),
+      reason: s(r.ended_reason ?? r.reason ?? sess.end_reason, "ended"),
       report_id: id,
       reveal: {
         role: (s(reveal.role ?? sess.role, "agent") as "agent"),
@@ -158,7 +161,7 @@ export function eventsFromBackend(id: string, raw: unknown): Recorded[] {
         tts: s(reveal.tts),
       },
     },
-    at: t0 + n(sess.duration_s, last) * 1000,
+    at: t0 + (isFinite(callS) ? Math.max(callS, last) : last) * 1000,
   });
   return out;
 }

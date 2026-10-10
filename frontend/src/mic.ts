@@ -27,10 +27,11 @@ export function micErrorMessage(e: unknown): string {
   }
 }
 
-export async function startMic(onChunk: (pcm: ArrayBuffer) => void, onLevel?: (level: number) => void): Promise<MicHandle> {
+export async function startMic(onChunk: (pcm: ArrayBuffer) => void, onLevel?: (level: number) => void, deviceId?: string): Promise<MicHandle> {
   if (!navigator.mediaDevices?.getUserMedia) throw new Error("getUserMedia not supported (needs https or localhost)");
   const stream = await navigator.mediaDevices.getUserMedia({
-    audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    // echoCancellation is required: without it the AI's voice from the speakers triggers barge-in
+    audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true, ...(deviceId ? { deviceId: { exact: deviceId } } : {}) },
   });
   const ctx = new AudioContext();
   const cleanupStream = () => stream.getTracks().forEach((t) => t.stop());

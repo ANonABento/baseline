@@ -4,7 +4,7 @@ import { Baseline } from "../components/Baseline";
 import { Mark, RenderToggle } from "../components/Chrome";
 import { Transcript } from "../components/Transcript";
 import { Viewport } from "../components/Viewport";
-import { currentCamera } from "../lib/media";
+import { currentCamera, micChoice } from "../lib/media";
 import { buildNotes, spikesFromNotes, TIER_GLYPH, verdictOf, type Note } from "../lib/notes";
 import { linkTo, navigate } from "../lib/prefs";
 import { elapsed, type SessionState } from "../lib/session";
@@ -86,6 +86,7 @@ export function Room({ state, aiLevel, onHangup, onText, onPcm, onBargeIn, onAga
           myLevel.current = lv;
           if (holdingRef.current) setMyLevelUi(lv);
         },
+        micChoice.deviceId || undefined,
       );
       setMicErr(null);
       return true;

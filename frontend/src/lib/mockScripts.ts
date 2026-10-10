@@ -192,7 +192,7 @@ export const AGENT_SCRIPTS: Record<string, Script> = {
       { text: "Fine. I'll call back later.", audio: [spoof(0.7)], trust: 12 },
     ],
   },
-  grandparent: {
+  grandparent_coached: {
     persona_label: "Real customer being coached through a grandparent scam",
     customer: WALTER,
     lines: [
@@ -257,7 +257,7 @@ export const VOICES = [
 
 export const SCENARIOS = [
   { id: "account_takeover", label: "Account takeover" },
-  { id: "grandparent", label: "Grandparent / coached" },
+  { id: "grandparent_coached", label: "Grandparent / coached" },
   { id: "safe_account", label: "Safe account" },
   { id: "verification_evasion", label: "Verification evasion" },
 ];

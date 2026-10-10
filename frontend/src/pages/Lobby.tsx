@@ -16,6 +16,7 @@ const ROLES: { id: SessionRequest["role"]; label: string; hint: string }[] = [
 export const SCENARIO_LABEL: Record<string, string> = {
   account_takeover: "Account takeover",
   grandparent: "Grandparent / coached",
+  grandparent_coached: "Grandparent / coached",
   safe_account: "Safe account",
   verification_evasion: "Verification evasion",
 };

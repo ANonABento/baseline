@@ -106,3 +106,31 @@ test("backend report normalizes into a replayable call", () => {
   assert.equal(s.ended?.reveal.persona_label, "Coached customer");
   assert.equal(s.endedAt, 30000);
 });
+
+test("live backend report shape (meta / durations / ended_reason / timed signals)", () => {
+  const s = replay(eventsFromBackend("abc", {
+    id: "abc", ended_reason: "hangup",
+    meta: { role: "agent", scenario: "account_takeover", voice: "Rachel", tts: "elevenlabs", persona: { label: "Fraudster cloning Margaret", summary: "x" },
+      customer: { id: "CUST-004217", name: "Margaret Chen", account_mask: "••4217", enrolled: true } },
+    durations: { queue_wait_s: 0, call_s: 42 },
+    transcript: [
+      { utterance_id: 0, speaker: "ai", analyzed: true, text: "Hi, it's Margaret", t_start: 0.5, t_end: 3 },
+      { utterance_id: 1000, speaker: "visitor", analyzed: false, text: "Hello", t_start: 3.5, t_end: 4 },
+    ],
+    signals: [{ utterance_id: 0, signal: "spoof", score: 0.8, confidence: 0.7, reason: "synthetic", details: {}, t: 3.6 }],
+    alerts: [{ level: "caution", reasons: ["synthetic"], suggested_action: "verify", signals: ["spoof"], citations: [], t: 3.7 }],
+    verdict: { level: "caution" },
+  }));
+  assert.equal(s.ended?.reason, "hangup");
+  assert.equal(s.ended?.reveal.persona_label, "Fraudster cloning Margaret");
+  assert.equal(s.ended?.reveal.tts, "elevenlabs");
+  assert.equal(s.endedAt, 42000);
+  assert.deepEqual(s.lines.map((l) => [l.utterance_id, l.speaker]), [[0, "ai"], [1000, "visitor"]]);
+  assert.equal(s.signals.length, 1);
+  assert.equal(s.peak, "caution");
+});
+
+test("queue position 0 (immediate slot) then call_started", () => {
+  const s = run([{ kind: "request" }, msg({ type: "queue", position: 0, queue_length: 0, eta_s: 0 }), msg(started)]);
+  assert.equal(s.phase, "live");
+});

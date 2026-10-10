@@ -17,7 +17,7 @@ export function useSession() {
   const hangTimer = useRef(0);
 
   const record = (msg: ServerMsg) => {
-    if (msg.type === "ai_level") return;
+    if (msg.type === "ai_level" || (msg as { type: string }).type === "pong") return;
     if (!log.current.length) t0.current = performance.now();
     log.current.push({ msg, at: performance.now() - t0.current });
   };
