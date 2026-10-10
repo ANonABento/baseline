@@ -73,3 +73,46 @@ def test_benign_calls_do_not_fire(benign):
 def test_empty_transcript():
     a = keyword_assess("   ")
     assert a.score == 0.0 and a.confidence == 0.0
+
+
+def test_every_pattern_has_a_short_say_this_line():
+    data = json.loads(PLAYBOOK_PATH.read_text())
+    for p in data["patterns"]:
+        line = p.get("say_this", "")
+        assert line and len(line) <= 160 and line[-1] in ".?!", p["id"]
+        assert "scam" not in line.lower().split()[:3], p["id"]  # opens calmly, not with an accusation
+
+
+def test_say_this_surfaces_in_evidence_dicts():
+    from detectors.fraud import result_from_assessment
+
+    a = keyword_assess("My grandson was arrested and needs bail money.")
+    pats = result_from_assessment(a).details["patterns"]
+    assert pats and pats[0]["id"] == "grandparent_bail"
+    assert pats[0]["say_this"].startswith("Before we send anything")
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("This is Windows technical support, there is a virus on your computer.", "remote_access"),
+        ("You've been selected to receive a free $500 gift card.", "prize_lottery"),
+        ("To process the refund I need your bank account number.", "credential_request"),
+        ("He asked for my online banking password to fix it.", "credential_request"),
+        ("I need to transfer five thousand right now.", "urgent_wire_new_payee"),
+    ],
+)
+def test_dev_tuned_patterns_fire(text, expected):
+    assert expected in ids(text)
+
+
+@pytest.mark.parametrize(
+    "text,not_expected",
+    [
+        ("Let me transfer you to my manager right now.", "urgent_wire_new_payee"),
+        ("Our courier services deliver all over the country.", "cash_courier"),
+        ("My card number is on the back, the one ending 4410.", "credential_request"),
+    ],
+)
+def test_dev_tuned_false_alarms_quiet(text, not_expected):
+    assert not_expected not in ids(text)

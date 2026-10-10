@@ -10,7 +10,7 @@ kb/fraud_playbook.json, so the demo works with no LLM at all.
 
 DetectorResult.details (contract with the frontend's FraudEvidence / Transcript):
     {"patterns": [{"id", "name", "severity": "low"|"medium"|"high", "quote", "utterance_id",
-                   "source", "suggested_agent_action"}],
+                   "source", "suggested_agent_action", "say_this"?}],
      "engine": "llm" | "keywords", "model": str | None,
      "citations": [{"pattern_id", "name", "source"}],   # consumed by fusion -> AlertEvent
      "suggested_action": str}                             # consumed by fusion -> AlertEvent
