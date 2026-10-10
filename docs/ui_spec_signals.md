@@ -28,6 +28,9 @@ At call end C does: `from detectors.session_signals import analyse; report["beha
 ## 5b. Where the Twin renders (implemented)
 `frontend/src/lib/twin.ts` (pure view-model, tests in `frontend/tests/twin.test.ts`) -> `components/Twin.tsx` (`TwinPanel`, used in the live `Room` for role `candidate` and in the `Report` page). Live `pressure` and `decision` WebSocket messages feed `SessionState.pressure/decisions`.
 
+## 6a. Fine-tuned model
+`SEGNET_PROVIDER=brief` (needs `git lfs pull`): prosody `details.segnet` = `{emotion:{label:p}, arousal:{low,high}, mode:"fused"|"audio_only", model, held_out_accuracy, calibration_status}`; `details.emotion_estimate` is then filled from it. The Twin shows the emotion bars and "arousal high N%" with the model name. Model scores only; uncalibrated on real calls.
+
 ## 6. Enabling the emotion probe
 `EMOTION_PROVIDER=wavlm` in `.env` (needs `data/models/emotion_probe.npz`, made by `scripts/train_emotion_probe.py`; loads WavLM-base-plus, ~380 MB, first call slower). Off by default; the UI must handle `emotion_estimate: null`.
 

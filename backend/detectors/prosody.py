@@ -13,7 +13,7 @@ from core import CallContext, Utterance
 from detectors import voice_state
 from detectors.base import Detector, stub_result
 from events import DetectorResult
-from ml import emotion
+from ml import emotion, segnet
 
 
 class ProsodyDetector(Detector):
@@ -21,6 +21,11 @@ class ProsodyDetector(Detector):
 
     def __init__(self, min_baseline_utts: int | None = None):
         self.min_baseline_utts = min_baseline_utts or voice_state.MIN_BASELINE_UTTS
+
+    def warmup(self) -> None:
+        segnet.load()
+        if emotion.enabled():
+            emotion.estimate(__import__("numpy").zeros(16_000, dtype="float32"))
 
     async def analyze(self, utt: Utterance, ctx: CallContext) -> DetectorResult:
         if ctx.stub_hints.get(self.name) is not None:
@@ -33,6 +38,12 @@ class ProsodyDetector(Detector):
         d = voice_state.assess(f, base)
         if d["status"] != "insufficient_evidence" and emotion.enabled():
             d["emotion_estimate"] = await asyncio.to_thread(emotion.estimate, utt.audio, utt.sample_rate)
+        if d["status"] != "insufficient_evidence" and segnet.enabled():
+            seg = await asyncio.to_thread(segnet.estimate, utt.audio, utt.sample_rate, utt.text or "")
+            if seg is not None:  # fine-tuned model (preferred over the acted-speech probe for the emotion bars)
+                d["segnet"] = seg
+                d["emotion_estimate"] = {"probs": seg["emotion"], "model": seg["model"], "mode": seg["mode"],
+                                         "calibration_status": "not_established"}
         status, change = d["status"], d["stress_related_change"]
         if status == "building_baseline":
             reason = f"Building this caller's baseline ({d['baseline_n']} of {base.min_n} utterances)."

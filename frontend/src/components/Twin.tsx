@@ -69,11 +69,12 @@ export function TwinPanel({ twin, duration }: { twin: TwinView; duration: number
       </div>
 
       {twin.emotion && (
-        <div className="twin__emotion" title="Acted-speech probe; uncalibrated on real speech. Side information only.">
-          <span className="label">Emotion estimate (acted-speech probe)</span>
+        <div className="twin__emotion" title="Model scores, uncalibrated on real speech (trained on acted, meeting and synthetic speech). Side information only.">
+          <span className="label">{twin.emotionModel?.includes("fine-tuned") ? "Emotion estimate (fine-tuned model)" : "Emotion estimate (acted-speech probe)"}</span>
           {twin.emotion.map((e) => (
             <span className="num" key={e.label}>{e.label} {Math.round(e.p * 100)}%</span>
           ))}
+          {twin.arousal && <span className="num">arousal high {Math.round(twin.arousal.high * 100)}% ({twin.arousal.mode === "fused" ? "voice + words" : "voice only"})</span>}
         </div>
       )}
 

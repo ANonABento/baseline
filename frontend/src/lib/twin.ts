@@ -48,6 +48,9 @@ export interface TwinView {
   pressureNow: number | null;
   decisions: { t: number; utterance_id: number; event: DecisionKind }[];
   emotion: { label: string; p: number }[] | null;
+  /** fine-tuned model: P(high arousal) and which input it used; null when the model is off */
+  arousal: { high: number; mode: string } | null;
+  emotionModel: string | null;
 }
 
 type Obj = Record<string, unknown>;
@@ -96,6 +99,10 @@ export function twinView(s: Pick<SessionState, "lines" | "signals" | "pressure" 
     markers: withD?.status === "ok" ? (((dLatest.delivery_markers as string[]) ?? []).slice(0, 3)) : [],
     pressureNow: pressureAt.at(-1)?.level ?? null,
     decisions: [...s.decisions].sort((a, b) => a.t - b.t),
+    arousal: ((dLatest.segnet as Obj | undefined)?.arousal as Record<string, number> | undefined)?.high != null
+      ? { high: ((dLatest.segnet as Obj).arousal as Record<string, number>).high, mode: String((dLatest.segnet as Obj).mode ?? "") }
+      : null,
+    emotionModel: typeof (dLatest.emotion_estimate as Obj | null)?.model === "string" ? ((dLatest.emotion_estimate as Obj).model as string) : null,
     emotion: probs
       ? Object.entries(probs).map(([label, p]) => ({ label, p })).sort((a, b) => b.p - a.p).slice(0, 3)
       : null,

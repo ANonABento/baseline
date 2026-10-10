@@ -102,6 +102,10 @@ def configure(svc: LiveService | None) -> None:
 async def warmup_live(settings: Settings) -> None:
     """Pre-spawn TTS and load the persona LLM's prompt so the first call starts fast."""
     svc = service()
+    from ml import segnet
+    if segnet.enabled():  # load the fine-tuned model now, not during the first turn
+        with suppress(Exception):
+            await asyncio.to_thread(segnet.load)
     warm = getattr(svc.tts, "warm", None)
     if warm is not None:
         with suppress(Exception):

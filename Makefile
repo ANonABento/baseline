@@ -23,7 +23,7 @@ dev-live:         ## live "try it" backend on :8000: real models, Ollama persona
 	@test -f data/enroll/CUST-004217.npy || $(MAKE) enroll-demo
 	cd backend && STT_PROVIDER=mlx VAD_PROVIDER=silero SPEAKER_PROVIDER=ecapa SPOOF_PROVIDER=pretrained \
 	  LLM_TIMEOUT_S=$${LLM_TIMEOUT_S:-3} \
-	  EMOTION_PROVIDER=$${EMOTION_PROVIDER:-wavlm} HF_HUB_OFFLINE=1 $(UV) run --extra ml uvicorn app:app --host $${HOST:-127.0.0.1} --port $${PORT:-8000}
+	  EMOTION_PROVIDER=$${EMOTION_PROVIDER:-wavlm} SEGNET_PROVIDER=$${SEGNET_PROVIDER:-brief} HF_HUB_OFFLINE=1 $(UV) run --extra ml uvicorn app:app --host $${HOST:-127.0.0.1} --port $${PORT:-8000}
 
 GPU_HOST ?= rlwrld-us-01@100.88.216.90
 gpu-tunnel:       ## forward the 5090's Ollama (:11435) and Kokoro TTS (:8880) to localhost

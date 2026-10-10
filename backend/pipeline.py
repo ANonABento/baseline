@@ -257,6 +257,8 @@ class CallPipeline:
                         t_start=round(t_start, 2), t_end=round(t_end, 2))
         self._next_id += 1
         has_audio = audio.size > 0
+        if text_override is not None:
+            utt.text = text_override  # known before the audio detectors start (the fine-tuned model reads it)
         audio_tasks = [
             asyncio.create_task(self._run_detector(d, utt, t0))
             for d in self.detectors if not d.requires_text and has_audio
