@@ -5,3 +5,5 @@ export { TrustGauge } from "./TrustGauge";
 export { SignalCards } from "./SignalCards";
 export { AlertBanner } from "./AlertBanner";
 export { Transcript } from "./Transcript";
+export { Timeline } from "./Timeline";
+export { FraudEvidence } from "./FraudEvidence";
