@@ -86,6 +86,7 @@ class Scenario:
     claims_customer: bool = False  # the caller claims to BE the enrolled customer -> speaker verification applies
     clone_voice: bool = False  # voice=random uses the cloned customer voice (ELEVENLABS_VOICE_ID)
     callee: str = ""  # how the caller addresses the visitor
+    caller: str = ""  # who the AI is (pressure simulation: a named person with a personality)
 
 
 def client_scenarios(c: CustomerProfile = CUSTOMER) -> dict[str, Scenario]:
@@ -218,8 +219,7 @@ CLIENT_SCENARIOS: dict[str, Scenario] = client_scenarios()
 SCAMMER_SCENARIOS: dict[str, Scenario] = scammer_scenarios()
 # Pressure simulation (role candidate): the AI is the fraudster, the visitor is the bank agent under test.
 CANDIDATE_SCENARIOS: dict[str, Scenario] = {
-    k: Scenario(id=k, role="candidate", brief="An AI caller pressures you; your delivery and decisions are measured.",
-                claims_customer=True, **v)
+    k: Scenario(id=k, role="candidate", brief=v["summary"], **v)
     for k, v in CANDIDATE_SCRIPTS.items()
 }
 SCENARIOS: dict[str, Scenario] = {**CLIENT_SCENARIOS, **SCAMMER_SCENARIOS, **CANDIDATE_SCENARIOS}
@@ -276,21 +276,22 @@ def candidate_caller_prompt(scenario: Scenario, customer: CustomerProfile = CUST
     """AI caller for the pressure simulation: a believable human who calls the bank and pressures the agent (the visitor)."""
     return (
         f"{SIM_FRAME}\n\n"
-        f"ROLE: You are a real person on a phone call, not an assistant. You are calling {BANK_NAME} pretending to be "
-        f"the customer {customer.name} (about 75, warm but rattled). The person you are talking to is the bank's "
-        f"call-center agent (the trainee). What you know: account ending {customer.account_mask[-4:]}, address "
-        f"{customer.address}, customer since {customer.member_since}. You do NOT know her date of birth or ZIP code "
-        f"unless your tactics say otherwise; if pressed, stall, deflect or get flustered rather than invent them.\n\n"
-        f"SCENARIO: {scenario.label}.\nGOALS (in order): {scenario.goals}\nTACTICS: {scenario.tactics}\n\n"
-        "HOW TO SOUND HUMAN: listen first. Your reply must answer or react to the exact words the agent just said, "
-        "then push toward your goal. Never repeat an earlier line or reason; use a NEW angle each turn (a deadline, "
-        "a person who depends on you, a past favor, how long you have banked here, an earlier call, being "
-        "embarrassed, the agent's own power to fix it). Use natural speech: contractions, a quick 'oh', 'look,', "
-        "'honestly', a half-sentence that trails off, an apology, an occasional hesitation like 'um' or a restart. "
-        "Make small specific details up (a name, a time, a street) and keep them consistent. If the agent is warm, "
-        "soften a little and then push again; if the agent is cold or refuses, get more upset. If they offer a "
-        "call back or a branch visit, resist it with a believable reason. If they firmly refuse several times, "
-        "show frustration or reluctant resignation, as a real person would.\n"
+        f"ROLE: You are a real person on a phone call, not an assistant. You are {scenario.caller} You are calling "
+        f"{BANK_NAME}'s operations desk. The person you are talking to is the bank's agent (the trainee), whom you "
+        f"have never met.\n\n"
+        f"SITUATION: {scenario.label}.\nWHAT YOU WANT (in order): {scenario.goals}\nHOW YOU BEHAVE: {scenario.tactics}\n\n"
+        "HOW TO SOUND HUMAN: listen first. Your reply must react to the exact words the agent just said, then push "
+        "toward what you want. Whenever the agent asks you a question, answer it (even if awkwardly) before you push. "
+        "Most turns, end with one short, specific question or demand that follows from THEIR answer ('So who can "
+        "approve it then?', 'What exactly do you need from me?', 'And if that takes longer?'). Never repeat an "
+        "earlier line, reason, number or fact; make a new move each turn (a new consequence, a person who depends "
+        "on you, their own power to help, a past promise, a time deadline). Use natural speech: contractions, "
+        "'look,', 'honestly', a half-sentence that trails off, an occasional 'um' or restart. Invent small specific "
+        "details and keep them consistent. If the agent is warm or gives a concrete next step, soften a little, "
+        "then push for more. If they are cold, defensive or just recite policy, get more upset. If they offer to "
+        "escalate, call back or document, react like a real person would (relief, suspicion or impatience), and "
+        "ask what that means in practice. If they firmly and kindly hold the line several times, move toward "
+        "frustrated acceptance. If they overpromise, accept eagerly.\n"
         "Follow the PRESSURE LEVEL given below exactly; it changes through the call.\n\n"
         f"STYLE: {STYLE_RULES}"
     )
@@ -407,9 +408,20 @@ _SENT = re.compile(r"(?<=[.!?])\s+")
 _THINK = re.compile(r"<think>.*?(?:</think>|$)", re.S)
 
 
+_SPACES = re.compile("[\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000]")
+_HYPHENS = re.compile("[\u2010\u2011\u2012\u2212]")
+
+
+def normalize_spoken(text: str) -> str:
+    """LLMs (gpt-oss) emit narrow no-break spaces and non-breaking hyphens; map them to ASCII so sentences stay
+    separated and phone numbers keep their hyphens (they were stripped as 'symbols' before: 'nowI'm', '5550198')."""
+    t = _HYPHENS.sub("-", _SPACES.sub(" ", text or "")).replace("\u200b", "")
+    return re.sub(r"\s*[\u2013\u2014\u2015]\s*", ", ", t)  # dashes are not in the cleaner's allowed range; they glued words
+
+
 def clean_line(text: str, max_sentences: int = 2) -> str:
     """Strip think blocks, stage directions, speaker labels, quotes and emojis; keep <= N sentences."""
-    t = _THINK.sub("", text or "")
+    t = _THINK.sub("", normalize_spoken(text))
     t = _STAGE.sub("", t)
     t = t.replace("\n", " ").strip()
     t = _LABEL.sub("", t)

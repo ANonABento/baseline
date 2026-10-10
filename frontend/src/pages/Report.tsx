@@ -5,7 +5,7 @@ import { CallAudio } from "../components/CallAudio";
 import { TopBar } from "../components/Chrome";
 import { BehaviourSummary } from "../components/Credential";
 import { Transcript } from "../components/Transcript";
-import { TwinPanel } from "../components/Twin";
+import { TwinPanel, TwinTimeline } from "../components/Twin";
 import { twinView } from "../lib/twin";
 import { fetchReport, fetchReportList, isMockSetting, loadConfig } from "../lib/client";
 import { buildNotes, spikesFromNotes, TIER_GLYPH, topEvidence, verdictOf, type Note } from "../lib/notes";
@@ -181,6 +181,9 @@ export function Report({ id }: { id: string }) {
 
         <section className="report__section report__timeline" aria-label="Timeline">
           <span className="label">Timeline, {fmtTime(dur)}</span>
+          {candidate && twin ? (
+            <TwinTimeline twin={twin} duration={axis} cursor={audio && playT > 0 ? Math.min(1, playT / axis) : undefined} />
+          ) : (
           <Baseline
             spikes={spikes}
             activeId={active}
@@ -192,6 +195,7 @@ export function Report({ id }: { id: string }) {
             }}
             ariaLabel="Call timeline"
           />
+          )}
         </section>
 
         <div className="report__grid">

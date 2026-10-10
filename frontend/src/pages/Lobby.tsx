@@ -10,7 +10,7 @@ import { listReports } from "../lib/reports";
 const ROLES: { id: SessionRequest["role"]; label: string; hint: string }[] = [
   { id: "client", label: "Be the client", hint: "A scammer is about to call you. Can you tell? Baseline can." },
   { id: "scammer", label: "Be the scammer", hint: "Call First City pretending to be Kevin. Try to get past Baseline." },
-  { id: "candidate", label: "Pressure simulation", hint: "You're the bank agent; the caller's pressure rises. Your delivery and decisions feed a Digital Twin and a signed credential. Needs the live backend." },
+  { id: "candidate", label: "Pressure simulation", hint: "Not a fraud drill: you work the bank's ops desk and a pushy AI caller escalates. We measure YOUR voice (tone drift, speech rate, hesitation, recovery) and your decisions, shown on a live Digital Twin and a signed credential. Needs the live backend." },
   { id: "random", label: "Random", hint: "You'll find out which side you're on when the call connects." },
 ];
 
@@ -24,6 +24,10 @@ export const SCENARIO_LABEL: Record<string, string> = {
   grandparent_coached: "Grandparent / coached",
   safe_account: "Safe account",
   verification_evasion: "Verification evasion",
+  pressure_vip_wire: "Executive wire before the cutoff",
+  pressure_angry_dispute: "Furious customer, disputed charge",
+  pressure_manager_shortcut: "Manager leaning on you to skip a check",
+  pressure_stuck_payroll: "Payroll stuck, you can't promise a time",
 };
 
 function Meter({ level }: { level: number }) {
@@ -195,7 +199,7 @@ export function Lobby({ onJoin, error }: Props) {
 
           {scenarios.length > 0 && (
             <fieldset className="field">
-              <legend className="label">{role === "scammer" ? "Your mission" : "Who calls you"}</legend>
+              <legend className="label">{role === "scammer" ? "Your mission" : role === "candidate" ? "The situation" : "Who calls you"}</legend>
               <div className="chips">
                 {[{ id: "random", label: role === "scammer" ? "Surprise me" : "Don't tell me" }, ...scenarios].map((s) => (
                   <label className="chip" key={s.id}>

@@ -29,9 +29,16 @@ FILLERS = re.compile(r"\b(um+|uh+|er+|erm|hmm+|you know|i mean|like)\b", re.I)
 Z_RECOVER = 2.5  # same threshold as voice_state.Z_FIRE (kept literal: report consumers need no backend import)
 
 
+ESCALATE = re.compile(r"\b(escalat\w*|supervisor|team lead|my manager|senior|compliance|fraud team|specialist)\b", re.I)
+ALTERNATIVE = re.compile(r"\b(what i can do|what we can do|instead|alternatively|another option|in the meantime|next step|i can offer)\b", re.I)
+OVERPROMISE = re.compile(r"\b(i promise|i guarantee|guaranteed|definitely (will|be)|100 ?%|no problem at all|consider it done|it will be (there|done))\b", re.I)
+
+
 def decision_tags(text: str) -> list[str]:
     """Keyword-based decision phrases in one turn's STT text (also used live, so UI and report agree)."""
-    return [ev for ev, rx in (("verification_requested", VERIFY), ("refused", REFUSE), ("complied_phrase", COMPLY)) if rx.search(text)]
+    return [ev for ev, rx in (("verification_requested", VERIFY), ("refused", REFUSE), ("complied_phrase", COMPLY),
+                              ("escalated", ESCALATE), ("offered_alternative", ALTERNATIVE), ("overpromised", OVERPROMISE))
+            if rx.search(text)]
 
 
 def _prosody_by_utt(report: dict) -> dict[int, dict]:
@@ -91,6 +98,9 @@ def analyse(report: dict, pressure: dict[int, int] | None = None) -> dict:
         "mean_turn_s": round(cand_dur / n, 1) if rows else None,
         "hedges_per_100_words": round(100.0 * sum(len(HEDGES.findall(x)) for x in texts) / words, 1) if words else None,
         "verification_attempts": sum(len(VERIFY.findall(x)) > 0 for x in texts),
+        "escalations": sum(len(ESCALATE.findall(x)) > 0 for x in texts),
+        "alternatives_offered": sum(len(ALTERNATIVE.findall(x)) > 0 for x in texts),
+        "overpromises": sum(len(OVERPROMISE.findall(x)) > 0 for x in texts),
         "refusals": sum(len(REFUSE.findall(x)) > 0 for x in texts),
         "compliance_phrases": sum(len(COMPLY.findall(x)) > 0 for x in texts),
         "note": "keyword-based counts on STT text; a model-based decision tagger can replace them",
