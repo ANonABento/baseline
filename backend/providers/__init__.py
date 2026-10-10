@@ -25,18 +25,10 @@ def make_stt(settings: Settings) -> STTProvider:
 
 
 def make_llm(settings: Settings) -> LLMProvider:
-    if settings.resolved_llm_provider() == "openai" and settings.nebius_api_key:
-        from providers.llm_openai import OpenAICompatLLM
+    """Nebius / NVIDIA / Ollama (OpenAI-compatible) or the offline stub; see providers/llm_presets.py."""
+    from providers.llm_presets import build_llm
 
-        return OpenAICompatLLM(
-            api_key=settings.nebius_api_key,
-            base_url=settings.llm_base_url,
-            model=settings.llm_model,
-            timeout_s=settings.llm_timeout_s,
-        )
-    from providers.llm_stub import StubLLM
-
-    return StubLLM()
+    return build_llm(settings)
 
 
 __all__ = ["LLMProvider", "STTProvider", "make_llm", "make_stt"]

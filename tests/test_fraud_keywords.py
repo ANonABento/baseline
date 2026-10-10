@@ -41,7 +41,7 @@ def test_normalize():
         ("Your fraud department told me to move my money to a safe account.", "safe_account"),
         ("The man had me install AnyDesk so he could fix it.", "remote_access"),
         ("He said don't tell the bank about this.", "secrecy"),
-        ("They're telling me what to say, they are on the other line.", "coached_caller"),
+        ("They're telling me what to say, they are on the other line.", "coached_customer"),
     ],
 )
 def test_patterns_detected(text, expected):
