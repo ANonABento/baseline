@@ -40,6 +40,23 @@
 
 **The core claim: no single signal is trusted.** A voice clone can fool voice-ID; Baseline still catches it because the audio looks synthetic *and* the request matches a fraud pattern. Alerts escalate when independent signals agree.
 
+### One-line pitch
+> **Baseline is a real-time co-pilot for bank call centers that catches voice-clone account takeovers and customers being coached by scammers. It's sold to banks and credit unions who lose money on every fraudulent call, runs on-premises so call audio never leaves the bank, and protects the vulnerable customers who need it most at no cost to them.**
+
+### Who pays, who's protected ("sell to banks, protect the innocent")
+- **Buyer: banks and credit unions (B2B, per-seat contact-center SaaS).** The protected person never pays, the same model as card fraud detection.
+- **Why they pay:**
+  - They carry the loss on account takeover: unauthorized transfers are generally the bank's liability under US Reg E.
+  - Scam-reimbursement rules are tightening (the UK has mandated reimbursement since late 2024; the US is under pressure). *Verify specifics before citing.*
+  - AI clones have already beaten bank voiceprint logins in public demonstrations.
+  - Elder-exploitation programs already exist; we give the agent something to act on.
+- **Reach to the people who need it:**
+  - **Community banks and credit unions:** they serve low-income and elderly customers and can't build this in-house.
+  - **Nonprofits (e.g. AARP Fraud Watch Network):** distribution and credibility partners, not payers.
+  - **Later:** a free consumer app bundled by banks or carriers, cross-subsidized by B2B.
+- **On-prem is a feature:** banks can't ship call audio to third-party clouds. "Runs on one laptop / one GPU box in your data center" is a sales point, and it's where the 5090 fits the story.
+- **Competition to name if asked:** Pindrop (enterprise call-center auth and deepfake detection) and Google's on-device scam detection on Pixel. **Our angle:** fusing three independent baselines (enrolled voice, synthetic audio, fraud script), cheap enough for a small credit union.
+
 ### What we will *not* claim
 - **No "lie detection."** Voice-stress lie detection has weak scientific support. We show *deviation from the speaker's own baseline*, labeled "pressure / arousal."
 - **No "detects every deepfake."** We show measured accuracy on held-out data, including edge cases we didn't train on.
@@ -149,19 +166,24 @@ tests/
 
 ## 7. 18-Hour Build Plan
 
-Roles if 2 people: **A = audio/ML** (VAD, STT, speaker, spoof, prosody, eval) · **B = app** (FastAPI WS, LLM fraud analyzer, playbook, fusion, frontend). Solo: A's pipeline skeleton first, then B, and use the cut list aggressively.
+**Status:** the scaffold is done (commit `e468ae9`). There's an end-to-end skeleton: replay and mic share one path, fusion and alerts work, the fraud detector runs on the LLM with a keyword fallback, eval writes to `history.csv`, 58 tests pass, and there's a dashboard. Speech-to-text, speaker verification and spoof detection are still stubs. Model weights are cached and smoke-tested on the M5 (see §10).
 
-**Before 7 PM (allowed prep):** install `uv`, Node, Python 3.11; download models (mlx-whisper, silero, ECAPA, WavLM); redeem ElevenLabs / Nebius / NVIDIA credits; write the two demo call scripts; confirm the code rules.
+**Team of two, each running Claude Code.** Use SharedNet to coordinate the agents. Each person works on their own branch and merges to `main` at every sync.
 
-| Time | A (audio/ML) | B (app) |
-|---|---|---|
-| 7–9 PM *(mentors here)* | Record team voices; generate ElevenLabs clones; label eval set. Ask mentors about the spoof approach. | Repo scaffold; FastAPI WS; replay streaming; frontend shell |
-| 9–11 PM | VAD + STT on replay → transcript | LLM fraud analyzer + playbook → JSON + citations |
-| 11 PM–1 AM | Speaker verify; pretrained spoof check; `eval.py` v1 → **first history row** | Transcript + events live in dashboard. **Milestone: end-to-end replay works.** |
-| 1–4 AM | Train calibrated spoof classifier; edge-case suite | Fusion, alert levels, "why" cards, suggested actions |
-| 4–6 AM | Prosody baseline; re-run eval after each change | Dashboard polish; live mic mode |
-| 6–7:30 AM | **Feature freeze.** Lock demo clips; demo gate 5× | Improvement chart; README; latency numbers |
-| 7:30–9 AM | Record backup video; submit on MentorMates **by 8:30** (buffer) | Rehearse the 3-min pitch |
+- **A = audio/ML.** Owns `detectors/{spoof,speaker,prosody}.py`, `segmenter.py` (silero), `providers/stt_*` (mlx-whisper), `scripts/`, `data/`.
+- **B = app/product.** Owns `providers/llm_*`, `detectors/fraud.py`, `kb/`, `fusion.py`, `app.py`, `frontend/`, the pitch and the submission.
+- **Contract:** `DetectorResult` and the event schema in `events.py`. Change them only after telling the other person.
+
+**Before 7 PM:** teammate pulls the repo, runs `make setup`, and pre-downloads the models (venue wifi measured at ~1–2 MB/s). Redeem the ElevenLabs, Nebius and NVIDIA credits. Draft the demo call scripts together.
+
+| Time | A (audio/ML) | B (app/product) | Sync |
+|---|---|---|---|
+| 7–8 PM *(mentors)* | Record both voices (~3 min natural speech each + scripts); make ElevenLabs clones | Set up SharedNet; `.env` with Nebius key; check the LLM model id; verify the playbook URLs | **7:00:** agree on the contract + demo |
+| 8–10 PM | Real STT (mlx-whisper turbo) + silero VAD; generate ~60 clips (real/fake × benign/fraud, via TTS *and* voice changer); label `data/eval` | Real LLM fraud analyzer tuned on transcripts; dashboard: customer profile + signal cards | **10:00:** a real clip replays with a real transcript + fraud flags |
+| 10 PM–1 AM | ECAPA enrollment + verification; pretrained spoof (`mo-thecreator`) on ElevenLabs clips → **first history row**; start the WavLM + LR classifier | Alert takeover card, suggested actions, citations; fusion tuning | **1:00:** all-real end-to-end run; delete the stub hint file |
+| 1–4 AM | Calibrated spoof classifier; edge-case suite (held-out speaker, non-ElevenLabs TTS, pitch-shift, noise, phone codec); eval after every change | Proof strip (history chart, latency); live mic tested in the browser | **4:00:** decide cuts |
+| 4–6 AM | Prosody/pressure meter if on track; final eval numbers | Pitch script + slides; README; submission text | **6:00 feature freeze** |
+| 6–8:30 AM | Record final demo clips; demo gate 5× | Record backup video; **submit by 8:30** | Rehearse twice together |
 
 ### Cut list (drop in this order if behind)
 1. Public deployment (Replit)
@@ -201,3 +223,31 @@ Roles if 2 people: **A = audio/ML** (VAD, STT, speaker, spoof, prosody, eval) ·
 | **World Labs** (event partner) | Not used (no fit for voice security) | Skip | `SUBSCRIPTION-1-MONTH` / `30K-CREDITS-BUILD` |
 
 **Ethics note for the pitch:** we only clone our own team's voices, with consent.
+
+**Free, non-sponsor needs:**
+- Open-source models (§10).
+- Public real speech (LibriSpeech / Common Voice), so the spoof model doesn't learn "real = our team."
+- Optional small slices of In-the-Wild / ASVspoof 2019 LA.
+- Non-ElevenLabs fakes for edge cases: macOS `say`, Piper/Kokoro, an ffmpeg pitch-shift.
+- Headphones and a phone to play the caller audio.
+- We don't need real telephony (Twilio), which is future work.
+
+---
+
+## 10. Model Smoke-Test Results (M5, 24 GB)
+
+| Model | Device | Speed | Notes |
+|---|---|---|---|
+| `mlx-community/whisper-large-v3-turbo` | MLX GPU | ~1.0 s per 10 s audio | Exact transcripts. `whisper-small-mlx` is 0.5 s if latency matters. |
+| `silero-vad` 6.2.3 | CPU | ~0.15 ms per 32 ms chunk | Streaming-friendly |
+| `speechbrain/spkrec-ecapa-voxceleb` | CPU | ~70 ms per clip | Same voice 0.93, different voices 0.07–0.12 |
+| `microsoft/wavlm-base-plus` | MPS | ~40 ms per 3 s window | Embeddings for our spoof classifier |
+| `mo-thecreator/Deepfake-audio-detection` | MPS | 60–250 ms | `say` → fake 1.00, LibriSpeech → real 0.998+, survives phone codec. **Unproven on ElevenLabs.** |
+| `MattyB95/AST-ASVspoof5-...` | — | — | Unusable (calls real speech spoof) |
+
+**Pinned ML extras that worked together (Python 3.11):** torch 2.14.1, torchaudio 2.11.0, transformers 5.19.0, huggingface-hub 2.2.0, safetensors 0.8.0, mlx 0.32.3 + mlx-whisper 0.4.3 (darwin only), silero-vad 6.2.3, speechbrain 1.1.1, soundfile 0.14.0, numpy 2.4.6, scipy 1.17.1, librosa 0.11.0.
+
+**Gotchas:**
+- `torchaudio.load()` fails (it needs torchcodec). Load audio with `soundfile` and pass tensors to SpeechBrain's `encode_batch`.
+- Warm up MPS models at server start; the first inference takes ~1 s.
+- `hf download` doesn't resume; don't kill it mid-file.
