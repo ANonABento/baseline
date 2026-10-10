@@ -136,7 +136,10 @@ export function mergeEvidence(prev: EvidenceState, ev: SignalEvent, transcript: 
   for (const p of patternsFromSignal(ev, transcript)) {
     const old = byId.get(p.id);
     if (!old) {
-      byId.set(p.id, { ...p, first_utterance_id: p.utterance_id, updated_utterance_id: ev.utterance_id });
+      // No quote on first sight: the pattern first matched on this event's utterance (the
+      // analyzer runs on the rolling transcript), so that line is the best evidence we have.
+      const line = p.quote ? undefined : transcript.find((t) => t.utterance_id === p.utterance_id);
+      byId.set(p.id, { ...p, quote: p.quote || line?.text || "", first_utterance_id: p.utterance_id, updated_utterance_id: ev.utterance_id });
       continue;
     }
     byId.set(p.id, {

@@ -81,6 +81,18 @@ test("legacy id-list details recover quote + utterance from matched phrases", ()
   assert.equal(p.severity, "high");
 });
 
+test("legacy ids without phrases quote the line where the pattern first appeared, and keep it", () => {
+  const legacy = (id: number, patterns: string[]) => sig("fraud", id, 0.8, 0.6, { method: "keyword", patterns, matched_phrases: {} });
+  let st = mergeEvidence(EMPTY_EVIDENCE, legacy(2, ["contact"]), transcript);
+  st = mergeEvidence(st, legacy(3, ["contact", "wire"]), transcript);
+  const contact = st.items.find((i) => i.id === "contact")!;
+  const wire = st.items.find((i) => i.id === "wire")!;
+  assert.equal(contact.utterance_id, 2);
+  assert.equal(contact.quote, transcript[1].text);
+  assert.equal(wire.utterance_id, 3);
+  assert.equal(wire.quote, transcript[2].text);
+});
+
 test("toneOf matches fusion thresholds", () => {
   assert.equal(toneOf({ score: 0.9, confidence: 0 }), "none");
   assert.equal(toneOf({ score: 0.5, confidence: 0.5 }), "flag");
