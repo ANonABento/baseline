@@ -26,21 +26,21 @@ Labels: **VERIFIED** = read on the model card/page this session (URLs in §10). 
 
 Each output is a model score or label with a confidence level and can be `insufficient_evidence`. **There is no deception, bluff or fabrication output.** Percentages, if shown, are model scores about the *signal* ("stress-related change: 0.62 vs her baseline"), not probabilities about truthfulness; calibration status is shown (`not_established` until validated).
 
-**Interpretation table (hypotheses, `UNVERIFIED`; every row needs a primary-source check before anyone presents it as fact).** Illustrative wording the agent may use:
-| Observed pattern (with timestamps) | Can be consistent with | Neutral follow-up |
-|---|---|---|
-| sustained stress-related rise after a specific question | pressure, discomfort with the topic, uncertainty, rehearsal breaking down, a stressor unrelated to the call, or an attempt to conceal something | ask a concrete, open question about that topic |
-| choppy/fragmented delivery with long pauses | searching for an answer, nervousness, poor connection, language fluency, or hesitation about what to disclose | give time; ask for an example |
-| monotone, evenly paced delivery | reading from notes, rehearsal, fatigue, or a calm temperament | ask an unexpected but fair follow-up |
-| answer that does not address the question | misunderstanding, evasion, distraction | restate the question |
+**Interpretation table (hypotheses; evidence status from [`research/voice_signal_evidence.md`](research/voice_signal_evidence.md), read via a summarising fetch tool, 3 key PDFs unreadable, so treat as a first pass and re-check before external use).** Illustrative wording the agent may use:
+| Observed pattern (with timestamps) | Can be consistent with | Neutral follow-up | Evidence status |
+|---|---|---|---|
+| sustained stress-related rise after a specific question | pressure, discomfort with the topic, uncertainty, rehearsal breaking down, a stressor unrelated to the call, or an attempt to conceal something | ask a concrete, open question about that topic | PARTLY: a systematic review reports higher mean F0 under stress in 15 of 19 studies; effects vary by person; deception cues are weak (DePaulo 2003 abstract). The own-baseline premise is a HYPOTHESIS | |
+| choppy/fragmented delivery with long pauses | searching for an answer, nervousness, poor connection, language fluency, or hesitation about what to disclose | give time; ask for an example | PARTLY/UNVERIFIED: pause evidence rests on one study as quoted in a review; "poor connection" and "fluency" are common-sense confounds, no source | |
+| monotone, evenly paced delivery | reading from notes, rehearsal, fatigue, or a calm temperament | ask an unexpected but fair follow-up | UNVERIFIED: no opened source covers read-vs-spontaneous prosody; HYPOTHESIS | |
+| answer that does not address the question | misunderstanding, evasion, distraction | restate the question | UNVERIFIED: weak support for evasion only; HYPOTHESIS | |
 Wording rule: "increased stress-related vocal signals", never "the speaker is stressed" and never "is lying".
 
 ## 3. Pretrained checkpoints
 | Role | Candidate | Verified facts | Open questions |
 |---|---|---|---|
 | ASR + timestamps | `openai/whisper-large-v3-turbo` (already in the repo via mlx-whisper) | MIT licence; 30 s receptive field, chunked for longer audio; sentence and word timestamps (`return_timestamps`); 809M params; pruned decoder (32 to 4 layers), "minor quality degradation" | none for the hackathon |
-| Audio encoder A | `microsoft/wavlm-base-plus` | 16 kHz input; pretrained on 94k h (Libri-Light, GigaSpeech, VoxPopuli); English; no tokenizer; needs fine-tuning for downstream tasks | licence is linked to a LICENSE file, **terms UNVERIFIED** |
-| Audio encoder B (emotion-pretrained) | `emotion2vec/emotion2vec_plus_large` | 16 kHz; ~300M params; labels: angry, disgusted, fearful, happy, neutral, other, sad, surprised, unknown; embedding extraction exists (`extract_embedding`) | licence listed only as "model-license": **commercial terms UNVERIFIED**; embedding procedure not detailed on the card |
+| Audio encoder A | `microsoft/wavlm-base-plus` | 16 kHz input; pretrained on 94k h (Libri-Light, GigaSpeech, VoxPopuli); English; no tokenizer; needs fine-tuning for downstream tasks | licence is linked to a LICENSE file; a fetch summary returned odd "CC BY-SA 3.0" boilerplate, so **terms UNVERIFIED: a human must read the file** |
+| Audio encoder B (emotion-pretrained) | `emotion2vec/emotion2vec_plus_large` | 16 kHz; ~300M params; labels: angry, disgusted, fearful, happy, neutral, other, sad, surprised, unknown; embedding extraction exists (`extract_embedding`) | HF card `license: other` ("model-license", FunASR); a summary of that licence shows free use/modify/share with attribution and no explicit commercial ban, while the GitHub page shows an MIT badge: **sources disagree, human sign-off needed**; embedding procedure not detailed on the card |
 | Audio encoder C (research only) | `audeering/wav2vec2-large-robust-12-ft-emotion-msp-dim` | outputs arousal/dominance/valence (~0-1) plus pooled last-layer states; 16 kHz; trained on MSP-Podcast v1.7 | **CC BY-NC-SA 4.0, "research purpose only"**: usable for hackathon experiments, **not** in a commercial product without audEERING's separate licence |
 | Text encoder | `microsoft/deberta-v3-base` | MIT; 184M total params (86M backbone + 98M embeddings); 12 layers, hidden 768; NLU fine-tuning examples | max sequence length not stated on the page |
 | Claim extraction / context | the existing LLM provider (Nebius gpt-oss-120b / local Ollama, via slice C) | n/a | outputs must be checked against transcript quotes |
