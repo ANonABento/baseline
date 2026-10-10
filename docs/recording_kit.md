@@ -2,9 +2,6 @@
 
 Decision (Dae, 2026-10-10): the open-data-only rule is **lifted for Kevin's and one teammate's own voices**, for (a) the "real human mic" class in the spoof eval and (b) enrolling the customer voiceprint. Everything else in `recording_protocol.md` stays retired (no staged-pressure scenes, no stress labels). Fakes from the Kevin_1Shot clone were also approved by Dae (done: `results/spoof_per_clip_v3_2026-10-10.csv`).
 
-## Before recording
-No consent form needed (Dae approved Kevin's and his own recordings). Keep audio in `data/train/` (gitignored), out of cloud sync, and don't upload it anywhere.
-
 ## What to record (natural speech, your own voice, no persona needed)
 Two channels, each as 16-bit mono WAV at 16 kHz or higher (QuickTime/Voice Memos then convert, or `ffmpeg`):
 - **Laptop mic**, quiet room: A) 60 s answering free questions in your own words (what you did today, a recent meal, your commute); B) read these 8 sentences once, one clip per sentence if you can:
