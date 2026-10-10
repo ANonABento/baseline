@@ -151,10 +151,12 @@ it plays a perfect clone (speaker check passes; spoof + fraud catch it).
   Voices: `say` voices without an ElevenLabs key; with `ELEVENLABS_API_KEY`, the `ELEVENLABS_VOICES` list
   (`Label:id,Label 2:id2`; default `ELEVENLABS_VOICE_ID` or the first entry) or premade voices.
   (`tts:"stub"` only appears off-macOS without a key.)
-- `POST /api/session` body `{role, scenario, voice}`, each optional and `"random"` by default ->
+- `POST /api/session` body `{role, scenario, voice, record_audio}`, each optional; role/scenario/voice
+  `"random"` by default, `record_audio` (save the visitor's mic in the report audio) `false` ->
   `{session_id, ws_url}` (`ws_url` is absolute, `ws://`/`wss://` from the request host). 400 on an
   unknown value. Randoms are resolved here. A session that never connects is dropped after 60 s.
-- `GET /api/report/{id}` -> the full report (404 if unknown). `GET /api/reports?limit=20` -> newest
+- `GET /api/report/{id}` -> the full report (404 if unknown). `GET /api/report/{id}/audio` -> the call
+  audio as a stereo WAV (seekable; 404 if none). `GET /api/reports?limit=20` -> newest
   first: `[{id, created_at, role, scenario, voice, ended_reason, call_s, level, label, trust, caught, turns}]`.
 
 ### WebSocket `/ws/session/{session_id}`
@@ -209,7 +211,10 @@ transcript:[{utterance_id, speaker, analyzed, text, t_start, t_end, latency_ms}]
 trust:[...+t], alerts:[...+t], verdict:{level, label, trust, fired, signals_fired_ever, reasons,
 suggested_action, caught, final_signals}, fraud_evidence:[pattern...], latencies:{turns:[{turn, source,
 visitor_end_to_first_audio_ms, llm_first_sentence_ms, tts_first_audio_ms, stt_ms?,
-speech_end_to_first_audio_ms?}], mean_turn_ms, p50_turn_ms, max_turn_ms, pipeline:[...]}, errors}`.
+speech_end_to_first_audio_ms?}], mean_turn_ms, p50_turn_ms, max_turn_ms, pipeline:[...]}, audio, errors}`.
+`audio` = `{url, duration_s, channels:{left:"ai", right:"visitor"|null}}` or null: `data/reports/<id>.wav`,
+16-bit stereo at the pipeline rate, AI caller left (always), visitor mic right (only with `record_audio`), on
+the transcript's timeline (AI lines are stamped when their audio starts playing).
 `caught` = an alert was raised (the fraudster side is always a fraudster in this simulation).
 
 ### AI side
