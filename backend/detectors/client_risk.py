@@ -108,6 +108,16 @@ def caller_asked_for_secret(caller_lines: Sequence[str]) -> bool:
     return any(_CALLER_ASKS.search(t or "") for t in caller_lines)
 
 
+def caller_asked(caller_lines: Sequence[str]) -> str | None:
+    """What the caller most recently asked for: "code" (one-time / access code) or "card" (card, PIN, numbers)."""
+    text = " ".join(caller_lines[-1:]) if caller_lines else ""
+    if re.search(r"\b(code|passcode)\b", text, re.I):
+        return "code"
+    if _CALLER_ASKS.search(text):
+        return "card"
+    return None
+
+
 def assess(text: str, caller_context: Sequence[str] = ()) -> DetectorResult:
     """Score one client utterance. `caller_context`: the caller's most recent line(s)."""
     t = " ".join((text or "").split())
@@ -130,6 +140,6 @@ def assess(text: str, caller_context: Sequence[str] = ()) -> DetectorResult:
     quote = m.group(0).strip() if m else ""
     return DetectorResult(
         signal="client", score=round(score, 3), confidence=conf, reason=top.label,
-        details={"kind": top.kind, "reason_id": top.reason_id,
+        details={"kind": top.kind, "reason_id": top.reason_id, "asked": caller_asked(caller_context),
                  "matches": list(dict.fromkeys(h.reason_id for h in hits)), "quote": quote},
     )

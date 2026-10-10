@@ -180,7 +180,8 @@ class ElevenLabsTTS(TTSProvider):
             if voice_id and not any(v["id"] == voice_id for v in voices):
                 voices = [{"id": voice_id, "label": "Default voice (ElevenLabs)"}] + voices
             voices = sorted(voices, key=lambda v: v["id"] != voice_id)
-            self._voices = voices
+            # stock caller voices stay available (scenarios that don't impersonate the customer use them)
+            self._voices = voices + [v for v in ELEVEN_VOICES if not any(x["id"] == v["id"] for x in voices)]
         else:
             own = [{"id": voice_id, "label": own_label}] if voice_id else []
             self._voices = own + [v for v in ELEVEN_VOICES if v["id"] != voice_id]

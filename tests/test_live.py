@@ -174,7 +174,9 @@ def test_elevenlabs_voice_list():
     assert parse_voice_list("Kevin (clone):abc, Daniel:def,  ,ghi") == [
         {"id": "abc", "label": "Kevin (clone)"}, {"id": "def", "label": "Daniel"}, {"id": "ghi", "label": "ghi"}]
     t = make_tts(Settings(elevenlabs_api_key="k", elevenlabs_voices="A:abc,B:def", elevenlabs_voice_id="def"))
-    assert [v["id"] for v in t.voices()] == ["def", "abc"] and t.default_voice() == "def"
+    assert [v["id"] for v in t.voices()][:2] == ["def", "abc"] and t.default_voice() == "def"
+    assert "CwhRBWXzGAHq8TQ4Fs17" in [v["id"] for v in t.voices()]  # stock caller voices stay available
+    assert t.valid_voice("EXAVITQu4vr4xnSDxMaL") and "EXAVITQu4vr4xnSDxMaL" not in [v["id"] for v in t.voices()]
     t = make_tts(Settings(elevenlabs_api_key="k", elevenlabs_voices="A:abc,B:def"))
     assert t.default_voice() == "abc"
     t = make_tts(Settings(elevenlabs_api_key="k", elevenlabs_voice_id="zzz"))

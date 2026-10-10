@@ -52,7 +52,7 @@ class VisitorTurn:
     t_start: float
     t_end: float
     ready_at: float  # monotonic: when the turn's text was known
-    source: str  # "audio" | "text"
+    source: str  # "audio" | "text" | "resume" (carry on after Baseline spoke; not a visitor turn)
     vad_end_at: float | None = None  # monotonic: when the VAD closed the utterance (audio only)
     stt_ms: float | None = None
 
@@ -217,6 +217,7 @@ class LiveCall:
         self.first_high_t: float | None = None
         self._ai_gate = asyncio.Event()  # cleared while Baseline speaks: the AI caller must not talk
         self._ai_gate.set()
+        self._gate_opened_at = 0.0
         self._baseline_task: asyncio.Task | None = None
         self._deferred_task: asyncio.Task | None = None
         self.baseline_audio_s = 0.0
@@ -336,7 +337,8 @@ class LiveCall:
         cl = f.evidence.get("client")
         kind = cl.details.get("kind") if cl else None
         rid = cl.details.get("reason_id") if cl else None
-        return intervention.candidates(pats, kind, rid, self.session.scenario, f.evidence.keys())
+        asked = cl.details.get("asked") if cl else None
+        return intervention.candidates(pats, kind, rid, self.session.scenario, f.evidence.keys(), asked)
 
     async def _consider_intervention(self, level: str) -> None:
         if self._ending:
@@ -353,8 +355,10 @@ class LiveCall:
     async def _intervene(self, level: str, reason_id: str) -> None:
         t = self.now()
         self.policy.record(level, reason_id, t)
-        message = intervention.MESSAGES.get(reason_id, intervention.MESSAGES["generic"])
         speak = level == "high" and (self._baseline_task is None or self._baseline_task.done())
+        # introduce Baseline the first time it shows up, and the first time it speaks
+        first = not self.interventions or (speak and not any(i["spoken"] for i in self.interventions))
+        message = intervention.message_for(reason_id, first=first)
         self.interventions.append({"t": t, "level": level, "reason_id": reason_id, "message": message, "spoken": speak})
         await self.send_json({"type": "intervention", "level": level, "message": message, "reason_id": reason_id})
         if level == "high" and not self.actions:
@@ -369,8 +373,10 @@ class LiveCall:
         baseline_audio_start / baseline_audio_end. Never added to the fraudster's history or the pipeline."""
         self._ai_gate.clear()
         started = False
+        resume = False
         try:
             if self.ai_task is not None and not self.ai_task.done():
+                resume = True  # the caller was mid-reply: let it carry on after Baseline has spoken
                 self.ai_task.cancel()  # sends stop_audio; the cut line is recorded as interrupted
                 await asyncio.wait({self.ai_task})
             st = self.settings
@@ -417,6 +423,9 @@ class LiveCall:
             if started:
                 await self.send_json({"type": "baseline_audio_end", "reason_id": reason_id})
             self._ai_gate.set()
+            self._gate_opened_at = time.monotonic()
+            if resume and not self._ending:
+                self.turn_q.put_nowait(VisitorTurn("", self.now(), self.now(), time.monotonic(), "resume"))
 
     async def suspect(self) -> None:
         """The visitor pressed "This feels like a scam" (recorded once)."""
@@ -557,7 +566,8 @@ class LiveCall:
             for t in turns:
                 self.brain.add_visitor(t.text)
             await self._ai_gate.wait()  # Baseline is speaking to the client
-            await self._run_ai_turn(turns[-1])
+            real = [t for t in turns if t.source != "resume"]
+            await self._run_ai_turn(real[-1] if real else None)
 
     async def _run_ai_turn(self, turn: VisitorTurn | None, fixed: str | None = None) -> None:
         self.ai_task = asyncio.create_task(self._ai_turn(turn, fixed))
@@ -573,6 +583,7 @@ class LiveCall:
         timing = None
         if turn is not None:
             ref = turn.vad_end_at if (turn.source == "audio" and turn.vad_end_at) else turn.ready_at
+            ref = max(ref, self._gate_opened_at)  # time Baseline spent speaking is not reply latency
             timing = TurnTiming(turn=len(self.col.turns) + 1, source=turn.source, start_at=ref,
                                 vad_end_at=turn.vad_end_at, stt_ms=turn.stt_ms)
             self.col.turns.append(timing)

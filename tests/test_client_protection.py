@@ -75,6 +75,10 @@ def test_intervention_candidates():
     assert candidates(["otp_redirect"], None, None, "fake_bank", ["fraud"])[0] == "secret_request"
     assert candidates([], "secret", "share_code", "fake_bank", ["client"])[0] == "secret_request"
     assert candidates(["gift_cards"], "secret", "reading_digits", "grandchild", ["fraud"])[0] == "gift_cards"
+    assert candidates([], "secret", "reading_digits", "fake_bank", ["client"], "code")[0] == "secret_request"
+    assert candidates([], "secret", "get_card", "irs", ["client"])[0] == "card_request"
+    assert assess("482917", ASK_CODE).details["asked"] == "code"
+    assert assess("4 1 2 7", ["Read me the 16 digit number on the back"]).details["asked"] == "card"
     assert "voice_clone" in candidates(["grandparent_bail"], None, None, "grandchild", ["fraud"])
     assert candidates([], None, None, "irs", ["spoof"]) == ["generic"]
     assert all(len(m.split()) <= 26 for m in MESSAGES.values())

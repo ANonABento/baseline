@@ -21,23 +21,30 @@ from caller.personas import BANK_SHORT, CUSTOMER
 
 _RANK = {"none": 0, "caution": 1, "high": 2}
 
-PREFIX = f"This is Baseline, from {BANK_SHORT}. This call looks like a scam."
+INTRO = f"This is Baseline, from {BANK_SHORT}."  # only on the first intervention of a call
 
 
 def messages(customer_name: str = CUSTOMER.name) -> dict[str, str]:
-    """reason_id -> what Baseline says (shown in the banner, spoken at high). ~4-5 s each."""
+    """reason_id -> what Baseline says (banner; spoken at high). ~3-4 s each, plus INTRO (~1.5 s) the
+    first time."""
     return {
-        "secret_request": f"{PREFIX} {BANK_SHORT} will never ask for your one-time code.",
-        "gift_cards": f"{PREFIX} No real agency or bank asks to be paid in gift cards.",
-        "voice_clone": f"{PREFIX} This voice may not really be {customer_name}. Hang up and call him back.",
-        "safe_account": f"{PREFIX} {BANK_SHORT} will never ask you to move money to a safe account.",
-        "remote_access": f"{PREFIX} Never let a caller into your computer.",
-        "government": f"{PREFIX} The IRS never calls to demand payment.",
-        "generic": f"{PREFIX} Hang up and call the number on your card.",
+        "secret_request": f"This looks like a scam. {BANK_SHORT} will never ask for your one-time code.",
+        "card_request": "This looks like a scam. Never read card numbers or PINs to a caller.",
+        "gift_cards": "This looks like a scam. No real bank or agency asks for gift cards.",
+        "voice_clone": f"This voice may not really be {customer_name}. Hang up and call him back.",
+        "safe_account": f"This looks like a scam. {BANK_SHORT} never asks you to move money to a safe account.",
+        "remote_access": "This looks like a scam. Never let a caller into your computer.",
+        "government": "This looks like a scam. The IRS never calls to demand payment.",
+        "generic": "This call looks like a scam. Hang up and call the number on your card.",
     }
 
 
 MESSAGES = messages()
+
+
+def message_for(reason_id: str, first: bool) -> str:
+    m = MESSAGES.get(reason_id, MESSAGES["generic"])
+    return f"{INTRO} {m}" if first else m
 
 ACTIONS = (
     {"type": "action", "kind": "family_alert", "message": "Text sent to your trusted contact"},
@@ -50,16 +57,25 @@ _GIFT_PATTERNS = {"gift_cards", "crypto_payment"}
 _REMOTE_PATTERNS = {"remote_access", "overpayment_refund"}
 
 
+_CODE_REASONS = {"share_code", "share_remote_code"}
+
+
 def candidates(patterns: Iterable[str], client_kind: str | None, client_reason: str | None, scenario: str,
-               signals: Iterable[str]) -> list[str]:
-    """Reasons the current evidence supports, most important first (always ends with "generic")."""
+               signals: Iterable[str], client_asked: str | None = None) -> list[str]:
+    """Reasons the current evidence supports, most important first (always ends with "generic").
+    `client_asked`: what the caller asked for before the client read digits ("code" | "card")."""
     pats, sigs = set(patterns), set(signals)
     out: list[str] = []
     gift = bool(pats & _GIFT_PATTERNS) or client_reason == "gift_cards"
     if "safe_account" in pats:
         out.append("safe_account")
-    if client_kind == "secret" and not (gift and client_reason in ("reading_digits", "share_card")):
-        out.append("secret_request")
+    if client_kind == "secret":
+        if client_reason in _CODE_REASONS or (client_reason == "reading_digits" and client_asked == "code"):
+            out.append("secret_request")
+        elif gift and client_reason in ("reading_digits", "share_card", "get_card"):
+            out.append("gift_cards")
+        else:
+            out.append("card_request")
     if gift:
         out.append("gift_cards")
     if "grandparent_bail" in pats or (scenario == "grandchild" and sigs & {"speaker", "spoof", "fraud"}):
@@ -92,7 +108,8 @@ class InterventionPolicy:
             return Decision()
         new = [r for r in reasons if r not in self.announced]
         if _RANK[level] > _RANK[self.level_sent]:
-            return Decision(reason_id=new[0] if new else reasons[0])
+            specific = [r for r in new if r != "generic"]
+            return Decision(reason_id=specific[0] if specific else reasons[0])
         # same level: only a new, specific reason (never "generic" twice)
         new = [r for r in new if r != "generic"]
         if not new:
