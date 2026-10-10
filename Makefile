@@ -42,8 +42,8 @@ eval:             ## offline eval over data/eval/labels.csv; NOTE="..." to annot
 clips:            ## regenerate demo clips with macOS `say` + ffmpeg
 	$(UV) run --project backend $(EXTRA) python scripts/make_clips.py
 
-enroll-demo:      ## demo voiceprint for CUST-004217 (Kevin) from a macOS `say -v Samantha` clip; real: see backend/README.md
-	$(UV) run --project backend --extra ml python scripts/enroll.py CUST-004217 --say Samantha --name "Kevin"
+enroll-demo:      ## demo voiceprint for CUST-004217 (Ethan) from a macOS `say -v Samantha` clip; real: see backend/README.md
+	$(UV) run --project backend --extra ml python scripts/enroll.py CUST-004217 --say Samantha --name "Ethan"
 
 build:            ## production build of the dashboard
 	cd frontend && $(NPM) run build

@@ -122,7 +122,7 @@ def test_fraudster_persona_prompt(scenario):
     assert build_persona("agent", scenario) == p  # deprecated alias
     sp = p.system_prompt
     assert "AUTHORIZED FRAUD-TRAINING SIMULATION" in sp
-    assert "Kevin" in sp and SCENARIOS[scenario].goals in sp and "Margaret" not in sp
+    assert "Ethan" in sp and SCENARIOS[scenario].goals in sp and "Margaret" not in sp
     assert "two short sentences" in sp and "never break character" in sp
     assert p.openers and p.stub_lines and p.summary
     assert p.label.startswith("AI fraudster")
@@ -156,7 +156,7 @@ def test_scammer_role_ai_is_a_victim_with_an_agenda():
 
 
 def test_clean_line_and_sentence_split():
-    assert clean_line('Kevin: *sighs* "Okay. Two. Three."') == "Okay. Two."
+    assert clean_line('Ethan: *sighs* "Okay. Two. Three."') == "Okay. Two."
     assert clean_line("<think>hmm</think>Hi there, it's me.") == "Hi there, it's me."
     done, rest = split_sentences("Hi. I lost my phone. And I need")
     assert done == ["Hi. I lost my phone."] and rest == "And I need"
@@ -180,8 +180,8 @@ def test_tts_fallback_selection(monkeypatch):
 
 
 def test_elevenlabs_voice_list():
-    assert parse_voice_list("Kevin (clone):abc, Daniel:def,  ,ghi") == [
-        {"id": "abc", "label": "Kevin (clone)"}, {"id": "def", "label": "Daniel"}, {"id": "ghi", "label": "ghi"}]
+    assert parse_voice_list("Ethan (clone):abc, Daniel:def,  ,ghi") == [
+        {"id": "abc", "label": "Ethan (clone)"}, {"id": "def", "label": "Daniel"}, {"id": "ghi", "label": "ghi"}]
     t = make_tts(Settings(elevenlabs_api_key="k", elevenlabs_voices="A:abc,B:def", elevenlabs_voice_id="def"))
     assert [v["id"] for v in t.voices()][:2] == ["def", "abc"] and t.default_voice() == "def"
     assert "CwhRBWXzGAHq8TQ4Fs17" in [v["id"] for v in t.voices()]  # stock caller voices stay available
@@ -265,7 +265,7 @@ def test_config_and_session_validation(tmp_path):
         assert c["roles"] == ["client", "scammer", "candidate"]
         assert {s["id"] for s in c["scenarios"]} == set(SCENARIOS)
         assert all(set(s) == {"id", "label", "role", "brief"} for s in c["scenarios"])
-        assert c["customer"]["name"] == "Kevin"
+        assert c["customer"]["name"] == "Ethan"
         assert {s["id"] for s in c["scenarios"] if s["role"] == "client"} == {"fake_bank", "grandchild", "irs",
                                                                               "tech_support", "fraud_dept_slow",
                                                                               "bank_investigation", "amazon_refund"}
@@ -296,7 +296,7 @@ def test_role_client_full_call_contract(tmp_path):
             assert q and set(q[0]) == {"type", "position", "queue_length", "eta_s"}
             cs = jsons(seen, "call_started")[0]
             assert cs["session_id"] == sid and cs["role"] == "client" and cs["scenario"] == "fake_bank"
-            assert cs["visitor_as"] == "Kevin" and cs["scenario_label"]
+            assert cs["visitor_as"] == "Ethan" and cs["scenario_label"]
             assert cs["voice"] == "stub-a" and cs["max_call_s"] == 240
             assert cs["audio"] == {"sample_rate": 16000, "format": "pcm_s16le"}
             assert set(cs["customer"]) == {"id", "name", "account_mask", "enrolled"}
@@ -307,11 +307,11 @@ def test_role_client_full_call_contract(tmp_path):
             assert {"type": "speaking", "who": "ai", "state": "start"} in seen
             assert {"type": "speaking", "who": "ai", "state": "end"} in seen
             t = jsons(seen, "transcript")[-1]
-            assert t["analyzed"] is True and "Kevin" in t["text"] and t["utterance_id"] == 0
+            assert t["analyzed"] is True and "Ethan" in t["text"] and t["utterance_id"] == 0
             assert all(0 <= m["rms"] <= 1 for m in jsons(seen, "ai_level"))
             seen = recv_until(ws, lambda m: m["type"] == "trust")
             sigs = {m["signal"] for m in jsons(seen, "signal")}
-            assert sigs >= {"fraud", "spoof"} and "speaker" not in sigs  # the caller doesn't claim to be Kevin
+            assert sigs >= {"fraud", "spoof"} and "speaker" not in sigs  # the caller doesn't claim to be Ethan
 
             # typed visitor turn -> unanalyzed transcript -> AI replies (analyzed)
             ws.send_text(json.dumps({"type": "text", "text": "Sure. Can you confirm your date of birth?"}))
@@ -354,7 +354,7 @@ def test_role_scammer_text_is_analyzed(tmp_path):
             seen = recv_until(ws, lambda m: m["type"] == "transcript")
             ai = jsons(seen, "transcript")[0]
             assert ai["speaker"] == "ai" and ai["analyzed"] is False and ai["text"]
-            ws.send_text(json.dumps({"type": "text", "text": "This is Kevin. I lost my phone, please change "
+            ws.send_text(json.dumps({"type": "text", "text": "This is Ethan. I lost my phone, please change "
                                      "my phone number and wire nine thousand dollars to my contractor today, it's urgent."}))
             seen = recv_until(ws, lambda m: m["type"] == "alert")
             vis = [m for m in jsons(seen, "transcript") if m["speaker"] == "visitor"]
@@ -656,7 +656,7 @@ async def test_llm_brain_redacts_bank_record_and_falls_back():
 
 async def test_llm_brain_first_clause_cut():
     p = _redacting_persona()
-    out, _, _ = await _reply(p, "Hello Kevin, I will need your full name, date of birth, ZIP code, and a "
+    out, _, _ = await _reply(p, "Hello Ethan, I will need your full name, date of birth, ZIP code, and a "
                                 "passcode sent to your phone first. Then we can proceed. Extra.")
     assert out[0].endswith(",") and len(out) == 3 and out[2] == "Then we can proceed."
 
@@ -665,12 +665,12 @@ async def test_llm_brain_strips_leaked_reasoning():
     from caller.brain import strip_reasoning
 
     assert strip_reasoning("analysis The user wants a code.") == ("", True)
-    assert strip_reasoning("analysisThe user...assistantfinalHi Kevin, it's Alex.") == ("Hi Kevin, it's Alex.", False)
+    assert strip_reasoning("analysisThe user...assistantfinalHi Ethan, it's Alex.") == ("Hi Ethan, it's Alex.", False)
     assert strip_reasoning("<think>hmm") == ("", True)
     assert strip_reasoning("Plain line.") == ("Plain line.", False)
     p = build_persona("client", "fake_bank")
-    out, _, _ = await _reply(p, "analysis We should ask for the code. assistantfinal Hi Kevin. Can you read me the code?")
-    assert out == ["Hi Kevin. Can you read me the code?"]
+    out, _, _ = await _reply(p, "analysis We should ask for the code. assistantfinal Hi Ethan. Can you read me the code?")
+    assert out == ["Hi Ethan. Can you read me the code?"]
 
 
 async def test_llm_brain_falls_back_to_ollama_then_script():

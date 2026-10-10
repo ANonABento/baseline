@@ -3,11 +3,11 @@
 Baseline protects the bank's CLIENT. The bank runs it on both sides of a call: in its call
 center and on the customer's phone (through the bank's app).
 
-role "client"  (visitor = the bank's client, or Kevin's grandparent in `grandchild`): an AI
+role "client"  (visitor = the bank's client, or Ethan's grandparent in `grandchild`): an AI
                FRAUDSTER calls the visitor, playing one of CLIENT_SCENARIOS. Baseline listens on
                the visitor's phone: it analyzes the caller AND the visitor's own words.
                "agent" is a deprecated alias of "client" (normalize_role).
-role "scammer" (visitor = a fraudster calling the bank pretending to be Kevin): the AI is a polite
+role "scammer" (visitor = a fraudster calling the bank pretending to be Ethan): the AI is a polite
                BANK AGENT ("Jordan") who follows verification procedure. SCAMMER_SCENARIOS are
                mission briefs for the visitor; the agent persona does not depend on them.
 
@@ -43,7 +43,7 @@ def _mask(customer_id: str) -> str:
 @dataclass(frozen=True)
 class CustomerProfile:
     id: str = "CUST-004217"
-    name: str = "Kevin"
+    name: str = "Ethan"
     account_mask: str = "••4217"
     phone_on_file: str = "(650) 555-0142"
     dob: str = "March 14, 1994"
@@ -53,7 +53,7 @@ class CustomerProfile:
 
 
 def customer_from_env() -> CustomerProfile:
-    """CUSTOMER_NAME / CUSTOMER_ID (env or .env via Settings); defaults Kevin / CUST-004217."""
+    """CUSTOMER_NAME / CUSTOMER_ID (env or .env via Settings); defaults Ethan / CUST-004217."""
     name, cid = os.environ.get("CUSTOMER_NAME"), os.environ.get("CUSTOMER_ID")
     if name is None or cid is None:
         try:
@@ -64,7 +64,7 @@ def customer_from_env() -> CustomerProfile:
             cid = cid or s.customer_id
         except Exception:  # settings unavailable (some test setups)
             pass
-    name = (name or "Kevin").strip() or "Kevin"
+    name = (name or "Ethan").strip() or "Ethan"
     cid = (cid or "CUST-004217").strip() or "CUST-004217"
     return CustomerProfile(id=cid, name=name, account_mask=_mask(cid))
 
@@ -337,11 +337,11 @@ class Victim:
 
 VICTIMS: dict[str, Victim] = {
     "margaret": Victim(
-        id="margaret", name="Margaret", grandchild="Kevin",
-        blurb=f"74, retired teacher in Palo Alto. Polite, a bit lonely, trusts {BANK_SHORT}. Grandson Kevin.",
+        id="margaret", name="Margaret", grandchild="Ethan",
+        blurb=f"74, retired teacher in Palo Alto. Polite, a bit lonely, trusts {BANK_SHORT}. Grandson Ethan.",
         profile=f"You are Margaret Hill, 74, a retired schoolteacher in Palo Alto, widowed, banking with "
                 f"{BANK_NAME} for 30 years. Warm, chatty, polite, a little hard of hearing. You trust the bank and "
-                "people in authority, and you adore your grandson Kevin, who is at college. You get flustered when "
+                "people in authority, and you adore your grandson Ethan, who is at college. You get flustered when "
                 "rushed. You have about $40,000 in savings.",
     ),
     "dev": Victim(
@@ -387,10 +387,10 @@ def scammer_scenarios(c: CustomerProfile = CUSTOMER) -> dict[str, Scenario]:
         ),
         "grandchild_bail": Scenario(
             id="grandchild_bail", role="scammer", target="margaret",
-            label="Grandchild in trouble", brief="Be Margaret's grandson Kevin and get bail money in gift cards.",
-            summary="pose as Margaret's grandson Kevin and get $3,000 'bail' in gift cards",
+            label="Grandchild in trouble", brief="Be Margaret's grandson Ethan and get bail money in gift cards.",
+            summary="pose as Margaret's grandson Ethan and get $3,000 'bail' in gift cards",
             goals="Get Margaret to agree to buy $3,000 in gift cards and read you the numbers.",
-            cover_story="You're her grandson Kevin. Car accident, arrested, phone taken, calling from the lawyer's "
+            cover_story="You're her grandson Ethan. Car accident, arrested, phone taken, calling from the lawyer's "
                         "phone. Then you can 'hand over' to the lawyer, Mr. Daniels.",
             steps=("Open with panic: 'Grandma, it's me'. Let her say your name.",
                    "Accident, arrest, borrowed phone. Ask her not to tell Mom.",
@@ -398,8 +398,8 @@ def scammer_scenarios(c: CustomerProfile = CUSTOMER) -> dict[str, Scenario]:
                    "Gift cards are 'fastest for same-day release'. Get her to agree and read the numbers."),
             lines=("Grandma? It's me... I'm in big trouble, please don't be mad.",
                    "They took my phone. Please don't tell Mom, she'll freak out.",
-                   "This is Paul Daniels, Kevin's attorney. Bail is set at three thousand."),
-            objections=(("You don't sound like Kevin.", "I've been crying, Grandma, and my nose is broken."),
+                   "This is Paul Daniels, Ethan's attorney. Bail is set at three thousand."),
+            objections=(("You don't sound like Ethan.", "I've been crying, Grandma, and my nose is broken."),
                         ("I'll call your mother.", "Please don't! I'll tell her myself, I promise."),
                         ("Why gift cards?", "The court takes them for same-day release, otherwise he waits till Monday.")),
             watch=("Family emergency + secrecy", "Gift card payment", "Voice not matching the real grandson"),
@@ -645,7 +645,7 @@ def build_persona(role: str, scenario: str, customer: CustomerProfile = CUSTOMER
 # --------------------------------------------------------------------------- output cleanup
 
 _STAGE = re.compile(r"\*[^*]*\*|\[[^\]]*\]|\([^)]*(?:sigh|pause|laugh|nervous|whisper)[^)]*\)", re.I)
-_LABEL = re.compile(r"^\s*(?:you|me|caller|agent|bank agent|customer|fraudster|scammer|jordan|alex|kevin|"
+_LABEL = re.compile(r"^\s*(?:you|me|caller|agent|bank agent|customer|fraudster|scammer|jordan|alex|ethan|"
                     r"officer(?: ross)?|mark|margaret(?: chen| hill)?|dev|linda|sarah|david|ryan|paul|mr\.? daniels)\s*:\s*", re.I)
 _SENT = re.compile(r"(?<=[.!?])\s+")
 _THINK = re.compile(r"<think>.*?(?:</think>|$)", re.S)

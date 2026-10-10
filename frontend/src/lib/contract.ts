@@ -2,7 +2,7 @@
 // Type-only module: safe to import from node --test.
 import type { AlertLevel, Citation, SignalName } from "../types";
 
-/** "client": a scammer calls you (Baseline protects you). "scammer": you call the bank as Kevin.
+/** "client": a scammer calls you (Baseline protects you). "scammer": you call the bank as Ethan.
  *  "candidate": pressure simulation, you are the bank agent. "agent" is the v1 name of "client" (old reports). */
 export type Role = "client" | "scammer" | "agent" | "candidate";
 export type Speaker = "ai" | "visitor";
@@ -92,7 +92,7 @@ export type ServerMsg =
       audio: { sample_rate: number; format: string };
       max_call_s: number;
       scenario_label?: string | null;
-      /** who the visitor is on this call, e.g. "Kevin", "Kevin's grandparent", "Posing as Kevin" */
+      /** who the visitor is on this call, e.g. "Ethan", "Ethan's grandparent", "Posing as Ethan" */
       visitor_as?: string;
       /** role scammer: the visitor's cheat sheet */
       agenda?: Agenda | null;

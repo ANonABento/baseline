@@ -16,7 +16,7 @@ const ROLES: { id: SessionRequest["role"]; label: string; hint: string }[] = [
 
 export const SCENARIO_LABEL: Record<string, string> = {
   fake_bank: "First City 'fraud department'",
-  grandchild: "Kevin in trouble (voice clone)",
+  grandchild: "Ethan in trouble (voice clone)",
   irs: "IRS back taxes",
   tech_support: "Tech support refund",
   fraud_dept_slow: "First City security check",

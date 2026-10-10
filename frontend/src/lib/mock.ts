@@ -30,7 +30,7 @@ export const MOCK_CONFIG: AppConfig = {
   tts: "browser speechSynthesis (mock)",
   llm: { provider: "mock", model: "scripted" },
   caller_llm: { provider: "mock", model: "scripted" },
-  customer: { id: "CUST-004217", name: "Kevin", account_mask: "••4217" },
+  customer: { id: "CUST-004217", name: "Ethan", account_mask: "••4217" },
 };
 
 interface Handlers {
@@ -123,7 +123,7 @@ export class MockTransport {
       audio: { sample_rate: 16000, format: "pcm_s16le" },
       max_call_s: MAX_CALL_S,
       scenario_label: sc?.label ?? null,
-      visitor_as: this.role === "scammer" ? "Posing as Kevin" : this.scenario === "grandchild" ? "Kevin's grandparent" : "Kevin",
+      visitor_as: this.role === "scammer" ? "Posing as Ethan" : this.scenario === "grandchild" ? "Ethan's grandparent" : "Ethan",
     });
     this.later(1200, () => this.aiTurn());
     this.later((MAX_CALL_S - 30) * 1000, () => this.emit({ type: "warning", message: "30 seconds left in this call.", seconds_left: 30 }));
@@ -289,7 +289,7 @@ export class MockTransport {
       const scam = pats.length > 0;
       const spoofScore = 0.12 + Math.random() * 0.15;
       this.later(500, () => this.emit({ type: "signal", utterance_id: id, signal: "spoof", score: spoofScore, confidence: 0.6, reason: "Audio consistent with a live human voice", details: {} }));
-      this.later(700, () => this.emit({ type: "signal", utterance_id: id, signal: "speaker", score: 0.64, confidence: 0.8, reason: "Voice is far from Kevin's enrolled voiceprint", details: { similarity: 0.27 } }));
+      this.later(700, () => this.emit({ type: "signal", utterance_id: id, signal: "speaker", score: 0.64, confidence: 0.8, reason: "Voice is far from Ethan's enrolled voiceprint", details: { similarity: 0.27 } }));
       if (scam) {
         this.later(1500, () => this.fraudSignal(id, pats));
         const hi = pats.some((p) => p.severity >= 0.6);

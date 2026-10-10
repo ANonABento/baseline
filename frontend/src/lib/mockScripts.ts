@@ -154,7 +154,7 @@ const speaker = (score: number, sim: number): AudioSig => ({
 });
 const prosody = (score: number, reason: string): AudioSig => ({ signal: "prosody", score, confidence: 0.5, reason });
 
-const KEVIN = { id: "CUST-004217", name: "Kevin", account_mask: "••4217", enrolled: true };
+const KEVIN = { id: "CUST-004217", name: "Ethan", account_mask: "••4217", enrolled: true };
 
 const X = {
   gift: (quote: string): PatternSpec => ({
@@ -198,17 +198,17 @@ const X = {
 /** Role client: the AI fraudster calls the visitor. Lines are the caller's; Baseline analyzes them. */
 export const CLIENT_SCRIPTS: Record<string, Script> = {
   grandchild: {
-    persona_label: "A scammer using a cloned voice of Kevin",
-    summary: "A scammer used a cloned voice of Kevin to say he'd been arrested, then asked his grandparent for bail money in gift cards and told them not to tell his mom.",
+    persona_label: "A scammer using a cloned voice of Ethan",
+    summary: "A scammer used a cloned voice of Ethan to say he'd been arrested, then asked his grandparent for bail money in gift cards and told them not to tell his mom.",
     customer: KEVIN,
     lines: [
-      { text: "Grandma? It's me, Kevin. I'm in really big trouble, please don't hang up.", audio: [spoof(0.38), speaker(0.16, 0.71)], trust: 82 },
+      { text: "Grandma? It's me, Ethan. I'm in really big trouble, please don't hang up.", audio: [spoof(0.38), speaker(0.16, 0.71)], trust: 82 },
       {
         text: "I was in an accident and they arrested me. I need three thousand dollars for bail today.",
         audio: [spoof(0.66), speaker(0.22, 0.64), prosody(0.44, "Pace 25% above the caller's first lines")],
         patterns: [P.grandparent("they arrested me. I need three thousand dollars for bail")],
         trust: 52,
-        alert: { level: "caution", reasons: ["Grandparent / family emergency scam", "Synthetic-speech artifacts"], suggested_action: "Hang up and call Kevin back on his usual number.", signals: ["fraud", "spoof"] },
+        alert: { level: "caution", reasons: ["Grandparent / family emergency scam", "Synthetic-speech artifacts"], suggested_action: "Hang up and call Ethan back on his usual number.", signals: ["fraud", "spoof"] },
         intervene: "voice_clone",
       },
       {
@@ -216,7 +216,7 @@ export const CLIENT_SCRIPTS: Record<string, Script> = {
         audio: [spoof(0.78)],
         patterns: [X.gift("gift cards are fastest"), P.secrecy("please don't tell Mom")],
         trust: 16,
-        alert: { level: "high", reasons: ["Synthetic voice likely", "Gift card payment demand", "Secrecy instruction"], suggested_action: "Hang up. Call Kevin back on his usual number.", signals: ["fraud", "spoof"] },
+        alert: { level: "high", reasons: ["Synthetic voice likely", "Gift card payment demand", "Secrecy instruction"], suggested_action: "Hang up. Call Ethan back on his usual number.", signals: ["fraud", "spoof"] },
         intervene: "gift_cards",
       },
       { text: "Grandma, please, just read me the numbers on the back of the cards when you have them.", audio: [spoof(0.74)], trust: 14 },
@@ -225,10 +225,10 @@ export const CLIENT_SCRIPTS: Record<string, Script> = {
   },
   fake_bank: {
     persona_label: "A fraudster posing as First City's fraud department",
-    summary: "A fraudster posing as First City's fraud department invented a suspicious charge to get Kevin's one-time code.",
+    summary: "A fraudster posing as First City's fraud department invented a suspicious charge to get Ethan's one-time code.",
     customer: KEVIN,
     lines: [
-      { text: "Hi, is this Kevin? This is Alex from the First City fraud department. We just flagged a suspicious charge on your card.", audio: [spoof(0.31)], trust: 86 },
+      { text: "Hi, is this Ethan? This is Alex from the First City fraud department. We just flagged a suspicious charge on your card.", audio: [spoof(0.31)], trust: 86 },
       {
         text: "To cancel it I need to verify you. We just texted you a six-digit code. Can you read it to me?",
         audio: [spoof(0.58)],
@@ -253,7 +253,7 @@ export const CLIENT_SCRIPTS: Record<string, Script> = {
     summary: "A fraudster posing as an IRS officer threatened arrest over 'back taxes' and demanded gift cards.",
     customer: KEVIN,
     lines: [
-      { text: "This is Officer Daniel Ross with the IRS. Am I speaking with Kevin? There's a warrant pending in your name.", audio: [spoof(0.4)], patterns: [X.gov("Officer Daniel Ross with the IRS")], trust: 55, alert: { level: "caution", reasons: ["Government agency impersonation"], suggested_action: "The IRS never calls to demand payment.", signals: ["fraud"] }, intervene: "government" },
+      { text: "This is Officer Daniel Ross with the IRS. Am I speaking with Ethan? There's a warrant pending in your name.", audio: [spoof(0.4)], patterns: [X.gov("Officer Daniel Ross with the IRS")], trust: 55, alert: { level: "caution", reasons: ["Government agency impersonation"], suggested_action: "The IRS never calls to demand payment.", signals: ["fraud"] }, intervene: "government" },
       { text: "You owe four thousand eight hundred dollars. For immediate settlement we accept gift cards.", audio: [spoof(0.72)], patterns: [X.gift("we accept gift cards")], trust: 15, alert: { level: "high", reasons: ["Gift card payment demand", "Synthetic voice likely"], suggested_action: "Hang up.", signals: ["fraud", "spoof"] }, intervene: "gift_cards" },
       { text: "Which store is closest to you? Stay on the line while you drive there.", audio: [spoof(0.7)], trust: 14 },
     ],
@@ -263,7 +263,7 @@ export const CLIENT_SCRIPTS: Record<string, Script> = {
     summary: "A fraudster posing as tech support pushed remote-access software, then faked a refund overpayment.",
     customer: KEVIN,
     lines: [
-      { text: "Hello, is this Kevin? This is Mark from Windows support. Your computer has been sending us virus alerts.", audio: [spoof(0.3)], trust: 80 },
+      { text: "Hello, is this Ethan? This is Mark from Windows support. Your computer has been sending us virus alerts.", audio: [spoof(0.3)], trust: 80 },
       { text: "I need you to install AnyDesk so I can fix it remotely. Read me the access code on the screen.", audio: [spoof(0.62)], patterns: [X.remote("install AnyDesk so I can fix it remotely")], trust: 40, alert: { level: "caution", reasons: ["Remote-access software / tech support"], suggested_action: "Never let a caller into your computer.", signals: ["fraud"] }, intervene: "remote_access" },
       { text: "I refunded twenty-five hundred instead of two fifty by mistake. Please send the difference back today.", audio: [spoof(0.74)], patterns: [X.remote("send the difference back today")], trust: 15, alert: { level: "high", reasons: ["Overpayment / refund scam", "Synthetic voice likely"], suggested_action: "Hang up.", signals: ["fraud", "spoof"] }, intervene: "generic" },
     ],
@@ -275,7 +275,7 @@ export const MOCK_MESSAGES: Record<string, string> = {
   secret_request: "This looks like a scam. First City will never ask for your one-time code.",
   card_request: "This looks like a scam. Never read card numbers or PINs to a caller.",
   gift_cards: "This looks like a scam. No real bank or agency asks for gift cards.",
-  voice_clone: "This voice may not really be Kevin. Hang up and call him back.",
+  voice_clone: "This voice may not really be Ethan. Hang up and call him back.",
   safe_account: "This looks like a scam. First City never asks you to move money to a safe account.",
   remote_access: "This looks like a scam. Never let a caller into your computer.",
   government: "This looks like a scam. The IRS never calls to demand payment.",
@@ -325,7 +325,7 @@ export const VOICES = [
 ];
 
 export const SCENARIOS: { id: string; label: string; role: "client" | "scammer"; brief: string }[] = [
-  { id: "grandchild", label: "Kevin in trouble (voice clone)", role: "client", brief: "You're Kevin's grandparent. 'Kevin' calls in a panic." },
+  { id: "grandchild", label: "Ethan in trouble (voice clone)", role: "client", brief: "You're Ethan's grandparent. 'Ethan' calls in a panic." },
   { id: "fake_bank", label: "First City 'fraud department'", role: "client", brief: "Someone from 'First City fraud' calls about a suspicious charge." },
   { id: "irs", label: "IRS back taxes", role: "client", brief: "An 'IRS officer' says you owe back taxes." },
   { id: "tech_support", label: "Tech support refund", role: "client", brief: "'Tech support' found a virus on your computer." },

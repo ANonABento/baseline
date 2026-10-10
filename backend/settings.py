@@ -99,7 +99,7 @@ class Settings(BaseSettings):
 
     # --- the bank's client (live calls: the person Baseline protects; dashboard: enrolled customer) ---
     # Speaker verification compares against data/enroll/<customer_id>.npy (scripts/enroll.py).
-    customer_name: str = "Kevin"
+    customer_name: str = "Ethan"
     customer_id: str = "CUST-004217"
 
     # --- live "try it" calls (sessions.py, caller/, live_api.py) ---

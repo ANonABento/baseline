@@ -20,7 +20,7 @@ import websockets
 
 TURNS = {
     "grandchild": [
-        "Kevin? Oh no, what happened? Are you okay?",
+        "Ethan? Oh no, what happened? Are you okay?",
         "Oh my goodness. How much do you need, sweetheart?",
         "Okay, okay. I have a gift card here already, let me get my card.",
         "The numbers on the back are 4 1 2 7 8 8 3 9 0 2 1 1",
