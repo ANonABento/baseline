@@ -8,9 +8,9 @@ import { linkTo } from "../lib/prefs";
 import { listReports } from "../lib/reports";
 
 const ROLES: { id: SessionRequest["role"]; label: string; hint: string }[] = [
-  { id: "random", label: "Surprise me", hint: "You might get a scam call, or you might be the scammer." },
-  { id: "client", label: "Get a call", hint: "You're a First City client and your phone rings. Is it a scam? Baseline is on your phone." },
-  { id: "scammer", label: "Make a call", hint: "You're the scammer. Call a First City client and try to get what you came for. Baseline is on their phone." },
+  { id: "random", label: "Random", hint: "You might get a scam call, or you might be the scammer." },
+  { id: "client", label: "Be the client", hint: "You're a First City client and your phone rings. Is it a scam? Baseline is on your phone." },
+  { id: "scammer", label: "Be the scammer", hint: "You're the scammer. Call a First City client and try to get what you came for. Baseline is on their phone." },
 ];
 
 export const SCENARIO_LABEL: Record<string, string> = {
@@ -216,7 +216,7 @@ export function Lobby({ onJoin, error }: Props) {
           <details className="advanced">
             <summary className="label">Advanced</summary>
             <fieldset className="field">
-              <legend className="label">{role === "scammer" ? "Bank agent voice" : "Caller voice"}</legend>
+              <legend className="label">{role === "scammer" ? "Client voice" : "Caller voice"}</legend>
               <div className="chips">
                 {[{ id: "random", label: "Match the scenario" }, ...voices].map((v) => (
                   <label className="chip" key={v.id}>

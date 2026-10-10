@@ -2,7 +2,7 @@
 // Type-only module: safe to import from node --test.
 import type { AlertLevel, Citation, SignalName } from "../types";
 
-/** "client": a scammer calls you (Baseline protects you). "scammer": you call the bank as Ethan.
+/** "client": a scammer calls you (Baseline protects you). "scammer": you call a First City client (an AI victim) as the scammer.
  *  "agent" is the v1 name of "client" (old reports). */
 export type Role = "client" | "scammer" | "agent";
 export type Speaker = "ai" | "visitor";

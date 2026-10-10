@@ -294,16 +294,16 @@ export const CLIENT_TRIGGERS: { re: RegExp; reason: string; reason_id: string; s
   { re: /\b(i'?ll|i will|let me)\s+(go to|send|transfer|wire|install|download)\b|\bhow much\b/i, reason: "Going along with the caller", reason_id: "send_money", secret: false },
 ];
 
-/** AI plays the bank agent; the visitor plays the scammer. */
+/** AI plays the victim, a First City client; the visitor plays the scammer who calls them. */
 export const SCAMMER_SCRIPT: Script = {
-  persona_label: "Jordan, a careful agent at First City Bank",
+  persona_label: "Margaret, a First City client (74, retired teacher)",
   customer: KEVIN,
   lines: [
-    { text: "Thank you for calling First City Bank, this is Jordan. Who am I speaking with today?" },
-    { text: "Thanks. Before we go further I'll need to verify a few details. Can you confirm your date of birth?" },
-    { text: "I understand. I can't skip that step, but I'm happy to call you back on the number we have on file." },
-    { text: "For your security, I'm not able to make that change on this call. I'll send a confirmation to the email on file." },
-    { text: "I've noted the request. Our fraud team will reach out on the number on file. Is there anything else?" },
+    { text: "Hello? Yes, this is Margaret. Who is this, dear?" },
+    { text: "Oh my, the bank? I'm not sure I understand. What is it you need from me?" },
+    { text: "Well, I don't usually give out information over the phone. Is there a number I can call you back on?" },
+    { text: "I'm a little confused, my grandson always tells me to be careful. Can you tell me your name again?" },
+    { text: "I think I'd better talk to my daughter first. Thank you for calling." },
   ],
 };
 
