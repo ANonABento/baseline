@@ -3,9 +3,10 @@
 Submission deadline: Sat 2026-10-10 09:00 (MentorMates); finals 12:00 to 14:00. "Done when" is a check you can run or see. Items marked **Dae** need a person at the keyboard or a decision.
 
 ## Done in code (software verified, not science)
-- Role `candidate`, scripted pressure by turn **and** by time (level 2 from 30 s, 3 from 70 s), live `pressure`/`decision` messages, `behaviour` in the report, signed credential, `/api/credential/<id>`, `/api/issuer`.
-- Twin panel (live + report), credential panel, `verify.html`, demo mode. Keyword refusal no longer fires on "no problem".
-- Tests: backend 238 passed, frontend 34 passed, type-check clean.
+- Digital Twin and credential on **every** call (roles client and scammer; the separate pressure simulation was removed): your own delivery is measured live (client: `twin_det` on your turns; scammer: the pipeline's prosody detector), pressure levels 1 to 3 from the AI scammer in the client role, decisions, `behaviour` in the report, Ed25519 credential at `/api/credential/<id>`, issuer at `/api/issuer`.
+- Caller prompt: reacts to what you said, asks follow-ups, recent lines fed back to avoid repeats; Nebius `gpt-oss-120b` by default in `make dev-live`; whisper-large-v3-turbo when cached.
+- Twin panel in the live room and the report; credential panel; `verify.html`.
+- Tests: backend 298 passed, frontend 41 passed, type-check and build clean.
 
 ## Do in this order
 | # | Owner | Task | Done when | Time |
@@ -21,11 +22,11 @@ Submission deadline: Sat 2026-10-10 09:00 (MentorMates); finals 12:00 to 14:00. 
 | 9 | Dae | Publish the issuer: call `GET /api/issuer`, paste the DID into README and the pitch slide | DID in README | 5 min |
 | 10 | Dae | Commit and push on `v/voice-model-plan`; check `frontend/public/verify.html` and `backend/credential.py` are included | `git status` clean | 10 min |
 | 11 | Dae | Public URL if wanted (Replit per the master plan); otherwise demo from the laptop on its own network | URL opens `/call` or decision to demo locally | 45 min or skip |
-| 12 | Dae | Rehearse the demo twice with `docs/pitch_candidate_mode.md` | 3-minute run, no restarts | 20 min |
+| 12 | Dae | Rehearse the demo twice with `docs/pitch_twin_credential.md` | 3-minute run, no restarts | 20 min |
 
 ## Cut list (not before the deadline)
 - Loading `baseline_mm.pt` / `baseline_brief_quick.pt` into the app. The quick checkpoint has no results, so say "z-scores against the person's own baseline plus an emotion probe", not "fine-tuned model".
-- Accounts, candidate identity, key rotation, revocation, hosted verifier.
+- Accounts, identity, key rotation, revocation, hosted verifier.
 - More than one concurrent call (`MAX_CONCURRENT_CALLS` is 1).
 - Tuning detector thresholds (change vs own baseline needs sustained change in 2+ features; I did not alter it).
 

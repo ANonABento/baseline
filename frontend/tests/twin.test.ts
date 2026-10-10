@@ -5,7 +5,7 @@ import type { Line } from "../src/lib/session.ts";
 import { changeByPressure, twinView } from "../src/lib/twin.ts";
 
 const line = (id: number, speaker: "ai" | "visitor", t0: number, t1: number, text: string): Line => ({
-  type: "transcript", utterance_id: id, t_start: t0, t_end: t1, text, speaker, analyzed: speaker === "visitor",
+  type: "transcript", utterance_id: id, t_start: t0, t_end: t1, text, speaker, analyzed: false,
 });
 const sig = (id: number, details: Record<string, unknown>): SignalEvent => ({
   type: "signal", utterance_id: id, signal: "prosody", score: 0, confidence: 0.25, reason: "", details, latency_ms: 0,

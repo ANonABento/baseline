@@ -3,7 +3,6 @@
 Audio paths
     visitor mic PCM ──► turn VAD (own segmenter) ──► barge-in + speaking events
                     │                          └──► (role agent) STT ──► visitor turn
-                    ├──► (role candidate) STT ──► CallPipeline.feed_utterance (prosody only) ──► visitor turn
                     └──► (role scammer) CallPipeline (VAD+STT+detectors) ──► transcript ──► visitor turn
     visitor turn ──► Brain (persona LLM, sentence stream) ──► TTS ──► Player (paced 50 ms frames)
                                                                     ├──► client (binary PCM + ai_level)
@@ -39,8 +38,9 @@ from caller.recording import CallRecorder
 from caller.report import VERDICT_LABELS, save_report
 from caller.tts import TTSProvider, baseline_voice
 from credential import issue_for_report
-from core import Utterance
+from core import CallContext, Utterance
 from detectors import client_risk, session_signals
+from detectors.prosody import ProsodyDetector
 from detectors.session_signals import analyse, decision_tags
 from events import Event, SignalEvent, TranscriptEvent
 from pipeline import CallPipeline, pcm16_to_float
@@ -232,12 +232,13 @@ class LiveCall:
         self.role = normalize_role(session.role)
         self.scenario = SCENARIOS.get(session.scenario)
         # role client: Baseline analyzes the AI caller (+ the visitor's words with client_risk);
-        # role scammer: the visitor's mic; role candidate: the visitor's own voice, prosody only, under
-        # scripted pressure from the AI caller (delivery signals on THEIR voice)
-        self.candidate = self.role == "candidate"
+        # role scammer: the visitor's mic. In BOTH roles the Digital Twin measures the visitor's own delivery:
+        # scammer -> the pipeline's prosody detector; client -> `twin_det` (below), on the visitor's turns.
         self.analyzed_speaker = "ai" if self.role == "client" else "visitor"
-        self.pressure: dict[int, int] = {}  # unanalyzed AI utterance id -> scripted pressure level (candidate)
+        self.pressure: list[dict] = []  # scripted pressure the AI applied (role client): [{t, level}]
         self._ai_turns = 0
+        self.twin_det = ProsodyDetector()
+        self.twin_ctx = CallContext()
         self.pipe = pipeline if pipeline is not None else CallPipeline(self._on_pipe_event, settings)
         self.pipe.emit = self._on_pipe_event
         if self.role in ("client", "scammer") and not (self.scenario and self.scenario.claims_customer):
@@ -322,12 +323,31 @@ class LiveCall:
                                               t_start=t_start, t_end=t_end, latency_ms=latency_ms))
         return uid
 
-    async def _visitor_line(self, text: str, t_start: float, t_end: float, latency_ms: float | None = None) -> None:
+    async def _emit_decisions(self, uid: int, text: str, t: float) -> None:
+        """Keyword-detected decision phrases in a visitor turn (shown as phrases, never verdicts)."""
+        for tag in decision_tags(text):
+            await self.send_json({"type": "decision", "event": tag, "utterance_id": uid, "t": round(t, 1)})
+
+    async def _twin_prosody(self, uid: int, audio, t_start: float, t_end: float, text: str) -> None:
+        """Digital Twin for role client: the visitor's turns skip the audio pipeline, so measure their delivery here
+        (own baseline, own detector; it never touches the fraud fusion)."""
+        t0 = time.perf_counter()
+        try:
+            utt = Utterance(id=uid, audio=audio, sample_rate=self.settings.sample_rate, t_start=t_start, t_end=t_end, text=text)
+            r = await self.twin_det.analyze(utt, self.twin_ctx)
+            ev = SignalEvent(**r.model_dump(), utterance_id=uid, latency_ms=round((time.perf_counter() - t0) * 1000, 1))
+            if not self._ending:
+                await self._on_pipe_event(ev)
+        except Exception:  # noqa: BLE001  never break the call over the twin
+            log.debug("twin prosody failed", exc_info=True)
+
+    async def _visitor_line(self, text: str, t_start: float, t_end: float, latency_ms: float | None = None) -> int:
         """A visitor line that skips the audio pipeline (role client). Baseline still checks the
         client's own words (client_risk) and fuses that soft signal with the caller's."""
         uid = await self._emit_unanalyzed("visitor", text, t_start, t_end, latency_ms)
+        await self._emit_decisions(uid, text, t_start)
         if self.role != "client" or self._ending:
-            return
+            return uid
         t0 = time.perf_counter()
         caller = [x["text"] for x in self.col.transcript if x["speaker"] == "ai"][-2:]
         r = client_risk.assess(text, caller)
@@ -340,6 +360,7 @@ class LiveCall:
         if alert is not None:
             self.pipe.last_alert = alert
             await self._on_pipe_event(alert)
+        return uid
 
     def _mic_to_call_time(self, t_audio: float) -> float:
         """Pipeline times count only the mic samples received (push-to-talk sends audio in bursts);
@@ -354,7 +375,8 @@ class LiveCall:
         """Session behavioural signals so far (tone drift, speech rate, hesitation, response and
         de-escalation latency, decisions), recomputed after every analysed turn."""
         try:
-            b = session_signals.analyse({"transcript": self.col.transcript, "signals": self.col.signals})
+            b = session_signals.analyse({"transcript": self.col.transcript, "signals": self.col.signals},
+                                        self.pressure, person="visitor")
         except Exception:  # noqa: BLE001  never break the call over a summary
             log.debug("behaviour summary failed", exc_info=True)
             return
@@ -369,19 +391,15 @@ class LiveCall:
                 t_start, t_end = self._mic_to_call_time(t_start), self._mic_to_call_time(t_end)
             d = self._transcript(utterance_id=ev.utterance_id, speaker=self.analyzed_speaker, analyzed=True,
                                  text=ev.text, t_start=t_start, t_end=t_end, latency_ms=ev.latency_ms)
-            if self.candidate:
-                for tag in decision_tags(ev.text):
-                    await self.send_json({"type": "decision", "event": tag, "utterance_id": ev.utterance_id,
-                                          "t": round(t_start, 1)})
-            if self.role in ("scammer", "candidate") and not self._ending and ev.text.strip():
+            if self.role == "scammer":
+                await self._emit_decisions(ev.utterance_id, ev.text, t_start)
+            if self.role == "scammer" and not self._ending and ev.text.strip():
                 src = "text" if ev.t_start == ev.t_end else "audio"
                 vad_end = self._last_vad_end_at if src == "audio" else None
                 self.turn_q.put_nowait(VisitorTurn(ev.text, t_start, t_end, time.monotonic(), src,
                                                    vad_end_at=vad_end, stt_ms=ev.latency_ms))
         elif ev.type == "signal":
             self.col.signals.append(d | {"t": t})
-        elif ev.type in ("trust", "alert") and self.candidate:
-            return  # the trainee is not scored for fraud: only delivery signals are reported
         elif ev.type == "trust":
             self.col.trust.append(d | {"t": t})
         elif ev.type == "alert":
@@ -548,7 +566,7 @@ class LiveCall:
         await self.send_json(self.call_started_event())
         self._tasks = [asyncio.create_task(self._turn_worker(), name="turns"),
                        asyncio.create_task(self._timer(), name="timer")]
-        if self.role in ("client", "candidate"):
+        if self.role == "client":
             self._tasks.append(asyncio.create_task(self._stt_worker(), name="stt"))
 
     async def _timer(self) -> None:
@@ -594,7 +612,7 @@ class LiveCall:
                 asyncio.create_task(self.send_json({"type": "speaking", "who": "visitor", "state": "end"}))
 
     def _to_stt(self, seg) -> None:
-        if self.role in ("client", "candidate"):
+        if self.role == "client":
             self._stt_pending += 1
             self.stt_q.put_nowait((seg, self._last_vad_end_at))
 
@@ -632,7 +650,7 @@ class LiveCall:
         if not text or self._ending:
             return
         t = self.now()
-        if self.role in ("scammer", "candidate"):
+        if self.role == "scammer":
             self.pipe.feed_text(text, t, t)  # transcript comes back through _on_pipe_event -> turn queue
         else:
             await self._visitor_line(text, t, t)
@@ -663,10 +681,9 @@ class LiveCall:
         stt_ms = round((time.perf_counter() - t) * 1000, 1)
         if not text or self._ending:
             return
-        if self.candidate:  # transcript + prosody come back through the pipeline and queue the turn
-            self.pipe.feed_utterance(seg.audio, self._mic_to_call_time(t_start), self._mic_to_call_time(t_end), text=text)
-            return
-        await self._visitor_line(text, t_start, t_end, stt_ms)
+        ts, te = self._mic_to_call_time(t_start), self._mic_to_call_time(t_end)
+        uid = await self._visitor_line(text, ts, te, stt_ms)
+        asyncio.create_task(self._twin_prosody(uid, seg.audio, ts, te, text))
         self.turn_q.put_nowait(VisitorTurn(text, t_start, t_end, time.monotonic(), "audio",
                                            vad_end_at=vad_end, stt_ms=stt_ms))
 
@@ -772,16 +789,16 @@ class LiveCall:
                                 vad_end_at=turn.vad_end_at, stt_ms=turn.stt_ms)
             self.col.turns.append(timing)
         self._cur_timing = timing
-        level = 0
-        if self.candidate:
+        recent = [x["text"] for x in self.col.transcript if x["speaker"] == "ai"][-5:]
+        hint = ("YOUR RECENT LINES (never reuse their wording, numbers, reasons or questions; make a new move that "
+                "answers the other person's last words): " + " | ".join(recent)) if recent else ""
+        if self.role == "client":  # scripted pressure on the human client; the Twin plots their delivery against it
             level = max(pressure_for_turn(self._ai_turns), pressure_for_time(self.now()))
             self._ai_turns += 1
-            recent = [x["text"] for x in self.col.transcript if x["speaker"] == "ai"][-5:]
-            self.brain.pressure_hint = PRESSURE_HINTS[level] + (
-                "\nYOUR RECENT LINES (never reuse their wording, numbers, reasons or questions; make a new move that "
-                "answers the agent's last words): " + " | ".join(recent) if recent else "")
-            await self.send_json({"type": "pressure", "level": level, "utterance_id": self._next_unanalyzed,
-                                  "t": self.now()})  # lets the live Twin show the pressure as the turn starts
+            self.pressure.append({"t": self.now(), "level": level})
+            hint = PRESSURE_HINTS[level] + ("\n" + hint if hint else "")
+            await self.send_json({"type": "pressure", "level": level, "t": self.now()})
+        self.brain.pressure_hint = hint
         player = Player(self)
         sentences: list[str] = []
         sent_q: asyncio.Queue = asyncio.Queue()
@@ -847,8 +864,6 @@ class LiveCall:
                     # Baseline analyzes the caller channel: the AI's own audio, with its script as text
                     self.pipe.feed_utterance(audio, t_start, t_end, text=spoken)
                 else:
-                    if level:
-                        self.pressure[self._next_unanalyzed] = level  # id _emit_unanalyzed is about to use
                     await self._emit_unanalyzed("ai", spoken, t_start, t_end)
 
     # ------------------------------------------------------------------ end
@@ -884,14 +899,12 @@ class LiveCall:
             self.col.errors.append(f"analysis flush incomplete: {type(e).__name__}")
         report = self.build_report(reason)
         self.report_id = report["id"]
-        if self.candidate:
-            report["pressure"] = {str(k): v for k, v in self.pressure.items()}
-            report["behaviour"] = analyse(report, self.pressure)
+        report["pressure"] = self.pressure
+        report["behaviour"] = analyse(report, self.pressure, person="visitor")
         report["audio"] = await self._write_audio(report)
         try:
             save_report(self.settings.reports_dir, report)
-            if self.candidate:
-                issue_for_report(self.settings.reports_dir, report["id"], self.settings.issuer_key_path)
+            issue_for_report(self.settings.reports_dir, report["id"], self.settings.issuer_key_path)
         except Exception:
             log.exception("could not save report or credential")
             self.col.errors.append("report or credential could not be saved")
@@ -988,7 +1001,8 @@ class LiveCall:
 
     def _behaviour_summary(self) -> dict | None:
         try:
-            return session_signals.analyse({"transcript": self.col.transcript, "signals": self.col.signals})
+            return session_signals.analyse({"transcript": self.col.transcript, "signals": self.col.signals},
+                                           self.pressure, person="visitor")
         except Exception:  # noqa: BLE001
             log.debug("behaviour summary failed", exc_info=True)
             return None

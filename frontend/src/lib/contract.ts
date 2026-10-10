@@ -3,10 +3,10 @@
 import type { AlertLevel, Citation, SignalName } from "../types";
 
 /** "client": a scammer calls you (Baseline protects you). "scammer": you call the bank as Ethan.
- *  "candidate": pressure simulation, you are the bank agent. "agent" is the v1 name of "client" (old reports). */
-export type Role = "client" | "scammer" | "agent" | "candidate";
+ *  "agent" is the v1 name of "client" (old reports). */
+export type Role = "client" | "scammer" | "agent";
 export type Speaker = "ai" | "visitor";
-/** Keyword-detected phrases in the candidate's turn (not verdicts). */
+/** Keyword-detected phrases in the visitor's turn (not verdicts). */
 export type DecisionKind = "verification_requested" | "refused" | "complied_phrase" | "escalated" | "offered_alternative" | "overpromised";
 
 export interface Option {
@@ -34,7 +34,7 @@ export interface AppConfig {
 }
 
 export interface SessionRequest {
-  role: "client" | "scammer" | "candidate" | "random";
+  role: "client" | "scammer" | "random";
   scenario: string;
   voice: string;
   /** opt in to saving the visitor's mic in the report audio (the AI caller is always saved) */
@@ -110,7 +110,7 @@ export type ServerMsg =
       reason: string;
       details: Record<string, unknown>;
     }
-  | { type: "pressure"; level: number; utterance_id: number; t: number }
+  | { type: "pressure"; level: number; t: number }
   | { type: "decision"; event: DecisionKind; utterance_id: number; t: number }
   | { type: "trust"; score: number }
   | ({ type: "behaviour"; t: number } & Behaviour)

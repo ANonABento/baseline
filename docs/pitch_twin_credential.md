@@ -1,9 +1,9 @@
-# Pitch notes: pressure simulation (Digital Twin + verifiable credential)
+# Pitch notes: Digital Twin + verifiable credential
 
-One line: a 3-minute high-pressure voice simulation that measures how a person's delivery and decisions change under pressure, shows it live on a Digital Twin, and issues a credential anyone can verify offline.
+One line: in a live, high-pressure scam-call simulation, Baseline measures how a person's own delivery and decisions change under pressure, shows it on a live Digital Twin, and issues a credential anyone can verify offline.
 
 ## Demo (3 min)
-1. Lobby: pick "Pressure simulation". (10 s)
+1. Lobby: pick "Be the client". (10 s)
 2. Call: three calm turns, Twin shows "learning normal 3 of 3". Pressure goes 1, 2, 3 as the caller escalates. Speak faster and louder, ask to verify, refuse. Point at the gauge, z bars, speech rate, response latency, pressure timeline, detected phrases. (90 s)
 3. Hang up: report with tone drift, speech rate, hesitation, de-escalation latency, change by pressure level. (30 s)
 4. Credential: download, open `/verify.html`, VALID; edit one character, INVALID. (40 s)

@@ -771,7 +771,9 @@ button.tline__time { background: none; border: 0; padding: 0.32rem 0 0; text-ali
   *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; scroll-behavior: auto !important; }
 }
 
-/* ---- Digital twin + credential (candidate simulation) ---- */
+/* ---- Digital twin + credential ---- */
+.twin__more { padding: 0.5rem var(--gutter); border-bottom: 1px solid var(--rule); }
+.twin__more > summary { cursor: pointer; }
 .twin { border-bottom: 1px solid var(--rule); padding: 1rem var(--gutter); display: grid; gap: 0.75rem; }
 .twin__head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
 .twin__pressure { font-family: var(--mono); font-size: var(--t-small); color: var(--ink-3); }
