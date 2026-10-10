@@ -3,7 +3,7 @@ NPM ?= $(shell command -v npm 2>/dev/null || echo $(HOME)/.local/bin/npm)
 export PATH := $(HOME)/.local/bin:$(PATH)
 
 # ML=1 installs/keeps the optional real-model deps (torch, mlx-whisper, speechbrain, ...).
-# NOTE: a plain `uv run`/`uv sync` without `--extra ml` REMOVES them again (uv syncs exactly),
+# NOTE: a plain `uv sync` (e.g. `make setup` without ML=1) REMOVES them again (uv syncs exactly),
 # so pass ML=1 to every target once you use real models, e.g. `make dev-backend ML=1`.
 ML ?=
 EXTRA := $(if $(ML),--extra ml,)

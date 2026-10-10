@@ -34,7 +34,7 @@ settings.py       pydantic-settings; env vars / .env (see ../.env.example)
 
 ```bash
 cd backend && uv sync --extra ml          # torch, mlx-whisper, silero-vad, speechbrain, transformers, sklearn
-# from now on always pass --extra ml (or `make ... ML=1`): plain `uv run` re-syncs and REMOVES the extra
+# careful: a later plain `uv sync` (or `make setup` without ML=1) removes the extra again
 cd .. && make enroll-demo                  # voiceprint for CUST-004217 from a `say -v Samantha` clip
 STT_PROVIDER=mlx VAD_PROVIDER=silero SPEAKER_PROVIDER=ecapa SPOOF_PROVIDER=pretrained \
   HF_HUB_OFFLINE=1 make dev-backend ML=1
