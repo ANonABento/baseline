@@ -8,3 +8,4 @@ timestamp,git_sha,dataset,n,n_scam,n_benign,detection_rate,false_alarm_rate,prec
 2026-10-09T22:16:12-07:00,87f4384,lakshan,150,0,150,,0.027,,,0.0,,,,12.7,1.47,keywords,,,customer,keywords tuned on bothbosu_dev
 2026-10-09T22:16:12-07:00,87f4384,bothbosu_dev,200,100,100,0.95,0.0,1.0,0.48,0.0,1,0.248,,13.3,1.85,keywords,,,customer,keywords tuned on bothbosu_dev
 2026-10-09T22:42:58-07:00,e50b026-dirty,held_out,42,21,21,0.905,0.0,1.0,0.905,0.0,2,0.611,1.0,12011.3,3094.93,llm:ollama,qwen3.5:4b,0.0,customer,llm ollama qwen3.5:4b (M5)
+2026-10-10T00:12:40-07:00,b0219ca,held_out,42,21,21,0.952,0.095,0.909,0.524,0.0,2.0,0.477,0.95,3384.4,872.06,llm:nebius,openai/gpt-oss-120b,0.123,customer,llm nebius gpt-oss-120b (reasoning low)

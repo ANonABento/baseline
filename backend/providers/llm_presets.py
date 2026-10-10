@@ -26,13 +26,16 @@ class Preset:
     base_url: str
     model: str
     key_setting: str | None  # Settings attribute holding the API key (None = no key needed)
+    reasoning_effort: str = ""  # sent as `reasoning_effort` when non-empty (thinking models)
 
 
 PRESETS: dict[str, Preset] = {
     # Token Factory is the rebrand of Nebius AI Studio; legacy URL: https://api.studio.nebius.com/v1/
-    "nebius": Preset("https://api.tokenfactory.nebius.com/v1/", "Qwen/Qwen3-30B-A3B-Instruct-2507", "nebius_api_key"),
+    "nebius": Preset("https://api.tokenfactory.nebius.com/v1/", "openai/gpt-oss-120b", "nebius_api_key", "low"),
+    # Measured 2026-10-10 from the venue: gpt-oss-120b (reasoning low) ~0.95 s/JSON call;
+    # Qwen/Qwen3-30B-A3B-Instruct-2507 ~3.6 s; google/gemma-3-27b-it ~1.6 s.
     "nvidia": Preset("https://integrate.api.nvidia.com/v1", "nvidia/nemotron-3.5-lightning-30b-a3b", "nvidia_api_key"),
-    "ollama": Preset("http://localhost:11434/v1", "qwen3.5:4b", None),
+    "ollama": Preset("http://localhost:11434/v1", "qwen3.5:4b", None, "none"),
 }
 
 
@@ -42,6 +45,7 @@ class LLMConfig:
     base_url: str = ""
     model: str = ""
     api_key: str = ""
+    reasoning_effort: str = ""
 
 
 def resolve_provider_name(settings) -> str:
@@ -76,6 +80,7 @@ def resolve_llm_config(settings) -> LLMConfig:
         base_url=getattr(settings, "llm_base_url", "") or preset.base_url,
         model=getattr(settings, "llm_model", "") or preset.model,
         api_key=key or ("ollama" if name == "ollama" else ""),
+        reasoning_effort=getattr(settings, "llm_reasoning_effort", "") or preset.reasoning_effort,
     )
 
 
@@ -95,5 +100,6 @@ def build_llm(settings, http_client=None) -> LLMProvider:
         max_tokens=int(getattr(settings, "llm_max_tokens", 220)),
         json_mode=bool(getattr(settings, "llm_json_mode", True)),
         provider=cfg.provider,
+        reasoning_effort=cfg.reasoning_effort,
         http_client=http_client,
     )

@@ -198,6 +198,16 @@ class CallPipeline:
         for seg in self.segmenter.feed(samples):
             self._enqueue(seg)
 
+    def feed_utterance(self, audio: np.ndarray, t_start: float, t_end: float, text: str | None = None) -> None:
+        """Enqueue an already-segmented utterance (bypasses the VAD). With `text`, STT is
+        skipped and that text is used (e.g. the AI caller's own TTS script)."""
+        self._ensure_worker()
+        self._queue.put_nowait(("utt", (np.asarray(audio, dtype=np.float32), t_start, t_end, text)))
+
+    def feed_text(self, text: str, t_start: float, t_end: float | None = None) -> None:
+        """Enqueue a text-only utterance (typed input): text detectors run, audio ones are skipped."""
+        self.feed_utterance(np.zeros(0, dtype=np.float32), t_start, t_start if t_end is None else t_end, text)
+
     def _enqueue(self, seg: Segment) -> None:
         self._ensure_worker()
         self._queue.put_nowait(("seg", seg))
@@ -210,6 +220,9 @@ class CallPipeline:
             try:
                 if kind == "seg":
                     await self._process(item.audio, item.t_start, item.t_end)
+                elif kind == "utt":
+                    audio, t_start, t_end, text = item
+                    await self._process(audio, t_start, t_end, text_override=text)
                 elif kind == "finalize":  # end of call: leftover STT text (e.g. sidecar lines) with no audio
                     leftover = self.stt.finalize()
                     if leftover:

@@ -8,7 +8,7 @@ export PATH := $(HOME)/.local/bin:$(PATH)
 ML ?=
 EXTRA := $(if $(ML),--extra ml,)
 
-.PHONY: setup dev-backend dev-frontend test eval clips build enroll-demo
+.PHONY: setup dev-backend dev-live dev-frontend test eval clips build enroll-demo
 
 setup:            ## install backend + frontend deps (ML=1 for real models)
 	cd backend && $(UV) sync $(EXTRA)
@@ -16,6 +16,14 @@ setup:            ## install backend + frontend deps (ML=1 for real models)
 
 dev-backend:      ## FastAPI on :8000 with reload
 	cd backend && $(UV) run $(EXTRA) uvicorn app:app --reload --port 8000
+
+# Fraud LLM defaults to auto (Nebius/NVIDIA if a key is set, else keywords): pointing it at the same local
+# Ollama as the persona (LLM_PROVIDER=ollama) serializes both on one model and adds ~3 s per AI reply.
+dev-live:         ## live "try it" backend on :8000: real models, Ollama persona LLM, say/ElevenLabs TTS
+	@test -f data/enroll/CUST-004217.npy || $(MAKE) enroll-demo
+	cd backend && STT_PROVIDER=mlx VAD_PROVIDER=silero SPEAKER_PROVIDER=ecapa SPOOF_PROVIDER=pretrained \
+	  LLM_PROVIDER=$${LLM_PROVIDER:-auto} LLM_TIMEOUT_S=$${LLM_TIMEOUT_S:-3} CALLER_LLM_PROVIDER=$${CALLER_LLM_PROVIDER:-ollama} \
+	  HF_HUB_OFFLINE=1 $(UV) run --extra ml uvicorn app:app --host $${HOST:-127.0.0.1} --port $${PORT:-8000}
 
 dev-frontend:     ## Vite dashboard on :5173
 	cd frontend && $(NPM) run dev

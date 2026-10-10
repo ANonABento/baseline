@@ -31,6 +31,7 @@ class OpenAICompatLLM(LLMProvider):
         max_tokens: int = 220,
         json_mode: bool = True,
         provider: str = "openai",
+        reasoning_effort: str = "",
         http_client: httpx.AsyncClient | None = None,
     ):
         self.model = model
@@ -38,6 +39,7 @@ class OpenAICompatLLM(LLMProvider):
         self.timeout_s = timeout_s
         self.max_tokens = max_tokens
         self.provider = provider
+        self.reasoning_effort = reasoning_effort
         self.name = provider
         self._json_mode_ok = json_mode
         # max_retries=0: a retry would blow the ~1.5 s budget; the detector falls back to
@@ -52,9 +54,9 @@ class OpenAICompatLLM(LLMProvider):
 
     async def _create(self, system: str, user: str, json_mode: bool):
         kwargs = {"response_format": {"type": "json_object"}} if json_mode else {}
-        if self.provider == "ollama":
-            # Qwen3.5 etc. think by default on Ollama; thinking blows the latency budget.
-            kwargs["reasoning_effort"] = "none"
+        if self.reasoning_effort:
+            # Thinking models (Qwen3.5 on Ollama, gpt-oss) blow the latency budget unless capped.
+            kwargs["reasoning_effort"] = self.reasoning_effort
         return await self._client.chat.completions.create(
             model=self.model,
             messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],

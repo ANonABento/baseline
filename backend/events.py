@@ -5,6 +5,8 @@ All events are JSON objects with a `type` discriminator:
 transcript  One finished utterance.
             {type, utterance_id, t_start, t_end, text, latency_ms?}
             `latency_ms` (optional, added with the real models) = STT time for this utterance.
+            `speaker` ("ai"|"visitor") and `analyzed` (bool) are optional, set only on the live
+            call stream (WS /ws/session/{id}); see backend/README.md "Live call API".
 signal      One detector result for one utterance.
             {type, utterance_id, signal, score, confidence, reason, details, latency_ms}
             `signal` is one of speaker | spoof | prosody | fraud.
@@ -56,6 +58,10 @@ class TranscriptEvent(BaseModel):
     t_end: float
     text: str
     latency_ms: float | None = None  # optional: STT latency for this utterance
+    # optional, live calls only (WS /ws/session): who spoke and whether the line went through
+    # Baseline's analysis pipeline. Absent/None on the classic /ws/call stream.
+    speaker: Literal["ai", "visitor"] | None = None
+    analyzed: bool | None = None
 
 
 class SignalEvent(DetectorResult):
