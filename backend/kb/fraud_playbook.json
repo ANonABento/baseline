@@ -53,11 +53,14 @@
     },
     {
       "id": "gift_cards",
-      "name": "Gift card payment",
+      "name": "Gift card payment demand",
       "category": "payment_method",
-      "description": "Someone asked the customer to pay with gift cards or read gift-card numbers over the phone. No legitimate business or agency demands payment in gift cards.",
+      "description": "Someone told the customer to pay with gift cards or read gift-card numbers over the phone. Buying a gift card as a present, or asking about a gift-card charge, is not this pattern.",
       "severity": 0.8,
-      "triggers": ["gift card", "gift cards", "itunes card", "apple card numbers", "google play card", "steam card", "numbers on the back", "scratch off the back"],
+      "requires_all": [
+        ["gift card", "gift cards", "itunes card", "itunes cards", "apple card numbers", "google play card", "google play cards", "steam card", "steam cards", "numbers on the back", "scratch off the back"],
+        ["pay with", "pay in", "pay them", "pay him", "pay her", "pay the", "paying with", "payment in", "told me to", "asked me to", "want me to", "wants me to", "they want", "he wants", "she wants", "read the numbers", "read them the", "read him the", "numbers on the back", "scratch off", "the codes", "card numbers", "i owe", "owe them", "fee", "fine", "bail", "taxes", "re:\\b(\\d+|two|three|four|five|six|ten|several|multiple)\\s+(more\\s+)?gift\\s+cards"]
+      ],
       "suggested_agent_action": "Explain that gift-card payment demands are always scams. Do not process related withdrawals; offer to report to the FTC.",
       "source": {"name": "FTC: Avoiding and reporting gift card scams", "url": "https://consumer.ftc.gov/articles/avoiding-and-reporting-gift-card-scams"}
     },
@@ -122,14 +125,14 @@
       "source": {"name": "FTC Consumer Advice: Scam Alerts", "url": "https://consumer.ftc.gov/features/scam-alerts"}
     },
     {
-      "id": "coached_caller",
-      "name": "Caller being coached by a third party",
+      "id": "coached_customer",
+      "name": "Customer being coached by a third party",
       "category": "coaching",
-      "description": "Customer appears to be relaying instructions from someone else on another line ('they told me to say...', 'he is on the other phone').",
+      "description": "Customer is relaying instructions from someone else, often still on another line ('he says I need to...', 'they told me not to tell you', 'the man on the other line said'). Long hesitations before simple answers can support this, but the text cue is primary.",
       "severity": 0.75,
-      "triggers": ["they told me to say", "he told me to say", "she told me to say", "told me what to say", "on the other line", "on the other phone", "they said to tell you", "theyre telling me", "hes telling me", "shes telling me", "stay on the line with them", "they are still on the phone"],
-      "suggested_agent_action": "Ask if anyone else is on the line or instructing them. Offer to continue only once the customer is alone; consider a trusted-contact callback.",
-      "source": {"name": "CFPB: Fraud and scams", "url": "https://www.consumerfinance.gov/consumer-tools/fraud/"}
+      "triggers": ["they told me to say", "he told me to say", "she told me to say", "told me what to say", "on the other line", "on the other phone", "they said to tell you", "theyre telling me", "hes telling me", "shes telling me", "stay on the line with them", "they are still on the phone", "hes still on the phone", "shes still on the phone", "he says i need to", "she says i need to", "they say i need to", "he said i need to", "she said i need to", "they said i need to", "he says i have to", "she says i have to", "they say i have to", "he says i should", "they say i should", "told me not to tell you", "told me not to tell the bank", "said not to tell you", "said not to tell the bank", "the man on the other line", "the man on the phone said", "the woman on the phone said", "the lady on the phone said", "the guy on the phone said", "the officer on the phone", "the agent on the phone said", "let me ask him", "let me ask them", "hold on hes saying", "im supposed to say", "im supposed to tell you", "he wants me to say", "they want me to say"],
+      "suggested_agent_action": "Ask calmly whether anyone else is on the line or telling them what to say. Continue only once the customer is alone; offer to call them back on the number on file or bring in a trusted contact.",
+      "source": {"name": "FTC Consumer Advice: Scam Alerts", "url": "https://consumer.ftc.gov/features/scam-alerts"}
     },
     {
       "id": "romance",
@@ -208,10 +211,10 @@
       "id": "verification_evasion",
       "name": "Verification evasion",
       "category": "account_takeover",
-      "description": "Caller cannot answer security questions, pushes the agent to skip verification, or offers unusual substitutes.",
-      "severity": 0.5,
-      "triggers": ["dont remember my security", "forgot my security questions", "skip the verification", "skip verification", "just verify me", "i dont have my card", "you can trust me", "i dont have time for this", "why do you need that"],
-      "suggested_agent_action": "Do not bypass verification. Offer an alternative channel (branch visit or callback to the number on file).",
+      "description": "Caller dodges identity or security questions, offers excuses or substitutes, or pushes urgency exactly when asked to verify ('I don't have that on me, can we just do it quickly').",
+      "severity": 0.55,
+      "triggers": ["dont remember my security", "forgot my security questions", "forgot the answer to my security", "skip the verification", "skip verification", "skip the security", "skip the questions", "skip all that", "just verify me", "i dont have my card", "dont have that on me", "dont have it on me", "dont have it with me", "dont have that with me", "dont have that in front of me", "dont have it in front of me", "can we just do it quickly", "can we just do this quickly", "can we do this quickly", "just do it quickly", "can we skip", "do we have to do this", "do we really need to do this", "i already verified", "i already gave you that", "you can trust me", "i dont have time for this", "i dont have time for questions", "why do you need that", "why do you need to know", "just process it", "re:\\b(i|we)\\s+(dont|do not)\\s+(know|remember)\\s+(my|the)\\s+(pin|security|account number|date of birth|social|zip)"],
+      "suggested_agent_action": "Do not bypass or shortcut verification, however urgent the caller sounds. Offer an alternative channel: a callback to the number already on file or an in-branch visit with ID.",
       "source": {"name": "CFPB: Fraud and scams", "url": "https://www.consumerfinance.gov/consumer-tools/fraud/"}
     }
   ]
