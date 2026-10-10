@@ -45,7 +45,7 @@ Rules that keep V and C decoupled:
 | Change rule | a feature counts when abs(z) >= 2.5; at least 2 features together; reported only after 3 consecutive utterances (sustained); score maps the largest abs(z) to 0..1 | `assess` |
 | Output | `details`: `status`, `stress_related_change` (0..1 or null), `delivery_markers` (hedged strings, e.g. "higher pitch than this speaker's earlier delivery"), `emotion_estimate` (null for now), `calibration_status = not_established`, `z`, `features` | `assess` |
 
-What it is not: no deception key exists or will be added; the numbers are changes relative to the speaker's own earlier delivery, which can come from excitement, a noisy line, a new topic or a different microphone. **Calibration against real stress is not established** (no open dataset has stress ground truth), so S2 stays a `HYPOTHESIS`.
+What it is not: no deception key exists or will be added; the numbers are changes relative to the speaker's own earlier delivery, which can come from excitement, a noisy line, a new topic or a different microphone. **Calibration against real stress is not established** (no open dataset has stress ground truth), so S2 stays a `HYPOTHESIS` (the claim that no open dataset has stress ground truth rests on the survey in `research/open_datasets.md`, not re-verified).
 
 Not built (cut, with reason): response latency (needs both speakers' timing from C's pipeline), emotion estimate S1 (needs an encoder probe, workplan 2.2), content observations S4 (C).
 
@@ -53,7 +53,7 @@ Not built (cut, with reason): response latency (needs both speakers' timing from
 
 | Piece | Where | Notes |
 |---|---|---|
-| Open datasets (gitignored) | `data/external/` via `scripts/fetch_open_data.py` (md5/sha256 manifests) | AMI ihm subset (3 shards, 7,788 segments, 6.2 h), RAVDESS (1,440 clips), LibriSpeech test-clean |
+| Open datasets (gitignored) | `data/external/` via `scripts/fetch_open_data.py` (md5/sha256 manifests) | AMI ihm subset (3 shards; 7,788 segments and 6.2 h counted from the parquet files on 2026-10-10, not stored in a results file), RAVDESS (1,440 clips), LibriSpeech test-clean |
 | Licence register | [`licences.md`](licences.md) | research-only, hackathon scope; RAVDESS and CREMA-D marked non-shippable |
 | Public checks | `scripts/public_checks.py` -> `results/public_checks.json` | exploratory; seed 0; bootstrap CIs resample speakers/actors |
 | Unit tests | `tests/test_voice_state.py` (11 cases from 8 test functions), full suite via `make test ML=1` | software correctness only |
@@ -70,7 +70,7 @@ No recordings of people are made (decision 2026-10-10).
 | Application, content, UI, pitch | C (Kevin) | `events.py`, `fusion.py`, `pipeline.py`, `app.py`, `fraud*.py`, `kb/`, `providers/llm_*`, `frontend/` |
 
 ## 5. Evidence so far (exploratory; details in `results/public_checks.md`)
-On the held-out half the change rule flags 9.5% of ordinary AMI utterances (CI 0.7 to 22.9%) and 79.9% of acted high-arousal RAVDESS clips (held-out calm/neutral: 16.7%). That shows the signal moves with acted arousal; it does not show it tracks real stress.
+On the held-out half the change rule's mean sustained-change rate per speaker-meeting session on ordinary AMI speech is 9.5% (CI 0.7 to 22.9%, 14 sessions) and 79.9% of acted high-arousal RAVDESS clips (held-out calm/neutral: 16.7%). That shows the signal moves with acted arousal; it does not show it tracks real stress.
 
 ## 6. Open interface items (waiting on C)
 0.4 accept the output contract, 0.5 which `details` keys `fusion.py` may read, 0.6 demo persona and clip source. Posted in the room; no reply as of the last read (sequence 14). Until C replies, the keys in section 2 are a **proposal**.

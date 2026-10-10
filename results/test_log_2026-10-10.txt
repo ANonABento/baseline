@@ -1,0 +1,4 @@
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+204 passed, 2 warnings in 8.11s

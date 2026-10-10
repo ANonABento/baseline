@@ -14,8 +14,8 @@ Sustained-change rate 8.7% (CI 2.4 to 17.3%); any single feature beyond threshol
 | pause fraction | 0.300 | 0.323 | 0.44 |
 | energy-peak rate /s | 4.94 | 4.94 | -0.02 |
 | pitch spread (st) | 5.06 | 4.39 | -0.63 |
-Pause fraction and pitch spread differ modestly in the expected direction; rate proxy does not. Not evidence about reading itself.
+Pause fraction (d 0.44) and pitch spread (d -0.63) differ modestly; rate proxy does not. No CIs on d, and no verified expectation for the direction (evidence file row 3: UNVERIFIED). Not evidence about reading itself.
 
 ## C. RAVDESS (acted), actor-held-out folds
 Emotion probe, accuracy (CI over actors): 8-class, majority baseline 0.133: prosody-5 0.353 (0.327-0.378), prosody-5 actor-normalised 0.422 (0.394-0.450), prosody-5 + MFCC 0.430 (0.392-0.466). High vs low arousal, majority baseline 0.533: 0.771, 0.828 (0.801-0.856), 0.756. The hand-built features separate acted arousal clearly and acted categories weakly. Change vs the actor's own neutral clips (share of clips with any feature beyond threshold): angry 0.96, fearful 0.95, surprised 0.95, happy 0.91, disgust 0.90, sad 0.79, calm 0.63, neutral 0.29 (held-out neutral).
-Limitation: RAVDESS clips skip the quality gate (short scripted utterances); acted performance exaggerates cues.
+Limitation: RAVDESS clips skip the quality gate (short scripted utterances); acted performance may exaggerate cues (UNVERIFIED, evidence file section 2c).
