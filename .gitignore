@@ -55,3 +55,6 @@ data/text_eval/local/
 .sharednet/
 # Live-call reports (WS /ws/session)
 data/reports/
+
+# synthetic call data (generated; regenerate with scripts/generate_synthetic_calls.py)
+data/synthetic/
