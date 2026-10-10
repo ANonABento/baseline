@@ -19,12 +19,13 @@ export type Tone = "none" | "ok" | "watch" | "flag";
 export const TONE_RANK: Record<Tone, number> = { none: 0, ok: 1, watch: 2, flag: 3 };
 export const SEVERITY_RANK: Record<Severity, number> = { low: 1, medium: 2, high: 3 };
 
-export const LANES: SignalName[] = ["speaker", "spoof", "fraud", "prosody"];
+export const LANES: SignalName[] = ["speaker", "spoof", "fraud", "prosody", "client"];
 export const SIGNAL_LABEL: Record<SignalName, string> = {
   speaker: "Voice match",
   spoof: "Synthetic voice",
   fraud: "Fraud pattern",
   prosody: "Pressure",
+  client: "You",
 };
 
 export function toneOf(s: { score: number; confidence: number }): Tone {

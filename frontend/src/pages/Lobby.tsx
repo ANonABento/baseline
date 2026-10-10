@@ -2,18 +2,22 @@ import { useEffect, useState } from "react";
 import { TopBar } from "../components/Chrome";
 import { Viewport } from "../components/Viewport";
 import { loadConfig } from "../lib/client";
-import type { AppConfig, Option, SessionRequest } from "../lib/contract";
+import type { AppConfig, Option, ScenarioOption, SessionRequest } from "../lib/contract";
 import { cameraError, currentCamera, micMeter, startCamera, stopCamera } from "../lib/media";
 import { linkTo } from "../lib/prefs";
 import { listReports } from "../lib/reports";
 
 const ROLES: { id: SessionRequest["role"]; label: string; hint: string }[] = [
-  { id: "random", label: "Random", hint: "You'll find out who you are when the call connects." },
-  { id: "agent", label: "You're the bank agent", hint: "An AI fraudster calls in. Decide whether to trust them." },
-  { id: "scammer", label: "You're the scammer", hint: "Call the bank and try to talk your way past Baseline." },
+  { id: "client", label: "Be the client", hint: "A scammer is about to call you. Can you tell? Baseline can." },
+  { id: "scammer", label: "Be the scammer", hint: "Call First Harbor pretending to be Kevin. Try to get past Baseline." },
+  { id: "random", label: "Random", hint: "You'll find out which side you're on when the call connects." },
 ];
 
 export const SCENARIO_LABEL: Record<string, string> = {
+  fake_bank: "First Harbor 'fraud department'",
+  grandchild: "Kevin in trouble (voice clone)",
+  irs: "IRS back taxes",
+  tech_support: "Tech support refund",
   account_takeover: "Account takeover",
   grandparent: "Grandparent / coached",
   grandparent_coached: "Grandparent / coached",
@@ -41,7 +45,7 @@ interface Props {
 export function Lobby({ onJoin, error }: Props) {
   const [cfg, setCfg] = useState<{ mock: boolean; config: AppConfig } | null>(null);
   const [cfgErr, setCfgErr] = useState<string | null>(null);
-  const [role, setRole] = useState<SessionRequest["role"]>("random");
+  const [role, setRole] = useState<SessionRequest["role"]>("client");
   const [scenario, setScenario] = useState("random");
   const [voice, setVoice] = useState("random");
   const [video, setVideo] = useState<HTMLVideoElement | null>(currentCamera());
@@ -97,7 +101,14 @@ export function Lobby({ onJoin, error }: Props) {
     };
   }, [micId]);
 
-  const scenarios: Option[] = cfg?.config.scenarios ?? [];
+  const allScenarios: ScenarioOption[] = cfg?.config.scenarios ?? [];
+  // scenarios for the chosen side (old backends send no role: show them all)
+  const scenarios = role === "random" ? [] : allScenarios.filter((s) => !s.role || s.role === role);
+  const pickRole = (r: SessionRequest["role"]) => {
+    setRole(r);
+    setScenario("random");
+  };
+  const brief = scenarios.find((s) => s.id === scenario)?.brief;
   const voices: Option[] = cfg?.config.voices ?? [];
   const cams = devices.filter((d) => d.kind === "videoinput");
   const mics = devices.filter((d) => d.kind === "audioinput");
@@ -153,15 +164,15 @@ export function Lobby({ onJoin, error }: Props) {
         <section className="config" aria-label="Call setup">
           <div>
             <h1 className="config__title">Take a call</h1>
-            <p className="config__sub">Pick a side, or leave it to chance. Calls last up to three minutes.</p>
+            <p className="config__sub">First Harbor runs Baseline on both sides of the call: in its call center and in its app on your phone. Calls last up to four minutes.</p>
           </div>
 
           <fieldset className="field">
-            <legend className="label">Role</legend>
+            <legend className="label">Your side</legend>
             <div className="options">
               {ROLES.map((r) => (
                 <label className="option" key={r.id}>
-                  <input type="radio" name="role" value={r.id} checked={role === r.id} onChange={() => setRole(r.id)} />
+                  <input type="radio" name="role" value={r.id} checked={role === r.id} onChange={() => pickRole(r.id)} />
                   <span className="option__mark" />
                   <span className="option__text">
                     {r.label}
@@ -172,29 +183,35 @@ export function Lobby({ onJoin, error }: Props) {
             </div>
           </fieldset>
 
-          <fieldset className="field">
-            <legend className="label">Scenario</legend>
-            <div className="chips">
-              {[{ id: "random", label: "Random" }, ...scenarios].map((s) => (
-                <label className="chip" key={s.id}>
-                  <input type="radio" name="scenario" value={s.id} checked={scenario === s.id} onChange={() => setScenario(s.id)} />
-                  {s.label}
-                </label>
-              ))}
-            </div>
-          </fieldset>
+          {scenarios.length > 0 && (
+            <fieldset className="field">
+              <legend className="label">{role === "scammer" ? "Your mission" : "Who calls you"}</legend>
+              <div className="chips">
+                {[{ id: "random", label: role === "scammer" ? "Surprise me" : "Don't tell me" }, ...scenarios].map((s) => (
+                  <label className="chip" key={s.id}>
+                    <input type="radio" name="scenario" value={s.id} checked={scenario === s.id} onChange={() => setScenario(s.id)} />
+                    {s.label}
+                  </label>
+                ))}
+              </div>
+              {brief && <p className="field__hint">{brief}</p>}
+            </fieldset>
+          )}
 
-          <fieldset className="field">
-            <legend className="label">Caller voice</legend>
-            <div className="chips">
-              {[{ id: "random", label: "Random" }, ...voices].map((v) => (
-                <label className="chip" key={v.id}>
-                  <input type="radio" name="voice" value={v.id} checked={voice === v.id} onChange={() => setVoice(v.id)} />
-                  {v.label}
-                </label>
-              ))}
-            </div>
-          </fieldset>
+          <details className="advanced">
+            <summary className="label">Advanced</summary>
+            <fieldset className="field">
+              <legend className="label">{role === "scammer" ? "Bank agent voice" : "Caller voice"}</legend>
+              <div className="chips">
+                {[{ id: "random", label: "Match the scenario" }, ...voices].map((v) => (
+                  <label className="chip" key={v.id}>
+                    <input type="radio" name="voice" value={v.id} checked={voice === v.id} onChange={() => setVoice(v.id)} />
+                    {v.label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          </details>
 
           <div className="join">
             <button className="btn btn--big" type="button" disabled={!cfg} onClick={() => onJoin({ role, scenario, voice })}>

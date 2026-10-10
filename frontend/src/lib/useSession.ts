@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
-import { PcmPlayer } from "./audio";
+import { PcmPlayer, playChime } from "./audio";
 import { openSession, type Transport } from "./client";
 import type { ServerMsg, SessionRequest } from "./contract";
 import { saveReport, type Recorded } from "./reports";
@@ -10,6 +10,9 @@ export function useSession() {
   const [state, dispatch] = useReducer(sessionReducer, INITIAL);
   const transport = useRef<Transport | null>(null);
   const player = useRef<PcmPlayer | null>(null);
+  /** Baseline's own voice: a separate player so ducking / barge-in on the caller never cuts it */
+  const baseline = useRef<PcmPlayer | null>(null);
+  const inBaseline = useRef(false);
   const level = useRef({ v: 0, at: 0, fromServer: 0 });
   const log = useRef<Recorded[]>([]);
   const t0 = useRef(0);
@@ -35,10 +38,34 @@ export function useSession() {
         return;
       case "call_started":
         player.current?.setSampleRate(msg.audio?.sample_rate ?? 16000);
+        baseline.current?.setSampleRate(msg.audio?.sample_rate ?? 16000);
+        inBaseline.current = false;
+        break;
+      case "intervention": {
+        const ctx = player.current?.context;
+        if (ctx) {
+          try {
+            playChime(ctx);
+          } catch {
+            /* no audio output */
+          }
+        }
+        break;
+      }
+      case "baseline_audio_start":
+        // duck the caller: fade out whatever of the AI is still queued, Baseline speaks alone
+        inBaseline.current = true;
+        player.current?.fadeStop(160);
+        level.current.v = 0;
+        break;
+      case "baseline_audio_end":
+        inBaseline.current = false;
         break;
       case "call_ended":
         window.clearTimeout(hangTimer.current);
         player.current?.stop();
+        baseline.current?.stop();
+        inBaseline.current = false;
         saveReport({ id: msg.report_id || `local-${Date.now().toString(36)}`, savedAt: Date.now(), mock: mock.current, events: [...log.current] });
         break;
     }
@@ -46,6 +73,10 @@ export function useSession() {
   }, []);
 
   const onAudio = useCallback((pcm: ArrayBuffer) => {
+    if (inBaseline.current) {
+      baseline.current?.push(pcm);
+      return;
+    }
     const p = player.current;
     if (!p) return;
     const r = p.push(pcm);
@@ -65,7 +96,8 @@ export function useSession() {
       log.current = [];
       try {
         player.current ??= new PcmPlayer(16000);
-        await player.current.resume();
+        baseline.current ??= new PcmPlayer(16000);
+        await Promise.all([player.current.resume(), baseline.current.resume()]);
       } catch {
         /* no audio output: the call still works visually */
       }
@@ -99,6 +131,11 @@ export function useSession() {
   }, []);
 
   const sendText = useCallback((text: string) => transport.current?.send({ type: "text", text }), []);
+  /** "This feels like a scam": recorded once, locally right away and on the server for the report */
+  const suspect = useCallback(() => {
+    dispatch({ kind: "suspect", now: Date.now() });
+    transport.current?.send({ type: "suspect" });
+  }, []);
   const sendPcm = useCallback((pcm: ArrayBuffer) => transport.current?.sendPcm(pcm), []);
   const bargeIn = useCallback(() => {
     player.current?.stop();
@@ -116,10 +153,11 @@ export function useSession() {
     () => () => {
       transport.current?.close();
       player.current?.close();
+      baseline.current?.close();
       window.clearTimeout(hangTimer.current);
     },
     [],
   );
 
-  return { state, join, cancel, hangup, sendText, sendPcm, bargeIn, reset, aiLevel, isMock: () => mock.current };
+  return { state, join, cancel, hangup, sendText, suspect, sendPcm, bargeIn, reset, aiLevel, isMock: () => mock.current };
 }

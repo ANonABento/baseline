@@ -9,6 +9,7 @@ import { linkTo } from "../lib/prefs";
 import { eventsFromBackend, listReports, loadLocal, replay, type Recorded } from "../lib/reports";
 import type { SignalName } from "../types";
 import { SCENARIO_LABEL } from "./Lobby";
+import { YouVsBaseline } from "./Room";
 
 const cap = (v: string) => v.charAt(0).toUpperCase() + v.slice(1);
 
@@ -95,7 +96,7 @@ export function Report({ id }: { id: string }) {
   });
   const reveal = state.ended?.reveal;
   const call = state.call;
-  const lanes: SignalName[] = ["speaker", "spoof", "fraud", "prosody"];
+  const lanes: SignalName[] = ["speaker", "spoof", "fraud", "prosody", "client"];
   const peakOf = (lane: SignalName) => {
     const evs = state.signals.filter((s) => s.signal === lane && s.confidence > 0);
     if (!evs.length) return null;
@@ -165,6 +166,22 @@ export function Report({ id }: { id: string }) {
           </section>
 
           <aside>
+            {(reveal?.role ?? call?.role) !== "scammer" && (
+              <section className="report__section">
+                <span className="label">You vs Baseline</span>
+                <YouVsBaseline state={state} compact />
+                {state.interventions.length > 0 && (
+                  <ol className="iv-log" aria-label="Baseline's warnings">
+                    {state.interventions.map((iv) => (
+                      <li key={`${iv.t}-${iv.reason_id}`} className={`iv-log__item iv-log__item--${iv.level}`}>
+                        <span className="label num">{fmtTime(iv.t)}</span>
+                        <span>{iv.message}</span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </section>
+            )}
             <section className="report__section">
               <span className="label">Recommended action</span>
               <p className="action">{action}</p>
@@ -177,7 +194,7 @@ export function Report({ id }: { id: string }) {
                 <dt>Caller</dt>
                 <dd>{reveal?.persona_label || "Not disclosed"}</dd>
                 <dt>Visitor</dt>
-                <dd>{(reveal?.role ?? call?.role) === "scammer" ? "Played the scammer" : "Played the bank agent"}</dd>
+                <dd>{(reveal?.role ?? call?.role) === "scammer" ? `Played the scammer, posing as ${call?.customer.name ?? "the customer"}` : `Played the client${call?.scenario === "grandchild" ? `, ${call.customer.name}'s grandparent` : ""}`}</dd>
                 <dt>Scenario</dt>
                 <dd>{(() => {
                   const id = reveal?.scenario ?? call?.scenario ?? "";
@@ -301,7 +318,7 @@ export function Reports() {
                 <span className="mono">{new Date(r.savedAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
                 <span className="mono">{fmtTime(r.duration)}</span>
                 <span>
-                  {SCENARIO_LABEL[r.scenario] ?? r.scenario}, {r.role === "scammer" ? "you played the scammer" : "you played the agent"}
+                  {SCENARIO_LABEL[r.scenario] ?? r.scenario}, {r.role === "scammer" ? "you played the scammer" : "you were the client"}
                 </span>
                 <span className={`tier-glyph ${r.peak === "high" ? "tier-flag" : r.peak === "caution" ? "tier-watch" : "tier-noted"}`}>
                   {r.peak === "high" ? "■ Alert" : r.peak === "caution" ? "◆ Watch" : "◇ Clear"}

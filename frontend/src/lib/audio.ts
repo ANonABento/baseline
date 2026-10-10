@@ -98,8 +98,69 @@ export class PcmPlayer {
     return this.state.nextTime > this.ctx.currentTime;
   }
 
+  /** Fade out over `ms` then cut everything queued (ducking the caller under Baseline's voice). */
+  fadeStop(ms = 180) {
+    const t = this.ctx.currentTime;
+    this.gain.gain.cancelScheduledValues(t);
+    this.gain.gain.setValueAtTime(this.gain.gain.value, t);
+    this.gain.gain.linearRampToValueAtTime(0, t + ms / 1000);
+    window.setTimeout(() => {
+      this.stop();
+      this.gain.gain.cancelScheduledValues(this.ctx.currentTime);
+      this.gain.gain.setValueAtTime(1, this.ctx.currentTime);
+    }, ms + 20);
+  }
+
+  get context(): AudioContext {
+    return this.ctx;
+  }
+
   close() {
     this.stop();
     void this.ctx.close();
+  }
+}
+
+/**
+ * Baseline's chime: two soft sine tones, a rising fourth (A5 then D6), ~0.7 s. Synthesized, no asset.
+ * Calm on purpose: it should read as "your bank, stepping in", not as an alarm.
+ */
+export function playChime(ctx: AudioContext, volume = 0.18): void {
+  const now = ctx.currentTime + 0.02;
+  const out = ctx.createGain();
+  out.gain.value = volume;
+  out.connect(ctx.destination);
+  for (const { f, at } of [
+    { f: 880, at: 0 },
+    { f: 1174.66, at: 0.16 },
+  ]) {
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = "sine";
+    o.frequency.value = f;
+    g.gain.setValueAtTime(0, now + at);
+    g.gain.linearRampToValueAtTime(1, now + at + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.001, now + at + 0.55);
+    o.connect(g).connect(out);
+    o.start(now + at);
+    o.stop(now + at + 0.6);
+  }
+}
+
+/** Browser speech for Baseline's voice when the server doesn't stream it (mock mode). */
+export function speakFallback(text: string, onEnd?: () => void): boolean {
+  const synth = typeof window !== "undefined" ? window.speechSynthesis : undefined;
+  if (!synth) return false;
+  try {
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    const voices = synth.getVoices().filter((v) => v.lang.startsWith("en"));
+    u.voice = voices.find((v) => /samantha|serena|ava|google us english/i.test(v.name)) ?? voices[0] ?? null;
+    u.rate = 1.02;
+    if (onEnd) u.onend = () => onEnd();
+    synth.speak(u);
+    return true;
+  } catch {
+    return false;
   }
 }

@@ -27,10 +27,13 @@ export interface ScriptLine {
   patterns?: PatternSpec[];
   trust?: number;
   alert?: { level: AlertLevel; reasons: string[]; suggested_action: string; signals: string[] };
+  /** role client: Baseline steps in after this line (reason id from backend/caller/intervention.py) */
+  intervene?: string;
 }
 
 export interface Script {
   persona_label: string;
+  summary?: string;
   customer: { id: string; name: string; account_mask: string; enrolled: boolean };
   lines: ScriptLine[];
 }
@@ -151,84 +154,150 @@ const speaker = (score: number, sim: number): AudioSig => ({
 });
 const prosody = (score: number, reason: string): AudioSig => ({ signal: "prosody", score, confidence: 0.5, reason });
 
-const MARGARET = { id: "CUST-004217", name: "Margaret Chen", account_mask: "••4217", enrolled: true };
-const WALTER = { id: "CUST-001983", name: "Walter Briggs", account_mask: "••1983", enrolled: true };
-const PRIYA = { id: "CUST-007702", name: "Priya Raman", account_mask: "••7702", enrolled: true };
+const KEVIN = { id: "CUST-004217", name: "Kevin", account_mask: "••4217", enrolled: true };
 
-/** AI plays the caller; the visitor is the bank agent. */
-export const AGENT_SCRIPTS: Record<string, Script> = {
-  account_takeover: {
-    persona_label: "Fraudster using a voice clone of Margaret Chen",
-    customer: MARGARET,
+const X = {
+  gift: (quote: string): PatternSpec => ({
+    id: "gift_cards",
+    name: "Gift card payment demand",
+    severity: 0.8,
+    quote,
+    suggested_agent_action: "Stop. No real bank, agency or relative in trouble asks to be paid in gift cards.",
+    say_this: "No real bank or agency will ever ask you to pay with gift cards.",
+    source: FTC,
+  }),
+  gov: (quote: string): PatternSpec => ({
+    id: "government_impersonation",
+    name: "Government agency impersonation (IRS / SSA / law enforcement)",
+    severity: 0.75,
+    quote,
+    suggested_agent_action: "The IRS never calls to demand immediate payment or threaten arrest.",
+    say_this: "The IRS contacts people by mail, and never demands payment over the phone.",
+    source: FTC,
+  }),
+  remote: (quote: string): PatternSpec => ({
+    id: "remote_access",
+    name: "Remote-access software / tech support",
+    severity: 0.75,
+    quote,
+    suggested_agent_action: "Never install software or give access to someone who called you.",
+    say_this: "Real tech support doesn't call you out of the blue.",
+    source: FTC,
+  }),
+  otp: (quote: string): PatternSpec => ({
+    id: "otp_redirect",
+    name: "One-time code redirection",
+    severity: 0.55,
+    quote,
+    suggested_agent_action: "Never read a one-time code to anyone who calls you.",
+    say_this: "Your bank will never ask you to read back a one-time code.",
+    source: CFPB,
+  }),
+};
+
+/** Role client: the AI fraudster calls the visitor. Lines are the caller's; Baseline analyzes them. */
+export const CLIENT_SCRIPTS: Record<string, Script> = {
+  grandchild: {
+    persona_label: "A scammer using a cloned voice of Kevin",
+    summary: "A scammer used a cloned voice of Kevin to say he'd been arrested, then asked his grandparent for bail money in gift cards and told them not to tell his mom.",
+    customer: KEVIN,
     lines: [
-      { text: "Hi, this is Margaret Chen. I'm calling about my checking account.", audio: [spoof(0.31), speaker(0.18, 0.71)], trust: 88 },
+      { text: "Grandma? It's me, Kevin. I'm in really big trouble, please don't hang up.", audio: [spoof(0.38), speaker(0.16, 0.71)], trust: 82 },
       {
-        text: "I got a new phone, so I need to update the number on file, and the email too.",
-        audio: [spoof(0.64), speaker(0.33, 0.52)],
-        patterns: [P.contact("update the number on file, and the email too")],
-        trust: 66,
-        alert: { level: "caution", reasons: ["Synthetic-speech artifacts", "Contact details change request"], suggested_action: "Complete step-up verification before changing anything.", signals: ["spoof", "fraud"] },
+        text: "I was in an accident and they arrested me. I need three thousand dollars for bail today.",
+        audio: [spoof(0.66), speaker(0.22, 0.64), prosody(0.44, "Pace 25% above the caller's first lines")],
+        patterns: [P.grandparent("they arrested me. I need three thousand dollars for bail")],
+        trust: 52,
+        alert: { level: "caution", reasons: ["Grandparent / family emergency scam", "Synthetic-speech artifacts"], suggested_action: "Hang up and call Kevin back on his usual number.", signals: ["fraud", "spoof"] },
+        intervene: "voice_clone",
       },
       {
-        text: "I'm in a bit of a hurry. Can we skip the security questions? I don't have my card on me.",
-        audio: [spoof(0.71), speaker(0.58, 0.34), prosody(0.42, "Speech rate 22% above the caller's first 20 seconds")],
-        patterns: [P.evasion("Can we skip the security questions?")],
-        trust: 41,
-        alert: { level: "caution", reasons: ["Synthetic voice", "Voice doesn't match enrolled customer", "Verification evasion"], suggested_action: "Don't skip verification. Offer a callback on the number on file.", signals: ["spoof", "speaker", "fraud"] },
+        text: "The lawyer says gift cards are fastest. Can you go to the store? And please don't tell Mom.",
+        audio: [spoof(0.78)],
+        patterns: [X.gift("gift cards are fastest"), P.secrecy("please don't tell Mom")],
+        trust: 16,
+        alert: { level: "high", reasons: ["Synthetic voice likely", "Gift card payment demand", "Secrecy instruction"], suggested_action: "Hang up. Call Kevin back on his usual number.", signals: ["fraud", "spoof"] },
+        intervene: "gift_cards",
+      },
+      { text: "Grandma, please, just read me the numbers on the back of the cards when you have them.", audio: [spoof(0.74)], trust: 14 },
+      { text: "Okay. I have to go, they're taking the phone.", audio: [spoof(0.7)], trust: 14 },
+    ],
+  },
+  fake_bank: {
+    persona_label: "A fraudster posing as First Harbor's fraud department",
+    summary: "A fraudster posing as First Harbor's fraud department invented a suspicious charge to get Kevin's one-time code.",
+    customer: KEVIN,
+    lines: [
+      { text: "Hi, is this Kevin? This is Alex from the First Harbor fraud department. We just flagged a suspicious charge on your card.", audio: [spoof(0.31)], trust: 86 },
+      {
+        text: "To cancel it I need to verify you. We just texted you a six-digit code. Can you read it to me?",
+        audio: [spoof(0.58)],
+        patterns: [X.otp("Can you read it to me?")],
+        trust: 48,
+        alert: { level: "caution", reasons: ["One-time code redirection"], suggested_action: "Never read a one-time code to a caller.", signals: ["fraud"] },
+        intervene: "secret_request",
       },
       {
-        text: "Once that's done I need to wire nine thousand dollars to a new account. Today, it can't wait.",
-        audio: [spoof(0.78), speaker(0.62, 0.29), prosody(0.55, "Pitch and pace well above the caller's baseline")],
-        patterns: [P.ato("wire nine thousand dollars to a new account"), P.wire("wire nine thousand dollars"), P.urgency("Today, it can't wait")],
-        trust: 14,
-        alert: {
-          level: "high",
-          reasons: ["Synthetic voice", "Voice doesn't match enrolled customer", "Account takeover: contact change + money movement"],
-          suggested_action: "Do not process the change or the payment. Call back on the number already on file.",
-          signals: ["spoof", "speaker", "fraud"],
-        },
+        text: "Your account is still exposed, so we'll move your savings to a secure holding account right now.",
+        audio: [spoof(0.71)],
+        patterns: [P.safe("move your savings to a secure holding account")],
+        trust: 15,
+        alert: { level: "high", reasons: ['"Bank fraud department" safe-account scam', "Synthetic voice likely"], suggested_action: "Hang up and call the number on your card.", signals: ["fraud", "spoof"] },
+        intervene: "safe_account",
       },
-      { text: "Look, I've been a customer for twelve years. Just push it through, please.", audio: [spoof(0.74), speaker(0.6, 0.31)], trust: 12 },
-      { text: "Fine. I'll call back later.", audio: [spoof(0.7)], trust: 12 },
+      { text: "Please don't hang up, the case closes if we disconnect.", audio: [spoof(0.7)], trust: 14 },
     ],
   },
-  grandparent_coached: {
-    persona_label: "Real customer being coached through a grandparent scam",
-    customer: WALTER,
+  irs: {
+    persona_label: "A fraudster posing as an IRS officer",
+    summary: "A fraudster posing as an IRS officer threatened arrest over 'back taxes' and demanded gift cards.",
+    customer: KEVIN,
     lines: [
-      { text: "Hello, yes, this is Walter Briggs. I need to send some money today.", audio: [spoof(0.08), speaker(0.07, 0.83)], trust: 92 },
-      { text: "It's for my grandson. He's in trouble, he's in jail and he needs bail money.", audio: [spoof(0.1), speaker(0.06, 0.85), prosody(0.36, "Long pauses before simple answers")], patterns: [P.grandparent("he's in jail and he needs bail money")], trust: 58, alert: { level: "caution", reasons: ["Grandparent / family emergency scam"], suggested_action: "Gently pause the transaction.", signals: ["fraud"] } },
-      { text: "The lawyer said I shouldn't tell anybody, not even my daughter. He said it has to be today.", audio: [spoof(0.09)], patterns: [P.secrecy("I shouldn't tell anybody, not even my daughter"), P.urgency("it has to be today")], trust: 33, alert: { level: "high", reasons: ["Grandparent / family emergency scam", "Secrecy instruction"], suggested_action: "Pause. Suggest calling the grandson back on a number Walter already knows.", signals: ["fraud", "prosody"] } },
-      { text: "He's telling me what to say, sorry. He says the wire has to go to a firm in Miami.", audio: [spoof(0.07), prosody(0.58, "Hesitation and pace far from the caller's baseline")], patterns: [P.coached("He's telling me what to say"), P.wire("the wire has to go to a firm in Miami")], trust: 18 },
-      { text: "Oh. I suppose I could call his mother first. Is that what you'd do?", audio: [spoof(0.08)], trust: 30 },
+      { text: "This is Officer Daniel Ross with the IRS. Am I speaking with Kevin? There's a warrant pending in your name.", audio: [spoof(0.4)], patterns: [X.gov("Officer Daniel Ross with the IRS")], trust: 55, alert: { level: "caution", reasons: ["Government agency impersonation"], suggested_action: "The IRS never calls to demand payment.", signals: ["fraud"] }, intervene: "government" },
+      { text: "You owe four thousand eight hundred dollars. For immediate settlement we accept gift cards.", audio: [spoof(0.72)], patterns: [X.gift("we accept gift cards")], trust: 15, alert: { level: "high", reasons: ["Gift card payment demand", "Synthetic voice likely"], suggested_action: "Hang up.", signals: ["fraud", "spoof"] }, intervene: "gift_cards" },
+      { text: "Which store is closest to you? Stay on the line while you drive there.", audio: [spoof(0.7)], trust: 14 },
     ],
   },
-  safe_account: {
-    persona_label: "Real customer told by a fake fraud department to move her savings",
-    customer: PRIYA,
+  tech_support: {
+    persona_label: "A fraudster posing as Windows tech support",
+    summary: "A fraudster posing as tech support pushed remote-access software, then faked a refund overpayment.",
+    customer: KEVIN,
     lines: [
-      { text: "Hi, this is Priya Raman. Your fraud department just called me about my account.", audio: [spoof(0.12), speaker(0.1, 0.79)], trust: 86 },
-      { text: "They said my savings were compromised and I have to move everything to a safe account.", audio: [spoof(0.1)], patterns: [P.safe("move everything to a safe account")], trust: 38, alert: { level: "high", reasons: ['"Bank fraud department" safe-account scam'], suggested_action: "The bank never asks customers to move money to protect it. Escalate.", signals: ["fraud"] } },
-      { text: "They're still on the other line. They said to do it before five or I lose it all.", audio: [spoof(0.11), prosody(0.52, "Pace well above the caller's baseline")], patterns: [P.coached("They're still on the other line"), P.urgency("do it before five or I lose it all")], trust: 22 },
-      { text: "So you're saying they weren't from the bank at all?", audio: [spoof(0.1)], trust: 35 },
-    ],
-  },
-  verification_evasion: {
-    persona_label: "Fraudster with stolen details who avoids every verification step",
-    customer: MARGARET,
-    lines: [
-      { text: "Hey, Margaret Chen here. Quick one, I need to check a recent transfer.", audio: [spoof(0.22), speaker(0.42, 0.44)], trust: 80 },
-      { text: "My date of birth? Can't you just look it up? I'm driving right now.", audio: [spoof(0.28), speaker(0.56, 0.36)], patterns: [P.evasion("Can't you just look it up?")], trust: 52, alert: { level: "caution", reasons: ["Voice doesn't match enrolled customer", "Verification evasion"], suggested_action: "Hold verification steady. Offer a callback.", signals: ["speaker", "fraud"] } },
-      { text: "Just send the code to my new number instead, the old one's disconnected.", audio: [spoof(0.34), speaker(0.61, 0.3)], patterns: [P.contact("send the code to my new number")], trust: 27, alert: { level: "high", reasons: ["Voice doesn't match enrolled customer", "Verification evasion", "One-time code to an unverified number"], suggested_action: "Never send one-time codes to an unverified number.", signals: ["speaker", "fraud", "spoof"] } },
-      { text: "This is ridiculous. I'll go to a branch.", audio: [speaker(0.6, 0.31)], trust: 24 },
+      { text: "Hello, is this Kevin? This is Mark from Windows support. Your computer has been sending us virus alerts.", audio: [spoof(0.3)], trust: 80 },
+      { text: "I need you to install AnyDesk so I can fix it remotely. Read me the access code on the screen.", audio: [spoof(0.62)], patterns: [X.remote("install AnyDesk so I can fix it remotely")], trust: 40, alert: { level: "caution", reasons: ["Remote-access software / tech support"], suggested_action: "Never let a caller into your computer.", signals: ["fraud"] }, intervene: "remote_access" },
+      { text: "I refunded twenty-five hundred instead of two fifty by mistake. Please send the difference back today.", audio: [spoof(0.74)], patterns: [X.remote("send the difference back today")], trust: 15, alert: { level: "high", reasons: ["Overpayment / refund scam", "Synthetic voice likely"], suggested_action: "Hang up.", signals: ["fraud", "spoof"] }, intervene: "generic" },
     ],
   },
 };
 
+/** What Baseline says (mirrors backend/caller/intervention.py). */
+export const MOCK_MESSAGES: Record<string, string> = {
+  secret_request: "This looks like a scam. First Harbor will never ask for your one-time code.",
+  card_request: "This looks like a scam. Never read card numbers or PINs to a caller.",
+  gift_cards: "This looks like a scam. No real bank or agency asks for gift cards.",
+  voice_clone: "This voice may not really be Kevin. Hang up and call him back.",
+  safe_account: "This looks like a scam. First Harbor never asks you to move money to a safe account.",
+  remote_access: "This looks like a scam. Never let a caller into your computer.",
+  government: "This looks like a scam. The IRS never calls to demand payment.",
+  generic: "This call looks like a scam. Hang up and call the number on your card.",
+};
+export const MOCK_INTRO = "This is Baseline, from First Harbor.";
+
+/** Visitor lines in client role: a mini client_risk (backend/detectors/client_risk.py). */
+export const CLIENT_TRIGGERS: { re: RegExp; reason: string; reason_id: string; secret: boolean }[] = [
+  { re: /\b(code|passcode)\s+(is|says)\b/i, reason: "About to read out a one-time code", reason_id: "share_code", secret: true },
+  { re: /(\d[\s-]?){4,}|\b(zero|one|two|three|four|five|six|seven|eight|nine)\b(\W+\b(zero|one|two|three|four|five|six|seven|eight|nine)\b){3,}/i, reason: "Reading out digits the caller asked for", reason_id: "reading_digits", secret: true },
+  { re: /\b(let me|i'?ll)\s+(get|grab|find)\s+(my|the)\s+(card|wallet)/i, reason: "Getting their card for the caller", reason_id: "get_card", secret: true },
+  { re: /\b(card number|pin|social security)\s+(is|number is)\b/i, reason: "About to read out a card number", reason_id: "share_card", secret: true },
+  { re: /\b(which|what)\s+store\b|\b(buy|get)\s+(the\s+)?gift\s*cards?\b/i, reason: "Agreeing to pay with gift cards", reason_id: "gift_cards", secret: false },
+  { re: /\bi\s+won'?t\s+tell\b|\bi\s+promise\b/i, reason: "Promising to keep it secret", reason_id: "secrecy_promise", secret: false },
+  { re: /\b(i'?ll|i will|let me)\s+(go to|send|transfer|wire|install|download)\b|\bhow much\b/i, reason: "Going along with the caller", reason_id: "send_money", secret: false },
+];
+
 /** AI plays the bank agent; the visitor plays the scammer. */
 export const SCAMMER_SCRIPT: Script = {
   persona_label: "Jordan, a careful agent at First Harbor Bank",
-  customer: MARGARET,
+  customer: KEVIN,
   lines: [
     { text: "Thank you for calling First Harbor Bank, this is Jordan. Who am I speaking with today?" },
     { text: "Thanks. Before we go further I'll need to verify a few details. Can you confirm your date of birth?" },
@@ -255,13 +324,16 @@ export const VOICES = [
   { id: "rafael", label: "Rafael (fast, bright)" },
 ];
 
-export const SCENARIOS = [
-  { id: "account_takeover", label: "Account takeover" },
-  { id: "grandparent_coached", label: "Grandparent / coached" },
-  { id: "safe_account", label: "Safe account" },
-  { id: "verification_evasion", label: "Verification evasion" },
+export const SCENARIOS: { id: string; label: string; role: "client" | "scammer"; brief: string }[] = [
+  { id: "grandchild", label: "Kevin in trouble (voice clone)", role: "client", brief: "You're Kevin's grandparent. 'Kevin' calls in a panic." },
+  { id: "fake_bank", label: "First Harbor 'fraud department'", role: "client", brief: "Someone from 'First Harbor fraud' calls about a suspicious charge." },
+  { id: "irs", label: "IRS back taxes", role: "client", brief: "An 'IRS officer' says you owe back taxes." },
+  { id: "tech_support", label: "Tech support refund", role: "client", brief: "'Tech support' found a virus on your computer." },
+  { id: "account_takeover", label: "Account takeover", role: "scammer", brief: "Change the phone number on file, then wire $9,000 out." },
+  { id: "verification_evasion", label: "Verification evasion", role: "scammer", brief: "Reset online banking without passing the security questions." },
+  { id: "safe_account", label: "'Safe account' transfer", role: "scammer", brief: "Move the savings to a 'secure holding account'." },
 ];
 
 export function pickScript(role: Role, scenario: string): Script {
-  return role === "scammer" ? SCAMMER_SCRIPT : (AGENT_SCRIPTS[scenario] ?? AGENT_SCRIPTS.account_takeover);
+  return role === "scammer" ? SCAMMER_SCRIPT : (CLIENT_SCRIPTS[scenario] ?? CLIENT_SCRIPTS.grandchild);
 }

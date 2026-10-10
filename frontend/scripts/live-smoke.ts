@@ -1,18 +1,18 @@
 // End-to-end smoke test of the live-call API with typed turns, run through the same reducer,
 // notes mapping and report normalization the UI uses.
-//   node scripts/live-smoke.ts [http://localhost:8000] [agent|scammer] [scenario]
+//   node scripts/live-smoke.ts [http://localhost:8000] [client|scammer] [scenario]
 import { buildNotes, verdictOf } from "../src/lib/notes.ts";
 import { eventsFromBackend, replay } from "../src/lib/reports.ts";
 import { INITIAL, sessionReducer, type SessionState } from "../src/lib/session.ts";
 import type { ServerMsg } from "../src/lib/contract.ts";
 
 const base = (process.argv[2] ?? "http://localhost:8000").replace(/\/$/, "");
-const role = process.argv[3] ?? "agent";
-const scenario = process.argv[4] ?? "account_takeover";
+const role = process.argv[3] ?? "client";
+const scenario = process.argv[4] ?? (role === "scammer" ? "account_takeover" : "grandchild");
 const TURNS =
-  role === "agent"
-    ? ["Thanks for calling First Harbor. Can you confirm your date of birth?", "I can't change anything until you verify. What's the ZIP on file?", "Why do you need the wire today?"]
-    : ["Hi, this is Margaret Chen. I got a new phone, please change my number on file.", "I'm in a hurry, can we skip the security questions?", "I need to wire nine thousand dollars to a new account today, it's urgent."];
+  role !== "scammer"
+    ? ["Kevin? Oh no, what happened?", "Okay. Let me get my card.", "The numbers on the back are 4 1 2 7 8 8 3 9 0 2 1 1"]
+    : ["Hi, this is Kevin. I got a new phone, please change my number on file.", "I'm in a hurry, can we skip the security questions?", "I need to wire nine thousand dollars to a new account today, it's urgent."];
 
 const cfg = await (await fetch(`${base}/api/config`)).json();
 console.log(`config: tts=${cfg.tts} llm=${cfg.llm?.provider}/${cfg.llm?.model} active=${cfg.active_calls} queue=${cfg.queue_length}`);
@@ -45,6 +45,9 @@ const done = new Promise<void>((resolve, reject) => {
     if (msg.type === "signal") log(`signal ${msg.signal} u${msg.utterance_id} score=${msg.score.toFixed(2)} conf=${msg.confidence.toFixed(2)} ${msg.reason}`);
     if (msg.type === "alert") log(`alert ${msg.level} signals=${msg.signals.join(",")}`);
     if (msg.type === "error") log(`error ${msg.message}`);
+    if (msg.type === "intervention") log(`INTERVENTION ${msg.level} ${msg.reason_id}: ${msg.message}`);
+    if (msg.type === "action") log(`ACTION ${msg.kind}: ${msg.message}`);
+    if (msg.type === "baseline_audio_start" || msg.type === "baseline_audio_end") log(msg.type);
     if (msg.type === "speaking" && msg.who === "ai" && msg.state === "end") {
       // the AI finished a turn: reply (typed), then hang up after the last one
       if (turn < TURNS.length) {
@@ -81,5 +84,5 @@ if (reportId) {
   const raw = await r.json();
   const rs = replay(eventsFromBackend(reportId, raw));
   const rn = buildNotes(rs.lines, rs.signals, rs.evidence.items);
-  console.log(`report: HTTP ${r.status} lines=${rs.lines.length} signals=${rs.signals.length} notes=${rn.length} peak=${rs.peak} reveal=${rs.ended?.reveal.persona_label} duration=${((rs.endedAt ?? 0) / 1000).toFixed(1)}s backend_verdict=${raw.verdict?.level}`);
+  console.log(`report: HTTP ${r.status} lines=${rs.lines.length} signals=${rs.signals.length} notes=${rn.length} peak=${rs.peak} reveal=${rs.ended?.reveal.persona_label} duration=${((rs.endedAt ?? 0) / 1000).toFixed(1)}s backend_verdict=${raw.verdict?.level} interventions=${rs.interventions.map((i) => `${i.t}s:${i.level}:${i.reason_id}`).join(",")} actions=${rs.actions.map((a) => a.kind).join(",")} baseline_flag=${rs.flagT}s you_flag=${rs.suspectT ?? "never"}`);
 }

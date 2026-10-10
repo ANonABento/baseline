@@ -15,6 +15,7 @@ interface Props {
   state: SessionState;
   aiLevel: () => number;
   onHangup: () => void;
+  onSuspect: () => void;
   onText: (t: string) => void;
   onPcm: (pcm: ArrayBuffer) => void;
   onBargeIn: () => void;
@@ -55,7 +56,98 @@ export function VerdictStrip({ v }: { v: ReturnType<typeof verdictOf> }) {
   );
 }
 
-export function Room({ state, aiLevel, onHangup, onText, onPcm, onBargeIn, onAgain }: Props) {
+/** Who the AI caller claims to be, per scenario (role client). */
+export function callerClaim(scenario: string, name: string): string {
+  switch (scenario) {
+    case "grandchild":
+      return `Says he's ${name}`;
+    case "fake_bank":
+      return "Says: First Harbor fraud dept.";
+    case "irs":
+      return "Says: IRS officer";
+    case "tech_support":
+      return "Says: Windows support";
+    default:
+      return "Unknown caller";
+  }
+}
+
+export const ACTION_LABEL: Record<string, string> = {
+  family_alert: "Trusted contact alerted",
+  bank_hold: "Outgoing transfers held",
+};
+
+/** The moment Baseline steps in on the client's phone: restrained, but unmistakable. */
+export function InterventionBanner({ state, onHangup }: { state: SessionState; onHangup: () => void }) {
+  const iv = state.interventions.at(-1);
+  if (!iv) return null;
+  const live = state.phase === "live";
+  return (
+    <section className={`iv iv--${iv.level}`} role="alert" aria-live="assertive" key={iv.reason_id + iv.level}>
+      <div className="iv__head">
+        <span className="label iv__who">Baseline, First Harbor fraud protection</span>
+        {state.baselineSpeaking && (
+          <span className="label iv__speaking" aria-label="Baseline is speaking">
+            <i />
+            <i />
+            <i />
+            <i />
+            Speaking to you
+          </span>
+        )}
+      </div>
+      <p className="iv__msg">{iv.message}</p>
+      <button className={`btn iv__hang ${iv.level === "high" ? "btn--red" : "btn--danger"}`} type="button" onClick={onHangup} disabled={!live}>
+        Hang up
+      </button>
+      {state.actions.length > 0 && (
+        <ul className="iv__actions" aria-label="What First Harbor did">
+          {state.actions.map((a) => (
+            <li key={a.kind} title={a.message}>
+              {a.message}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/** "You flagged it at 0:41 / Baseline flagged it at 0:12". */
+export function YouVsBaseline({ state, compact = false }: { state: SessionState; compact?: boolean }) {
+  const you = state.suspectT;
+  const bl = state.flagT;
+  const warned = state.interventions.some((i) => i.level === "high")
+    ? "Warned you out loud"
+    : state.interventions.length
+      ? "Warned you on screen"
+      : null;
+  const did = [warned, ...state.actions.map((a) => ACTION_LABEL[a.kind] ?? a.message)].filter(Boolean) as string[];
+  return (
+    <div className={`yvb ${compact ? "yvb--compact" : ""}`}>
+      <div className="yvb__col">
+        <span className="label">You</span>
+        <span className={`yvb__t ${you == null ? "yvb__t--none" : ""}`}>{you == null ? "Never flagged it" : `Flagged it at ${fmtTime(you)}`}</span>
+      </div>
+      <div className="yvb__col">
+        <span className="label">Baseline</span>
+        <span className={`yvb__t ${bl == null ? "yvb__t--none" : "yvb__t--bl"}`}>{bl == null ? "Never flagged it" : `Flagged it at ${fmtTime(bl)}`}</span>
+      </div>
+      {did.length > 0 && (
+        <div className="yvb__did">
+          <span className="label">What Baseline did</span>
+          <ul>
+            {did.map((d) => (
+              <li key={d}>{d}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBargeIn, onAgain }: Props) {
   const live = state.phase === "live";
   const now = useNow(live);
   const t = elapsed(state, now);
@@ -151,7 +243,7 @@ export function Room({ state, aiLevel, onHangup, onText, onPcm, onBargeIn, onAga
   const resolve = state.phase === "ended" && state.peak === "none" ? 1 : calm ? 0.6 : 0;
   const cust = call.customer;
   const aiIsCaller = role !== "scammer";
-  const ident = `${cust.name} · Acct ${cust.account_mask} · ${cust.enrolled ? "Voice enrolled" : "No voiceprint"}`;
+  const ident = `acct ${cust.account_mask}, ${cust.enrolled ? "voice enrolled" : "no voiceprint"}`;
   const speakingAi = state.speaking.ai;
   const speakingMe = state.speaking.visitor || holding;
   const video = currentCamera();
@@ -191,7 +283,7 @@ export function Room({ state, aiLevel, onHangup, onText, onPcm, onBargeIn, onAga
           <Mark alert={verdict.level === "alert"} />
           <span className="hide-sm">Baseline</span>
         </a>
-        <span className="role-badge">{role === "scammer" ? "You: scammer" : "You: bank agent"}</span>
+        <span className="role-badge">{role === "scammer" ? "You: scammer" : `You: ${call.visitor_as ?? cust.name}`}</span>
         {live && <span className="live-dot" aria-hidden />}
         <span className="room__timer" aria-label="Call time">
           {fmtTime(t)}
@@ -203,11 +295,15 @@ export function Room({ state, aiLevel, onHangup, onText, onPcm, onBargeIn, onAga
         </button>
       </header>
 
+      <div className="iv-slot">
+        <InterventionBanner state={state} onHangup={onHangup} />
+      </div>
+
       <div className="room__main">
         <div className="room__left">
           <div className={`tile ${speakingAi ? "tile--speaking" : ""} ${aiIsCaller && verdict.level === "alert" ? "tile--alert" : ""}`}>
             <div className="tile__label">
-              <span className="label tile__name">{aiIsCaller ? ident : "Jordan · First Harbor Bank"}</span>
+              <span className="label tile__name">{aiIsCaller ? callerClaim(call.scenario, cust.name) : "Jordan, First Harbor Bank"}</span>
               <span className="label">{aiIsCaller ? "Caller (AI)" : "Agent (AI)"}</span>
             </div>
             <Viewport source="head" level={aiLevel} chaos={aiIsCaller ? alertChaos : 0} resolve={aiIsCaller ? resolve : 0.4} drift label="The AI caller" />
@@ -215,8 +311,8 @@ export function Room({ state, aiLevel, onHangup, onText, onPcm, onBargeIn, onAga
           </div>
           <div className={`tile ${speakingMe ? "tile--speaking" : ""} ${!aiIsCaller && verdict.level === "alert" ? "tile--alert" : ""}`}>
             <div className="tile__label">
-              <span className="label tile__name">{aiIsCaller ? "You" : `You, as ${cust.name} · ${cust.account_mask}`}</span>
-              <span className="label">{aiIsCaller ? "Agent" : "Caller"}</span>
+              <span className="label tile__name">{aiIsCaller ? `You, ${call.visitor_as ?? cust.name}` : `You, as ${cust.name}, ${ident}`}</span>
+              <span className="label">{aiIsCaller ? "Protected by Baseline" : "Caller"}</span>
             </div>
             <Viewport source="video" video={video} level={() => myLevel.current} chaos={!aiIsCaller ? alertChaos : 0} resolve={!aiIsCaller ? resolve : 0} label="Your camera, stylized" />
             <div className="tile__state">{holding && <span className="label">Mic open</span>}</div>
@@ -253,7 +349,17 @@ export function Room({ state, aiLevel, onHangup, onText, onPcm, onBargeIn, onAga
               </button>
             </form>
             <div className="controls__row">
-              <span className="label">{SCENARIO_LABEL[call.scenario] ?? (call.scenario || "Unknown scenario")}</span>
+              {aiIsCaller ? (
+                state.suspectT == null ? (
+                  <button type="button" className="suspect" onClick={onSuspect} disabled={!live}>
+                    This feels like a scam
+                  </button>
+                ) : (
+                  <span className="suspect suspect--done">You flagged it at {fmtTime(state.suspectT)}</span>
+                )
+              ) : (
+                <span className="label">{call.scenario_label ?? SCENARIO_LABEL[call.scenario] ?? (call.scenario || "Unknown scenario")}</span>
+              )}
               {micErr && <span className="warning">{micErr}</span>}
             </div>
           </div>
@@ -271,8 +377,8 @@ export function Room({ state, aiLevel, onHangup, onText, onPcm, onBargeIn, onAga
             empty={
               <p className="transcript__empty">
                 {aiIsCaller
-                  ? "The caller is about to speak. Treat it like any call: verify, then decide."
-                  : "The bank agent will pick up. Convince them you're the customer."}
+                  ? "Your phone is ringing. Answer it like any call. Baseline is listening on both sides."
+                  : `First Harbor will pick up. Convince them you're ${cust.name}.`}
               </p>
             }
           />
@@ -294,9 +400,11 @@ export function Room({ state, aiLevel, onHangup, onText, onPcm, onBargeIn, onAga
                 ? state.ended.reveal.persona_label || "Call over."
                 : state.error ?? "Call over."}
             </h2>
-            {state.ended?.reveal && (
+            {state.ended?.reveal?.summary && <p className="ended__summary">{state.ended.reveal.summary}</p>}
+            {state.ended?.reveal && aiIsCaller && <YouVsBaseline state={state} />}
+            {state.ended?.reveal && !aiIsCaller && (
               <p className="label">
-                {state.peak === "high" ? "Baseline raised an alert" : state.peak === "caution" ? "Baseline was watching" : "Baseline stayed clear"}
+                {state.peak === "high" ? "Baseline raised an alert" : state.peak === "caution" ? "Baseline was watching" : "You got past Baseline"}
               </p>
             )}
             <div className="ended__actions">

@@ -29,6 +29,16 @@ export interface SessionState {
   peakAlert: AlertEvent | null;
   speaking: Record<Speaker, boolean>;
   warning: { message: string; seconds_left: number; at: number } | null;
+  /** Baseline's warnings to the client (role client), with call time in seconds */
+  interventions: (MsgOf<"intervention"> & { t: number })[];
+  /** simulated downstream actions (family alert, transfer hold) */
+  actions: (MsgOf<"action"> & { t: number })[];
+  /** Baseline's voice is playing to the client right now */
+  baselineSpeaking: boolean;
+  /** call time (s) when the visitor pressed "This feels like a scam" (server time once acked) */
+  suspectT: number | null;
+  /** call time (s) when Baseline first raised caution or high */
+  flagT: number | null;
   ended: MsgOf<"call_ended"> | null;
   error: string | null;
 }
@@ -49,6 +59,11 @@ export const INITIAL: SessionState = {
   peakAlert: null,
   speaking: { ai: false, visitor: false },
   warning: null,
+  interventions: [],
+  actions: [],
+  baselineSpeaking: false,
+  suspectT: null,
+  flagT: null,
   ended: null,
   error: null,
 };
@@ -59,6 +74,7 @@ export type SessionAction =
   | { kind: "cancel" }
   | { kind: "fail"; message: string }
   | { kind: "closed"; now: number }
+  | { kind: "suspect"; now: number }
   | { kind: "reset" };
 
 const LEVEL_RANK = { none: 0, caution: 1, high: 2 } as const;
@@ -81,9 +97,20 @@ function onMsg(s: SessionState, msg: ServerMsg, now: number): SessionState {
       return { ...INITIAL, phase: "live", call: msg, startedAt: now };
     case "error":
       return { ...s, phase: s.phase === "live" ? s.phase : "error", error: msg.message };
-    case "call_ended":
+    case "call_ended": {
       if (s.phase === "ended" && s.ended) return s;
-      return { ...s, phase: "ended", ended: msg, endedAt: s.endedAt ?? now, speaking: { ai: false, visitor: false } };
+      const yvb = msg.reveal?.you_vs_baseline;
+      return {
+        ...s,
+        phase: "ended",
+        ended: msg,
+        endedAt: s.endedAt ?? now,
+        speaking: { ai: false, visitor: false },
+        baselineSpeaking: false,
+        suspectT: yvb?.visitor_flag_t ?? s.suspectT,
+        flagT: s.flagT ?? yvb?.baseline_flag_t ?? null,
+      };
+    }
   }
   if (s.phase !== "live") return s;
   switch (msg.type) {
@@ -125,10 +152,22 @@ function onMsg(s: SessionState, msg: ServerMsg, now: number): SessionState {
     case "alert": {
       const alert: AlertEvent = { ...msg, type: "alert" };
       const up = LEVEL_RANK[msg.level] >= LEVEL_RANK[s.peak] && msg.level !== "none";
-      return { ...s, alert, peak: up ? msg.level : s.peak, peakAlert: up ? alert : s.peakAlert };
+      const flagT = s.flagT ?? (msg.level !== "none" ? round1(elapsed(s, now)) : null);
+      return { ...s, alert, peak: up ? msg.level : s.peak, peakAlert: up ? alert : s.peakAlert, flagT };
     }
     case "warning":
       return { ...s, warning: { message: msg.message, seconds_left: msg.seconds_left, at: now } };
+    case "intervention":
+      return { ...s, interventions: [...s.interventions, { ...msg, t: round1(elapsed(s, now)) }], flagT: s.flagT ?? round1(elapsed(s, now)) };
+    case "action":
+      if (s.actions.some((a) => a.kind === msg.kind)) return s;
+      return { ...s, actions: [...s.actions, { ...msg, t: round1(elapsed(s, now)) }] };
+    case "baseline_audio_start":
+      return { ...s, baselineSpeaking: true };
+    case "baseline_audio_end":
+      return { ...s, baselineSpeaking: false };
+    case "suspect_ack":
+      return { ...s, suspectT: msg.t ?? s.suspectT };
     default:
       // ai_level / stop_audio are routed outside React state (per-frame values).
       return s;
@@ -148,7 +187,12 @@ export function sessionReducer(s: SessionState, a: SessionAction): SessionState 
       if (s.phase === "live") return { ...s, phase: "ended", endedAt: a.now, error: s.error ?? "The connection dropped." };
       if (s.phase === "requesting" || s.phase === "queued") return { ...s, phase: "error", error: "Lost the connection while waiting. Try again." };
       return s;
+    case "suspect":
+      if (s.phase !== "live" || s.suspectT != null) return s;
+      return { ...s, suspectT: round1(elapsed(s, a.now)) };
     case "msg":
       return onMsg(s, a.msg, a.now);
   }
 }
+
+const round1 = (x: number) => Math.round(x * 10) / 10;

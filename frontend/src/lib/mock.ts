@@ -1,13 +1,26 @@
 // Mock backend: simulates queue -> call -> scripted AI lines with a fake audio level,
-// transcript, signals, trust and an escalating alert. Speaks AI lines with the browser's
-// speechSynthesis when available (disable with ?tts=0).
+// transcript, signals, trust, an escalating alert and (role client) Baseline stepping in:
+// intervention + spoken warning (browser speechSynthesis) + family alert / transfer hold.
+// Speaks AI lines with speechSynthesis when available (disable with ?tts=0).
+import { speakFallback } from "./audio";
 import type { AppConfig, ClientMsg, Role, ServerMsg, SessionRequest } from "./contract";
-import { pickScript, SCAMMER_TRIGGERS, SCENARIOS, VOICES, type PatternSpec, type Script, type ScriptLine } from "./mockScripts";
+import {
+  CLIENT_TRIGGERS,
+  MOCK_INTRO,
+  MOCK_MESSAGES,
+  pickScript,
+  SCAMMER_TRIGGERS,
+  SCENARIOS,
+  VOICES,
+  type PatternSpec,
+  type Script,
+  type ScriptLine,
+} from "./mockScripts";
 
 export const MOCK_CONFIG: AppConfig = {
   roles: [
-    { id: "agent", label: "You're the bank agent" },
-    { id: "scammer", label: "You're the scammer" },
+    { id: "client", label: "Be the client" },
+    { id: "scammer", label: "Be the scammer" },
   ],
   scenarios: SCENARIOS,
   voices: VOICES,
@@ -16,6 +29,8 @@ export const MOCK_CONFIG: AppConfig = {
   active_calls: 2,
   tts: "browser speechSynthesis (mock)",
   llm: { provider: "mock", model: "scripted" },
+  caller_llm: { provider: "mock", model: "scripted" },
+  customer: { id: "CUST-004217", name: "Kevin", account_mask: "••4217" },
 };
 
 interface Handlers {
@@ -26,13 +41,18 @@ interface Handlers {
 
 const pick = <T,>(xs: T[]): T => xs[Math.floor(Math.random() * xs.length)];
 const MAX_CALL_S = 180;
+const RANK = { none: 0, caution: 1, high: 2 } as const;
+const ACTIONS: ServerMsg[] = [
+  { type: "action", kind: "family_alert", message: "Text sent to your trusted contact" },
+  { type: "action", kind: "bank_hold", message: "First Harbor: outgoing transfers held for review — linked to this flagged call" },
+];
 
 export class MockTransport {
   readonly id = `mock-${Date.now().toString(36)}`;
   private h: Handlers;
   private timers = new Set<number>();
   private closed = false;
-  private role: Role;
+  private role: "client" | "scammer";
   private scenario: string;
   private voice: string;
   private script: Script;
@@ -47,13 +67,24 @@ export class MockTransport {
   private vLastLoud = 0;
   private lastLevel = 0;
   private ended = false;
+  // role client: Baseline's interventions
+  private level: keyof typeof RANK = "none";
+  private announced = new Set<string>();
+  private spoke = false;
+  private baselineSpeaking = false;
+  private actionsSent = false;
+  private flagT: number | null = null;
+  private suspectT: number | null = null;
+  private interventions = 0;
 
   constructor(req: SessionRequest, h: Handlers) {
     this.h = h;
-    this.role = req.role === "random" ? pick<Role>(["agent", "scammer"]) : req.role;
-    this.scenario = req.scenario === "random" ? pick(SCENARIOS).id : req.scenario;
+    const sc = SCENARIOS.find((s) => s.id === req.scenario);
+    this.role = req.role === "random" ? (sc?.role ?? pick<"client" | "scammer">(["client", "client", "scammer"])) : req.role;
+    const pool = SCENARIOS.filter((s) => s.role === this.role);
+    this.scenario = req.scenario === "random" || !sc || sc.role !== this.role ? (this.role === "client" ? "grandchild" : pick(pool).id) : req.scenario;
     this.voice = req.voice === "random" ? pick(VOICES).id : req.voice;
-    this.script = pickScript(this.role, this.scenario);
+    this.script = pickScript(this.role as Role, this.scenario);
     this.later(250, () => this.emit({ type: "queue", position: 2, queue_length: 3, eta_s: 45 }));
     this.later(2200, () => this.emit({ type: "queue", position: 1, queue_length: 2, eta_s: 15 }));
     this.later(4200, () => this.start());
@@ -72,12 +103,16 @@ export class MockTransport {
     if (!this.closed) this.h.onMsg(msg);
   }
   private now(): number {
-    return (performance.now() - this.t0) / 1000;
+    return Math.round(((performance.now() - this.t0) / 1000) * 100) / 100;
+  }
+  private get client() {
+    return this.role !== "scammer";
   }
 
   // ---------------------------------------------------------------- call
   private start() {
     this.t0 = performance.now();
+    const sc = SCENARIOS.find((s) => s.id === this.scenario);
     this.emit({
       type: "call_started",
       session_id: this.id,
@@ -87,10 +122,12 @@ export class MockTransport {
       customer: this.script.customer,
       audio: { sample_rate: 16000, format: "pcm_s16le" },
       max_call_s: MAX_CALL_S,
+      scenario_label: sc?.label ?? null,
+      visitor_as: this.role === "scammer" ? "Posing as Kevin" : this.scenario === "grandchild" ? "Kevin's grandparent" : "Kevin",
     });
     this.later(1200, () => this.aiTurn());
     this.later((MAX_CALL_S - 30) * 1000, () => this.emit({ type: "warning", message: "30 seconds left in this call.", seconds_left: 30 }));
-    this.later(MAX_CALL_S * 1000, () => this.end("time_limit"));
+    this.later(MAX_CALL_S * 1000, () => this.end("timeout"));
   }
 
   private armIdle(ms = 7000) {
@@ -101,9 +138,10 @@ export class MockTransport {
 
   private aiTurn() {
     if (this.aiBusy || this.ended) return;
+    if (this.baselineSpeaking) return this.armIdle(1500);
     const line = this.script.lines[this.next];
     if (!line) {
-      this.end("caller_hung_up");
+      this.end("hangup");
       return;
     }
     this.next++;
@@ -124,12 +162,12 @@ export class MockTransport {
       this.emit({ type: "ai_level", rms: 0 });
       this.emit({ type: "speaking", who: "ai", state: "end" });
       const id = ++this.uid;
-      this.emit({ type: "transcript", utterance_id: id, t_start: tStart, t_end: this.now(), text: line.text, speaker: "ai", analyzed: this.role === "agent" });
+      this.emit({ type: "transcript", utterance_id: id, t_start: tStart, t_end: this.now(), text: line.text, speaker: "ai", analyzed: this.client });
       this.aiBusy = false;
-      if (this.role === "agent") this.analyze(id, line);
+      if (this.client) this.analyze(id, line);
       // the last line is a goodbye
-      if (this.next >= this.script.lines.length && this.role === "agent") this.later(2500, () => this.end("caller_hung_up"));
-      else this.armIdle(this.role === "agent" ? 6500 : 12000);
+      if (this.next >= this.script.lines.length && this.client) this.later(4000, () => !this.baselineSpeaking && this.end("hangup"));
+      else this.armIdle(this.client ? 7500 : 12000);
     });
   }
 
@@ -143,7 +181,10 @@ export class MockTransport {
     if (line.alert) {
       const a = line.alert;
       const citations = (line.patterns ?? []).map((p) => ({ pattern_id: p.id, name: p.name, source: p.source.url }));
-      this.later((d += 200), () => this.emit({ type: "alert", ...a, citations }));
+      this.later((d += 200), () => {
+        this.emit({ type: "alert", ...a, citations });
+        if (line.intervene && a.level !== "none") this.intervene(a.level, line.intervene);
+      });
     }
   }
 
@@ -164,6 +205,43 @@ export class MockTransport {
     });
   }
 
+  // ---------------------------------------------------------------- Baseline steps in (role client)
+  private intervene(level: "caution" | "high", reasonId: string) {
+    if (this.ended || !this.client) return;
+    const escalated = RANK[level] > RANK[this.level];
+    if (!escalated && this.announced.has(reasonId)) return;
+    this.level = escalated ? level : this.level;
+    this.announced.add(reasonId);
+    this.flagT ??= this.now();
+    const speak = level === "high" && !this.baselineSpeaking;
+    const first = this.interventions === 0 || (speak && !this.spoke);
+    const message = `${first ? `${MOCK_INTRO} ` : ""}${MOCK_MESSAGES[reasonId] ?? MOCK_MESSAGES.generic}`;
+    this.interventions++;
+    this.emit({ type: "intervention", level, message, reason_id: reasonId });
+    if (level === "high" && !this.actionsSent) {
+      this.actionsSent = true;
+      ACTIONS.forEach((a, i) => this.later(500 + i * 450, () => this.emit(a)));
+    }
+    if (!speak) return;
+    // pause the caller, then Baseline speaks to the client only (after the chime)
+    this.spoke = true;
+    this.stopAi();
+    this.emit({ type: "stop_audio" });
+    this.baselineSpeaking = true;
+    this.emit({ type: "baseline_audio_start", reason_id: reasonId, text: message });
+    const done = () => {
+      if (!this.baselineSpeaking) return;
+      this.baselineSpeaking = false;
+      this.emit({ type: "baseline_audio_end", reason_id: reasonId });
+      this.armIdle(1800);
+    };
+    this.later(700, () => {
+      const ok = new URLSearchParams(location.search).get("tts") !== "0" && speakFallback(message, done);
+      // no speech (or it never ends): close the window after a speaking-length pause
+      this.later(ok ? 12000 : Math.max(2500, message.split(/\s+/).length * 330), done);
+    });
+  }
+
   private speak(text: string) {
     if (new URLSearchParams(location.search).get("tts") === "0") return;
     const synth = typeof window !== "undefined" ? window.speechSynthesis : undefined;
@@ -172,7 +250,7 @@ export class MockTransport {
       const u = new SpeechSynthesisUtterance(text);
       const voices = synth.getVoices().filter((v) => v.lang.startsWith("en"));
       const idx = VOICE_INDEX[this.voice] ?? 0;
-      if (voices.length) u.voice = voices[idx % voices.length];
+      if (voices.length) u.voice = voices[(idx + 1) % voices.length];
       u.rate = 1.05;
       synth.speak(u);
     } catch {
@@ -183,12 +261,35 @@ export class MockTransport {
   private visitorLine(text: string, tStart: number) {
     const id = ++this.uid;
     this.emit({ type: "transcript", utterance_id: id, t_start: tStart, t_end: this.now(), text, speaker: "visitor", analyzed: this.role === "scammer" });
+    if (this.client) {
+      const hit = CLIENT_TRIGGERS.find((t) => t.re.test(text));
+      const score = hit ? (hit.secret ? 0.9 : 0.65) : 0.05;
+      this.later(250, () =>
+        this.emit({
+          type: "signal",
+          utterance_id: id,
+          signal: "client",
+          score,
+          confidence: hit ? 0.85 : 0.5,
+          reason: hit?.reason ?? "Nothing risky in what you said",
+          details: { kind: hit ? (hit.secret ? "secret" : "compliance") : null, reason_id: hit?.reason_id ?? null, quote: text.match(hit?.re ?? /$^/)?.[0] ?? "" },
+        }),
+      );
+      // soft client signal + a hard caller signal already on the call -> high
+      if (hit && this.level !== "none") {
+        const rid = hit.secret ? (hit.reason_id === "share_code" ? "secret_request" : this.scenario === "grandchild" ? "gift_cards" : "card_request") : hit.reason_id === "gift_cards" ? "gift_cards" : "generic";
+        this.later(450, () => {
+          this.emit({ type: "alert", level: "high", reasons: [`You: ${hit.reason}`], suggested_action: "Don't share codes, card numbers or PINs. Hang up.", signals: ["fraud", "client"], citations: [] });
+          this.intervene("high", rid);
+        });
+      }
+    }
     if (this.role === "scammer") {
       const pats = SCAMMER_TRIGGERS.filter((t) => t.re.test(text)).map((t) => t.make(text.match(t.re)?.[0] ?? text));
       const scam = pats.length > 0;
       const spoofScore = 0.12 + Math.random() * 0.15;
       this.later(500, () => this.emit({ type: "signal", utterance_id: id, signal: "spoof", score: spoofScore, confidence: 0.6, reason: "Audio consistent with a live human voice", details: {} }));
-      this.later(700, () => this.emit({ type: "signal", utterance_id: id, signal: "speaker", score: 0.64, confidence: 0.8, reason: "Voice is far from the enrolled voiceprint", details: { similarity: 0.27 } }));
+      this.later(700, () => this.emit({ type: "signal", utterance_id: id, signal: "speaker", score: 0.64, confidence: 0.8, reason: "Voice is far from Kevin's enrolled voiceprint", details: { similarity: 0.27 } }));
       if (scam) {
         this.later(1500, () => this.fraudSignal(id, pats));
         const hi = pats.some((p) => p.severity >= 0.6);
@@ -208,12 +309,13 @@ export class MockTransport {
         this.later(1700, () => this.emit({ type: "alert", level: "caution", reasons: ["Voice doesn't match enrolled customer"], suggested_action: "Verify identity before any change.", signals: ["speaker"], citations: [] }));
       }
     }
-    if (!this.aiBusy) this.later(900, () => this.aiTurn());
+    if (!this.aiBusy) this.later(this.baselineSpeaking ? 1500 : 900, () => this.aiTurn());
   }
 
   private end(reason: string) {
     if (this.ended) return;
     this.ended = true;
+    this.baselineSpeaking = false;
     try {
       window.speechSynthesis?.cancel();
     } catch {
@@ -224,7 +326,17 @@ export class MockTransport {
       type: "call_ended",
       reason,
       report_id: this.id,
-      reveal: { role: this.role, scenario: this.scenario, persona_label: this.script.persona_label, voice: this.voice, tts: MOCK_CONFIG.tts },
+      reveal: {
+        role: this.role,
+        scenario: this.scenario,
+        persona_label: this.script.persona_label,
+        voice: this.voice,
+        tts: MOCK_CONFIG.tts,
+        summary: this.script.summary,
+        you_vs_baseline: this.client
+          ? { visitor_flag_t: this.suspectT, baseline_flag_t: this.flagT, interventions: this.interventions, actions: this.actionsSent ? ["family_alert", "bank_hold"] : [] }
+          : undefined,
+      },
     });
     this.later(200, () => this.close());
   }
@@ -232,15 +344,19 @@ export class MockTransport {
   // ---------------------------------------------------------------- Transport
   send(msg: ClientMsg) {
     if (this.closed) return;
-    if (msg.type === "hangup") this.end("visitor_hung_up");
-    else if (msg.type === "text" && msg.text.trim() && this.t0) {
+    if (msg.type === "hangup") this.end("hangup");
+    else if (msg.type === "suspect" && this.t0) {
+      this.suspectT ??= this.now();
+      this.emit({ type: "suspect_ack", t: this.suspectT });
+    } else if (msg.type === "text" && msg.text.trim() && this.t0) {
       this.stopAi();
       this.visitorLine(msg.text.trim(), this.now());
     }
   }
 
-  /** Barge-in: the visitor started talking over the AI. */
+  /** Barge-in: the visitor started talking over the AI (never cuts Baseline's own voice). */
   private stopAi() {
+    if (this.baselineSpeaking) return;
     try {
       window.speechSynthesis?.cancel();
     } catch {
@@ -262,7 +378,7 @@ export class MockTransport {
         this.vSpeaking = true;
         this.vStart = t;
         this.stopAi();
-        this.emit({ type: "stop_audio" });
+        if (!this.baselineSpeaking) this.emit({ type: "stop_audio" });
         this.emit({ type: "speaking", who: "visitor", state: "start" });
         window.clearTimeout(this.idleTimer);
       }
@@ -287,7 +403,7 @@ export class MockTransport {
     this.h.onClose();
   }
 
-  get level() {
+  get micLevel() {
     return this.lastLevel;
   }
 }
