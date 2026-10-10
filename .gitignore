@@ -24,6 +24,11 @@ data/eval/**/*.wav
 data/eval/**/*.flac
 data/eval/**/*.mp3
 data/eval/**/*.m4a
+# any stray recording outside data/ (data/demo/ stays tracked by design)
+*.wav
+*.flac
+*.m4a
+!data/demo/**
 *.aiff
 *.aif
 models/

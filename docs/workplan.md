@@ -28,6 +28,11 @@ Status: **PROPOSAL from V, not yet accepted by C.** Times are from `team_split.m
 
 **CP1 checks (T0 first):** `scripts/validate.sh` (outer repo) is not applicable; run `make test` in `baseline/`. Then `hallucination-detector` once on `finetuning_plan.md` and the evidence file, then `compliance-reviewer` once on `recording_protocol.md` and the licence table. **Human sign-off by both of you** on the contract before any code that depends on it.
 
+### CP1 result (V side, 2026-10-10)
+- `make test`: 193 passed. Evidence check done (`research/voice_signal_evidence.md`); hallucination-detector found no invented citations, 1 wrong section ref, 1 wrong statistic name, 1 unsourced latency claim: all fixed.
+- compliance-reviewer: **NO-GO for recording** until (1) consent form wording approved by a human, (2) retention value chosen, (3) handling rules (done in protocol §1). Teammates only until a human decides on outside volunteers and jurisdiction.
+- Still open: C's answers to 0.4 to 0.6; human read of the emotion2vec and WavLM licence files.
+
 ## Phase 1 to CP2: build and integrate (2:00 to 4:00 AM, cuts at 4 AM)
 | # | Owner | Task | Done when |
 |---|---|---|---|

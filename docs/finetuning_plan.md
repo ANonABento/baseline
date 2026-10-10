@@ -72,7 +72,7 @@ Rules: `unknown` is masked in the loss, never 0. Keep apart: perceived emotion v
 ## 6. Data collection: controlled conversations
 - Paired role-plays with private info cards (limits, facts, a persona) and scripted **conditions**: calm baseline; rising time pressure; surprise follow-ups; reading a prepared script vs speaking spontaneously; answering within vs beyond one's fact sheet.
 - Use conditions to **test whether the signals move** (does stress-related change rise under pressure? do read-like markers separate script from spontaneous?). We never train a model to output "honest vs dishonest".
-- Elderly-scam scenes (grandparent bail, fake bank security, etc., `recording_protocol.md` §7) stay as scenarios for the application layer.
+- Elderly-scam scenes (grandparent bail, fake bank security, etc., `recording_protocol.md` §6) stay as scenarios for the application layer.
 - Randomize roles, scripts, conditions and setups across speakers; small incentive so stakes are not zero; debrief; stop word.
 - **Limit for any slide:** staged, instructed behavior in a controlled task; it does not establish what these signals mean in real calls.
 - Recruit volunteers beyond the team: with 2-4 speakers we can build the pipeline and a pilot, not a validated model.
@@ -93,7 +93,7 @@ Rules: `unknown` is masked in the loss, never 0. Keep apart: perceived emotion v
 - **Shortcut audit:** can speaker identity, role, script, device or loudness alone predict the label? Robustness to noise, gain, compression, mic distance, accents, speaking styles.
 
 ## 9. Live inference, output contract, deployment
-- **Latency.** Existing repo measurements (3 demo clips, Mac, `results/history.csv`): Whisper large-v3-turbo via mlx, mean per-utterance total about 984 ms; speaker/spoof detectors tens to low hundreds of ms. Target: update within ~1.5 s after each turn; post-call report runs batch. Measure, do not assume.
+- **Latency.** Existing repo measurements (3 demo clips, Mac, `results/history.csv`): Whisper large-v3-turbo via mlx, mean per-utterance total about 984 ms (history.csv row 2026-10-09T21:44:45); per-detector latency is not recorded in `results/history.csv` (only whole-run `mean_utt_ms`, e.g. 75.6 and 340.7 on other rows), so it is UNMEASURED per detector. Target: update within ~1.5 s after each turn; post-call report runs batch. Measure, do not assume.
 - **Output contract (proposal, not agreed with C):**
 ```json
 {"call_id":"...", "segment_id":"seg_008", "speaker_id":"...",

@@ -1,6 +1,6 @@
 # Recording Protocol: Controlled Conversations (V)
 
-Status: **DRAFT v2, not yet run, compliance review pending (CP1).** Owner: V. Rewritten 2026-10-10 for the model in [`finetuning_plan.md`](finetuning_plan.md) (voice and content signal summaries, **no lie detection**). The application story (elderly scam prevention, owned by C) is unchanged; its scenes are kept in §6.
+Status: **DRAFT v2, not yet run. Compliance review (CP1) says NO-GO for recording until the consent wording, the retention value and the handling rules below are done and a human approves.** Owner: V. Rewritten 2026-10-10 for the model in [`finetuning_plan.md`](finetuning_plan.md) (voice and content signal summaries, **no lie detection**). The application story (elderly scam prevention, owned by C) is unchanged; its scenes are kept in §6.
 
 **Goal.** Collect consented recordings of people speaking calmly and then under scripted conditions, so we can (1) set and test per-speaker baselines, (2) test whether stress-related change, delivery markers and emotion estimates **move in the expected direction under the conditions**, (3) validate on the demo mic and channel, and (4) record the demo clip.
 
@@ -9,12 +9,16 @@ Status: **DRAFT v2, not yet run, compliance review pending (CP1).** Owner: V. Re
 ---
 
 ## 1. Consent and safety (before recording anything)
-- **Written consent per participant** (signed or typed-and-dated note in `data/train/consent/`, gitignored): what is recorded, that it is used only for this hackathon project, stays on the team's laptops, and is deleted on request. Cloning anyone's voice (ElevenLabs) needs that person's explicit consent in the same note. **Retention period is a team decision (proposal: delete 30 days after the event); write the chosen value in the note.**
+- **Written consent per participant** (signed or typed-and-dated note in `data/train/consent/`, gitignored): what is recorded, that it is used only for this hackathon project, stays on the team's laptops, and is deleted on request. Cloning anyone's voice (ElevenLabs) needs that person's explicit consent in the same note. **Retention period is a team decision and blocks recording (proposal: delete 30 days after the event); the consent note cannot be used until the value is chosen.**
 - **Adults only.** Teammates and consenting volunteers. No strangers, customers, or real bank or scam calls.
 - **Fictional persona only.** No real account numbers, addresses, SSNs or family details. No PII in files, filenames or logs; use `spk01` style IDs.
 - **Mild conditions only.** Verbal time pressure or a surprise question, nothing threatening or humiliating. **Stop word: "pause"**, any time, no reason needed. 1-minute calm debrief after each session; participant confirms they feel fine.
 - **No health inference.** We record no mood, depression or medical labels.
 - **Storage:** raw audio in `data/train/` (gitignored). Nothing leaves the team's laptops except scripted scammer *text* sent to ElevenLabs TTS (no participant audio) and clones made with consent. Uploading any participant audio anywhere needs a human decision.
+- **Handling rules (required before any recording):** `data/train/` is not synced to iCloud/Drive or any backup service; disk encryption is on; no participant audio or transcript is sent to any agent tool, LLM or API (analysis runs locally); deletion covers raw audio, embeddings, transcripts, `voice_state.jsonl` and any ElevenLabs clone, and a named person (V) does it by the retention date.
+- **Consent form must say:** voice is biometric data; exact uses (baseline, signal-summary evaluation, demo clip); the system makes **no lie or deception claim**; who has access; where it is stored; withdrawal and deletion on request; the retention date. **A human approves the wording before use** (template: `data/train/consent/TEMPLATE.md`, gitignored, not yet written).
+- **Public display is a separate opt-in.** Showing a participant's clip to judges or committing it to `data/demo/` (tracked in git) needs its own explicit consent; default is a private path outside the repo.
+- **Outside volunteers** wait on a human decision about jurisdiction and biometric-data law (UNVERIFIED which laws apply; not legal advice).
 - **Debrief on purpose.** Participants are told the conditions after the session. Nobody is deceived about being recorded.
 
 ## 2. People and roles
