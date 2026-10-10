@@ -112,3 +112,10 @@ def test_baseline_does_not_carry_over_between_calls():
         asyncio.run(det.analyze(Utterance(id=i, audio=voiced(150.0, seed=i), sample_rate=SR, t_start=i * 3.0, t_end=i * 3.0 + 2), c1))
     r = asyncio.run(det.analyze(Utterance(id=0, audio=voiced(150.0, seed=1), sample_rate=SR, t_start=0.0, t_end=2.0), c2))
     assert r.details["status"] == "building_baseline" and r.details["baseline_n"] == 1
+
+
+def test_emotion_probe_is_off_by_default_and_never_required(monkeypatch):
+    from ml import emotion
+
+    monkeypatch.delenv("EMOTION_PROVIDER", raising=False)
+    assert not emotion.enabled() and emotion.estimate(voiced(150.0), SR) is None

@@ -55,9 +55,19 @@ def test_credential_roundtrip_and_tamper(tmp_path):
     assert c.verify(cred, report())[0]
     assert c.verify(cred)[1] == "signature valid (report not checked)"
     bad = copy.deepcopy(cred)
-    bad["payload"]["signals"]["recovery_latency"]["latency_s"] = 0.1
+    bad["payload"]["signals"]["recovery_latency"]["latency_s"] = 0.1  # payload edited, signed text unchanged
     assert not c.verify(bad)[0]
     other = report()
     other["transcript"][1]["text"] = "changed"
     assert c.verify(cred, other) == (False, "signature valid, but the report does not match report_sha256")
     assert c.public_from_did(cred["payload"]["issuer"]) and cred["payload"]["issuer"].startswith("did:key:z6Mk")
+
+
+def test_interaction_and_decisions():
+    r = report()
+    r["transcript"][3]["text"] = "No, I will not do that, I want to verify and call you back"
+    o = analyse(r, pressure={2: 3})
+    assert o["interaction"]["verification_attempts"] == 1 and o["interaction"]["refusals"] == 1
+    assert {e["event"] for e in o["decision_events"]} == {"verification_requested", "refused"}
+    assert o["delivery_change_by_pressure_level"] == {"3": {"mean_max_abs_z": 1.57, "n": 3}}  # turns 3,4,5 all follow the level-3 turn: max abs z 3.5, 1.0, 0.2
+    assert o["interaction"]["talk_over_count"] == 0

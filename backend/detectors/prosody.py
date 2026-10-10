@@ -13,6 +13,7 @@ from core import CallContext, Utterance
 from detectors import voice_state
 from detectors.base import Detector, stub_result
 from events import DetectorResult
+from ml import emotion
 
 
 class ProsodyDetector(Detector):
@@ -30,6 +31,8 @@ class ProsodyDetector(Detector):
         except Exception:  # noqa: BLE001
             f = None
         d = voice_state.assess(f, base)
+        if d["status"] != "insufficient_evidence" and emotion.enabled():
+            d["emotion_estimate"] = await asyncio.to_thread(emotion.estimate, utt.audio, utt.sample_rate)
         status, change = d["status"], d["stress_related_change"]
         if status == "building_baseline":
             reason = f"Building this caller's baseline ({d['baseline_n']} of {base.min_n} utterances)."

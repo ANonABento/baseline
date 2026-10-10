@@ -13,6 +13,7 @@ Scope decision (Dae, 2026-10-10): **hackathon use only, research.** Nothing belo
 | `emotion2vec/emotion2vec_plus_large` | HF `model-license` (FunASR); GitHub shows MIT badge: sources disagree | audio encoder B | UNVERIFIED | human sign-off |
 | `audeering/wav2vec2-large-robust-12-ft-emotion-msp-dim` | CC BY-NC-SA 4.0 | research comparison only | **NO** | not downloaded |
 | Whisper large-v3-turbo, DeBERTa-v3-base | MIT (model cards) | ASR, text encoder | yes (UNVERIFIED by lawyer) | in use / planned |
+| Derived: `data/models/emotion_probe.npz` | RAVDESS (CC BY-NC-SA 4.0) + WavLM-base-plus (terms UNVERIFIED) | research-only, hackathon; non-shippable; gitignored | V |
 
 Rules for this repo:
 - Weights or numbers derived from a **NO** row are labelled "research-only, not shippable" wherever they appear (README, results, slides).

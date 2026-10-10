@@ -21,6 +21,10 @@ import re
 
 import numpy as np
 
+HEDGES = re.compile(r"\b(maybe|perhaps|i think|i guess|sort of|kind of|probably|not sure)\b", re.I)
+VERIFY = re.compile(r"\b(verify|verification|call (you|them|him|her) back|number on file|who is (this|calling)|can i confirm|prove|reference number|official)\b", re.I)
+REFUSE = re.compile(r"\b(no|not going to|won't|will not|i refuse|hang up|hanging up|not giving|don't share|do not share)\b", re.I)
+COMPLY = re.compile(r"\b(here (is|are)|my (card|account|pin|social|code) (number )?is|i('ll| will) (send|transfer|wire|read)|okay,? (i'll|let me) (send|transfer|wire|read))\b", re.I)
 FILLERS = re.compile(r"\b(um+|uh+|er+|erm|hmm+|you know|i mean|like)\b", re.I)
 Z_RECOVER = 2.5  # same threshold as voice_state.Z_FIRE (kept literal: report consumers need no backend import)
 
@@ -35,7 +39,10 @@ def _slope_per_min(t: list[float], y: list[float]) -> float | None:
     return round(float(np.polyfit(t, y, 1)[0] * 60.0), 3)
 
 
-def analyse(report: dict) -> dict:
+def analyse(report: dict, pressure: dict[int, int] | None = None) -> dict:
+    """`pressure` (optional): interviewer utterance_id -> scripted pressure level (1..3). Pressure is the
+    scenario's own manipulation (known, not inferred), so delivery change by applied level needs no stress label.
+    Every analysed turn counts toward the level of the most recent interviewer turn before it."""
     turns = [u for u in report.get("transcript", []) if u.get("analyzed")]
     allturns = sorted(report.get("transcript", []), key=lambda u: u["t_start"])
     pros = _prosody_by_utt(report)
@@ -68,6 +75,32 @@ def analyse(report: dict) -> dict:
         "response_latency_s": {"mean": round(float(np.mean(resp)), 2) if resp else None,
                                "max": max(resp) if resp else None, "n": len(resp)},
     }
+    n = max(len(rows), 1)
+    cand_dur = sum(r["t_end"] - r["t"] for r in rows)
+    other = [u for u in allturns if not u.get("analyzed")]
+    other_dur = sum(u["t_end"] - u["t_start"] for u in other)
+    talk_over = sum(1 for u in turns if any(o["t_start"] < u["t_start"] < o["t_end"] for o in other))
+    texts = [u["text"] for u in turns]
+    out["interaction"] = {
+        "talk_over_count": talk_over, "talk_time_share": round(cand_dur / (cand_dur + other_dur), 2) if cand_dur + other_dur else None,
+        "mean_turn_s": round(cand_dur / n, 1) if rows else None,
+        "hedges_per_100_words": round(100.0 * sum(len(HEDGES.findall(x)) for x in texts) / words, 1) if words else None,
+        "verification_attempts": sum(len(VERIFY.findall(x)) > 0 for x in texts),
+        "refusals": sum(len(REFUSE.findall(x)) > 0 for x in texts),
+        "compliance_phrases": sum(len(COMPLY.findall(x)) > 0 for x in texts),
+        "note": "keyword-based counts on STT text; a model-based decision tagger can replace them",
+    }
+    out["decision_events"] = [{"t": round(u["t_start"], 1), "utterance_id": u["utterance_id"], "event": ev}
+                              for u in turns for ev, rx in (("verification_requested", VERIFY), ("refused", REFUSE), ("complied_phrase", COMPLY))
+                              if rx.search(u["text"])]
+    if pressure:
+        by: dict[int, list[float]] = {}
+        for u in turns:
+            prev = [o for o in allturns if o["t_end"] <= u["t_start"] and not o.get("analyzed")]
+            d = pros.get(u["utterance_id"], {})
+            if prev and prev[-1]["utterance_id"] in pressure and d.get("z"):
+                by.setdefault(pressure[prev[-1]["utterance_id"]], []).append(max(abs(v) for v in d["z"].values()))
+        out["delivery_change_by_pressure_level"] = {str(k): {"mean_max_abs_z": round(float(np.mean(v)), 2), "n": len(v)} for k, v in sorted(by.items())}
     peak = max((r for r in ok if r["change"] is not None), key=lambda r: max(abs(v) for v in r["z"].values()), default=None)
     rec = None
     if peak is not None and max(abs(v) for v in peak["z"].values()) >= Z_RECOVER:

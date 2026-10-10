@@ -85,7 +85,8 @@ def issue(report: dict, decisions: list[dict], key_path: Path) -> dict:
         "claims": "Observed in one simulated call; signal summaries relative to the speaker's own earlier delivery; "
                   "calibration_status not_established; not a measure of skill, honesty or suitability.",
     }
-    return {"payload": payload, "proof": {"alg": "Ed25519", "signature": key.sign(canonical(payload)).hex()}}
+    text = canonical(payload).decode()  # the exact signed text: verifiers in any language check this string
+    return {"payload": payload, "proof": {"alg": "Ed25519", "signed_text": text, "signature": key.sign(text.encode()).hex()}}
 
 
 def verify(cred: dict, report: dict | None = None) -> tuple[bool, str]:
@@ -94,7 +95,10 @@ def verify(cred: dict, report: dict | None = None) -> tuple[bool, str]:
 
     p = cred["payload"]
     try:
-        Ed25519PublicKey.from_public_bytes(public_from_did(p["issuer"])).verify(bytes.fromhex(cred["proof"]["signature"]), canonical(p))
+        text = cred["proof"]["signed_text"]
+        Ed25519PublicKey.from_public_bytes(public_from_did(p["issuer"])).verify(bytes.fromhex(cred["proof"]["signature"]), text.encode())
+        if json.loads(text) != p:
+            return False, "payload differs from the signed text"
     except (InvalidSignature, AssertionError, ValueError, KeyError):
         return False, "signature does not match payload and issuer key"
     if report is not None and hashlib.sha256(canonical(report)).hexdigest() != p["report_sha256"]:

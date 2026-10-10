@@ -69,6 +69,17 @@ No recordings of people are made (decision 2026-10-10).
 | Voice and model side | V (Dae) | `backend/detectors/{speaker,spoof,prosody,voice_state}.py`, `segmenter.py`, `providers/stt_*`, `ml/`, `scripts/` (not `eval_fraud.py`), `data/` (not `text_eval/`), `tests/test_voice_state.py`, `docs/{finetuning_plan,licences,workplan,architecture}.md`, `docs/research/` |
 | Application, content, UI, pitch | C (Kevin) | `events.py`, `fusion.py`, `pipeline.py`, `app.py`, `fraud*.py`, `kb/`, `providers/llm_*`, `frontend/` |
 
+## 4b. Session layer, twin and credential (added 2026-10-10)
+```
+live call (C) -> per-utterance signals (V: prosody details incl. emotion_estimate, delivery_change, z, features)
+              -> call report JSON (C, caller/report.py)
+              -> session_signals.analyse(report, pressure?)   (V)  -> report['behaviour']  (C stores)
+              -> Digital Twin page (C): live state while the call runs, full summary at the end
+              -> scripts/credential.py issue (V logic; C calls at call end) -> credential JSON
+              -> docs/verify.html (anyone, offline, WebCrypto Ed25519) or `credential.py verify`
+```
+Signals added beyond the first four: response latency, talk-over count, talk-time share, mean turn length, hedges per 100 words, verification attempts, refusals, compliance phrases (keyword-based), delivery change by scripted pressure level (pressure is the scenario's own manipulation, so no stress label is needed), and the WavLM emotion estimate (acted-speech probe, `EMOTION_PROVIDER=wavlm`). Credential: payload = session id, SHA-256 of the report, signal summary, decisions, claims text; proof = Ed25519 over the exact signed text; issuer = `did:key`. The credential proves who signed which observations; it does not prove skill, honesty or suitability.
+
 ## 5. Evidence so far (exploratory; details in `results/public_checks.md`)
 On the held-out half on held-out people the shipped sustained rule fired on a mean 9.5% of usable utterances per AMI speaker-meeting session (CI 0.7 to 22.9%, 14 sessions from 9 speaker ids; median session 0%, one session 93%; sessions share meetings with the tune half). A single-clip version without the persistence step flagged 79.9% of acted high-arousal RAVDESS clips and 16.7% of held-out calm/neutral clips (12 actors). That shows the signal moves with acted arousal; it does not show it tracks real stress.
 
