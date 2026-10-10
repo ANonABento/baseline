@@ -3,7 +3,8 @@
 All events are JSON objects with a `type` discriminator:
 
 transcript  One finished utterance.
-            {type, utterance_id, t_start, t_end, text}
+            {type, utterance_id, t_start, t_end, text, latency_ms?}
+            `latency_ms` (optional, added with the real models) = STT time for this utterance.
 signal      One detector result for one utterance.
             {type, utterance_id, signal, score, confidence, reason, details, latency_ms}
             `signal` is one of speaker | spoof | prosody | fraud.
@@ -16,7 +17,13 @@ status      Session lifecycle / errors.
             {type, state, message, clip?}
 
 Client -> server control messages (JSON text frames; binary frames are 16 kHz mono int16 PCM):
-  {"type": "replay", "clip": "takeover.wav"}   stream a clip from data/demo/ at real-time pace
+  {"type": "replay", "clip": "takeover.wav", "customer_id"?: "CUST-004217"}
+                                                stream a clip from data/demo/ at real-time pace
+  {"type": "start", "source": "mic", "customer_id"?: "..."}   start a fresh live call
+  {"type": "customer", "customer_id": "CUST-004217"}
+                                                select the customer on the call (whose enrolled
+                                                voiceprint speaker verification uses); applies to
+                                                the current call and later ones in this session
   {"type": "stop"}                              stop replay / end the call (flushes the last utterance)
   {"type": "reset"}                             start a fresh call (clears transcript + fusion state)
   {"type": "ping"}
@@ -48,6 +55,7 @@ class TranscriptEvent(BaseModel):
     t_start: float
     t_end: float
     text: str
+    latency_ms: float | None = None  # optional: STT latency for this utterance
 
 
 class SignalEvent(DetectorResult):

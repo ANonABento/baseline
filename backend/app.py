@@ -7,6 +7,10 @@ WS /ws/call
                     text frames = JSON control messages (see events.py).
   server -> client: JSON events (transcript | signal | trust | alert | status).
 POST /replay/{clip}  starts a replay of data/demo/<clip> on every connected session.
+GET /customers       enrolled voiceprints (data/enroll/*.npy); GET /customer?customer_id=...
+
+Real models (STT_PROVIDER=mlx, VAD_PROVIDER=silero, SPEAKER_PROVIDER=ecapa,
+SPOOF_PROVIDER=pretrained|wavlm) are loaded and warmed up once at startup (WARMUP_MODELS).
 """
 
 from __future__ import annotations
@@ -15,15 +19,16 @@ import asyncio
 import json
 import logging
 import time
-from contextlib import suppress
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
 import soundfile as sf
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from events import Event, StatusEvent
-from pipeline import CallPipeline, float_to_pcm16, load_wav, stt_for_clip
+from ml import voiceprints
+from pipeline import CallPipeline, float_to_pcm16, load_wav, stt_for_clip, warmup_models
 from providers.stt_stub import sidecar_path_for
 from settings import get_settings
 
@@ -31,7 +36,21 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 log = logging.getLogger("baseline")
 
 settings = get_settings()
-app = FastAPI(title="Baseline", version="0.1.0")
+WARMUP: dict[str, float] = {}
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    if settings.warmup_models:
+        t0 = time.perf_counter()
+        log.info("warming up models: %s", settings.providers_summary())
+        # blocking loads happen on the models' own threads; the loop just waits for them
+        WARMUP.update(await asyncio.to_thread(warmup_models, settings))
+        log.info("warmup done in %.1fs: %s", time.perf_counter() - t0, WARMUP)
+    yield
+
+
+app = FastAPI(title="Baseline", version="0.1.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
@@ -49,6 +68,7 @@ class Session:
         self.ws = ws
         self.out: asyncio.Queue[dict] = asyncio.Queue()
         self.pipe = CallPipeline(self.emit, settings)
+        self.customer_id = settings.customer_id  # customer on the call (whose voiceprint we verify)
         self.replay_task: asyncio.Task | None = None
         self.end_task: asyncio.Task | None = None
 
@@ -70,8 +90,21 @@ class Session:
             with suppress(asyncio.CancelledError):
                 await self.replay_task
 
-    async def start_replay(self, clip: str) -> None:
+    async def select_customer(self, customer_id: str) -> bool:
+        if not voiceprints.valid_customer_id(customer_id):
+            await self.emit(StatusEvent(state="error", message=f"invalid customer id: {customer_id!r}"))
+            return False
+        self.customer_id = customer_id
+        self.pipe.ctx.customer_id = customer_id  # applies to the call in progress too
+        vp = voiceprints.load(settings.enroll_dir, customer_id)
+        await self.emit(StatusEvent(state="customer_selected",
+                                    message=f"{customer_id} ({'enrolled' if vp else 'no voiceprint enrolled'})"))
+        return True
+
+    async def start_replay(self, clip: str, customer_id: str = "") -> None:
         await self.cancel_replay()
+        if customer_id and not await self.select_customer(customer_id):
+            return
         try:
             path = resolve_clip(clip)
         except FileNotFoundError:
@@ -80,8 +113,8 @@ class Session:
         self.replay_task = asyncio.create_task(self._replay(path))
 
     async def _replay(self, path: Path) -> None:
-        stt, hints = stt_for_clip(path, settings)
-        self.pipe.start_call(stt=stt, stub_hints=hints)
+        stt, hints = stt_for_clip(path, settings, self.pipe.default_stt)
+        self.pipe.start_call(customer_id=self.customer_id, stt=stt, stub_hints=hints)
         audio = load_wav(path, settings.sample_rate)
         sr = settings.sample_rate
         await self.emit(StatusEvent(state="replay_started", clip=path.name,
@@ -107,11 +140,15 @@ class Session:
     async def handle_control(self, msg: dict) -> None:
         kind = msg.get("type")
         if kind == "replay":
-            await self.start_replay(str(msg.get("clip", "")))
+            await self.start_replay(str(msg.get("clip", "")), str(msg.get("customer_id") or ""))
         elif kind in ("start", "reset"):
             await self.cancel_replay()
-            self.pipe.start_call(customer_id=str(msg.get("customer_id", "")))
+            if msg.get("customer_id") and not await self.select_customer(str(msg["customer_id"])):
+                return
+            self.pipe.start_call(customer_id=self.customer_id)
             await self.emit(StatusEvent(state="call_started", message=str(msg.get("source", "mic"))))
+        elif kind == "customer":
+            await self.select_customer(str(msg.get("customer_id") or ""))
         elif kind == "stop":
             self.end_task = asyncio.create_task(self.end_call())
         elif kind == "ping":
@@ -126,14 +163,32 @@ SESSIONS: set[Session] = set()
 @app.get("/health")
 async def health() -> dict:
     return {"status": "ok", "stt": settings.stt_provider, "llm": settings.resolved_llm_provider(),
-            "sessions": len(SESSIONS)}
+            "providers": settings.providers_summary(), "warmup_s": WARMUP, "sessions": len(SESSIONS)}
+
+
+@app.get("/customers")
+async def customers() -> list[dict]:
+    """Customers with an enrolled voiceprint (scripts/enroll.py)."""
+    return voiceprints.list_enrolled(settings.enroll_dir)
 
 
 @app.get("/customer")
-async def customer() -> dict:
-    return {"id": settings.customer_id, "name": settings.customer_name, "enrolled": True,
-            "voiceprint": "stub (not enrolled yet)", "phone_on_file": "(650) 555-0142",
-            "member_since": "2009", "segment": "Retail / senior"}
+async def customer(customer_id: str = Query("", description="defaults to CUSTOMER_ID")) -> dict:
+    cid = customer_id or settings.customer_id
+    if not voiceprints.valid_customer_id(cid):
+        raise HTTPException(400, "invalid customer id")
+    vp = voiceprints.load(settings.enroll_dir, cid)
+    is_default = cid == settings.customer_id
+    name = (vp.name if vp else "") or (settings.customer_name if is_default else cid)
+    if vp is not None:
+        voiceprint = f"ECAPA voiceprint, {vp.meta.get('n_segments', '?')} segments / {vp.meta.get('audio_s', '?')}s audio"
+    else:
+        voiceprint = "not enrolled (run scripts/enroll.py)"
+    out = {"id": cid, "name": name, "enrolled": vp is not None, "voiceprint": voiceprint,
+           "speaker_provider": settings.speaker_provider}
+    if is_default:  # demo profile fields (placeholder CRM data)
+        out |= {"phone_on_file": "(650) 555-0142", "member_since": "2009", "segment": "Retail / senior"}
+    return out
 
 
 @app.get("/clips")
@@ -169,8 +224,9 @@ async def ws_call(ws: WebSocket) -> None:
     s = Session(ws)
     SESSIONS.add(s)
     sender = asyncio.create_task(s.sender())
-    s.pipe.start_call()
-    await s.emit(StatusEvent(state="connected", message=f"stt={settings.stt_provider} llm={settings.resolved_llm_provider()}"))
+    s.pipe.start_call(customer_id=s.customer_id)
+    prov = " ".join(f"{k}={v}" for k, v in settings.providers_summary().items())
+    await s.emit(StatusEvent(state="connected", message=prov))
     try:
         while True:
             msg = await ws.receive()
