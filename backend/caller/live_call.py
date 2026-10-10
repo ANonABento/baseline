@@ -480,12 +480,15 @@ class LiveCall:
                 await self.send_json({"type": "speaking", "who": "ai", "state": "end"})
             if spoken.strip(" —"):
                 self.brain.add_ai(spoken)
-                t_end = round(t_ai_start + len(audio) / self.settings.sample_rate, 2)
+                # the line is stamped when its audio started playing (not when the turn began, which is
+                # earlier by the LLM + TTS latency), so report playback and the transcript line up
+                t_start = round(play_off, 2)
+                t_end = round(play_off + len(audio) / self.settings.sample_rate, 2)
                 if self.role == "agent":
                     # Baseline analyzes the caller channel: the AI's own audio, with its script as text
-                    self.pipe.feed_utterance(audio, t_ai_start, t_end, text=spoken)
+                    self.pipe.feed_utterance(audio, t_start, t_end, text=spoken)
                 else:
-                    await self._emit_unanalyzed("ai", spoken, t_ai_start, t_end)
+                    await self._emit_unanalyzed("ai", spoken, t_start, t_end)
 
     # ------------------------------------------------------------------ end
 
