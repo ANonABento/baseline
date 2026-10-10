@@ -1,5 +1,5 @@
-import type { Tone } from "../analysis";
-import type { Severity } from "../types";
+import type { Tone } from "../../analysis";
+import type { Severity } from "../../types";
 
 // One palette for risk across the dashboard. Text labels/icons always accompany color.
 export const TONE: Record<Tone, { text: string; bg: string; border: string; dot: string; chip: string; label: string }> = {

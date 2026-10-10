@@ -1,5 +1,5 @@
-import { fmtTime, type EvidenceState } from "../analysis";
-import type { Severity, TranscriptEvent } from "../types";
+import { fmtTime, type EvidenceState } from "../../analysis";
+import type { Severity, TranscriptEvent } from "../../types";
 import { IconAlert, IconArrowRight, IconInfo, IconLink, IconQuote } from "./icons";
 import { cx, Panel } from "./Panel";
 import { SEVERITY_STYLE } from "./tone";

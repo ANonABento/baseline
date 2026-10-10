@@ -1,13 +1,14 @@
+import "./legacy.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fmtTime, lineTriggers } from "./analysis";
+import { fmtTime, lineTriggers } from "../analysis";
 import { AlertBanner, CallControls, CustomerPanel, FraudEvidence, SignalCards, Timeline, Transcript, TrustGauge } from "./components";
 import { clipLabel } from "./components/CallControls";
 import { LogoMark } from "./components/icons";
 import { cx } from "./components/Panel";
 import type { Focus } from "./components/Transcript";
-import { micErrorMessage, startMic, type MicHandle } from "./mic";
-import type { Clip, Customer } from "./types";
-import { API_URL, useCall, type CallState } from "./useCall";
+import { micErrorMessage, startMic, type MicHandle } from "../mic";
+import type { Clip, Customer } from "../types";
+import { API_URL, useCall, type CallState } from "../useCall";
 
 function useNow(active: boolean, ms = 500): number {
   const [now, setNow] = useState(() => Date.now());

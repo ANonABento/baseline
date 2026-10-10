@@ -1,7 +1,7 @@
 // Small stroke icons (24px grid, currentColor). Paired with text labels so color is never
 // the only signal.
-import type { SignalName } from "../types";
-import type { Tone } from "../analysis";
+import type { SignalName } from "../../types";
+import type { Tone } from "../../analysis";
 
 type P = { className?: string; title?: string };
 const base = (className = "h-4 w-4") => ({

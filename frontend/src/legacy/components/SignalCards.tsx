@@ -1,4 +1,4 @@
-import type { SignalEvent, SignalName } from "../types";
+import type { SignalEvent, SignalName } from "../../types";
 import { cx } from "./Panel";
 
 const SIGNAL_META: Record<SignalName, { label: string; sub: string }> = {
