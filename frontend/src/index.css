@@ -109,7 +109,7 @@ button { cursor: pointer; }
 .btn--ghost:hover { background: transparent; border-color: var(--ink-3); }
 .btn--danger { background: transparent; color: var(--red); border-color: rgb(240 53 61 / 0.45); }
 .btn--danger:hover { background: var(--red); color: var(--bg); border-color: var(--red); }
-.btn--small { height: 2.25rem; padding: 0 0.9rem; font-size: var(--t-small); }
+.btn--small { white-space: nowrap; height: 2.25rem; padding: 0 0.9rem; font-size: var(--t-small); }
 .btn--big { height: 3.75rem; padding: 0 2.25rem; font-size: var(--t-lead); }
 
 .link {
@@ -408,7 +408,7 @@ button { cursor: pointer; }
 }
 .room__bar { display: flex; align-items: center; gap: 1.25rem; height: 3.25rem; padding: 0 var(--gutter); border-bottom: 1px solid var(--rule); }
 .room__timer { font-family: var(--mono); font-size: var(--t-small); color: var(--ink); font-feature-settings: "tnum" 1; }
-.role-badge { font-family: var(--mono); font-size: var(--t-label); letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid var(--rule); padding: 0.2rem 0.5rem; color: var(--ink-2); }
+.role-badge { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 42vw; font-family: var(--mono); font-size: var(--t-label); letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid var(--rule); padding: 0.2rem 0.5rem; color: var(--ink-2); }
 .live-dot { width: 6px; height: 6px; background: var(--red); display: inline-block; }
 .room__main { display: grid; grid-template-columns: minmax(20rem, 0.82fr) minmax(0, 1.5fr); min-height: 0; }
 .room__left { display: grid; grid-template-rows: minmax(0, 1.25fr) minmax(0, 1fr) auto; border-right: 1px solid var(--rule); min-height: 0; }

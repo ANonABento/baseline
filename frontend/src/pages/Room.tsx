@@ -274,7 +274,7 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
   };
 
   const left = Math.max(0, (call.max_call_s || 0) - t);
-  const who = { ai: "AI", visitor: "You" } as const;
+  const who = aiIsCaller ? ({ ai: "Caller", visitor: "You" } as const) : ({ ai: "Bank", visitor: "You" } as const);
 
   return (
     <div className="room">
@@ -366,7 +366,8 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
         </div>
 
         <div className="room__right">
-          <VerdictStrip v={verdict} />
+          {/* role client: the banner speaks to the client; agent-side "say this" scripts would confuse */}
+          <VerdictStrip v={aiIsCaller ? { ...verdict, sayThis: null } : verdict} />
           <Transcript
             lines={state.lines}
             notes={notes}

@@ -103,10 +103,13 @@ export function Report({ id }: { id: string }) {
     return evs.reduce((a, b) => (b.score > a.score ? b : a));
   };
   const top = topEvidence(state.evidence.items);
+  const clientCall = (reveal?.role ?? call?.role) !== "scammer";
   const action =
     level === "clear"
       ? "No action needed. Nothing in this call deviated from the customer's baselines."
-      : top?.suggested_agent_action || peakAlert?.suggested_action || "Verify the caller through the number on file before acting.";
+      : clientCall
+        ? "Hang up and call back on a number you already know. Never give a caller a code, a card number or a PIN, and never pay in gift cards."
+        : top?.suggested_agent_action || peakAlert?.suggested_action || "Verify the caller through the number on file before acting.";
 
   return (
     <>
@@ -160,7 +163,7 @@ export function Report({ id }: { id: string }) {
               onActive={setActive}
               scrollTo={scrollTo}
               follow={false}
-              who={{ ai: "AI", visitor: "Visitor" }}
+              who={clientCall ? { ai: "Caller", visitor: "You" } : { ai: "Bank", visitor: "You" }}
               empty={<p className="transcript__empty">Nobody spoke on this call.</p>}
             />
           </section>
@@ -185,7 +188,7 @@ export function Report({ id }: { id: string }) {
             <section className="report__section">
               <span className="label">Recommended action</span>
               <p className="action">{action}</p>
-              {verdict.sayThis && <p className="say__text" style={{ marginTop: "1rem", color: "var(--ink-2)" }}>{verdict.sayThis}</p>}
+              {!clientCall && verdict.sayThis && <p className="say__text" style={{ marginTop: "1rem", color: "var(--ink-2)" }}>{verdict.sayThis}</p>}
             </section>
 
             <section className="report__section">
