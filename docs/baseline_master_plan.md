@@ -2,7 +2,7 @@
 
 > *"To detect what's real and fake, we must define a baseline."*
 
-**Event:** Building from the Farm (Stanford Founders Club × SF Tech Week 2026). **Theme:** Future of Work for Enterprise. **Track:** Customer Layer.
+**Event:** Building from the Farm (Stanford Founders Club × SF Tech Week 2026). **Theme:** Future of Work for Enterprise. **Track (2026-10-10):** "credit score for interviews": a credit-score-like trust profile for voice interactions with stakes (was Customer Layer; the bank material below is the earlier build).
 **Constraints:** 18-hour overnight build (Fri Oct 9, 7 PM → **submit Sat Oct 10, 9:00 AM on MentorMates**) · 2 builders · $0 spend (local models + sponsor credits) · must demo flawlessly · runs on a MacBook (M5, 24 GB). An RTX 5090 is a *possible* upgrade, never a dependency.
 
 ---
@@ -119,7 +119,7 @@ Not borrowed: power dynamics, "hidden resistance," engagement/sentiment scoring.
 
 ## 2.5 Voice + Content Signal Summaries (key factor; model side)
 
-**Full plan: [`finetuning_plan.md`](finetuning_plan.md).** Team decision 2026-10-10: **no lie detection.** The model summarizes observable voice and content signals and says, with hedges, what such patterns *can* mean. It emits no deception, bluff or fabrication score or label. All outputs are `PREDICTION`s.
+**Full plan: [`finetuning_plan.md`](finetuning_plan.md).** Team decision 2026-10-10: **no lie detection.** The model summarizes observable voice and content signals and says, with hedges, what such patterns *can* mean. It emits no deception, bluff or fabrication score or label. All outputs are `PREDICTION`s. *(2026-10-10: signals stay primary; the notebook model may add optional, uncalibrated deception readings, never a verdict; see the plan's decision update.)*
 
 - **Outputs:** emotion estimate (stressed, angry, worried, calm, engaged), stress-related change vs the speaker's own baseline (with persistence and recovery), delivery markers (choppy, monotone/read-like, response latency), content observations (responsiveness, specificity, contradictions with earlier statements flagged as *inconsistencies*), and hedged interpretation notes with a neutral follow-up question. Example: "sustained rise in stress-related vocal signals after the verification question; can reflect pressure, uncertainty, or other causes."
 - **Model:** pretrained audio encoder (WavLM / emotion2vec candidates, frozen first) + Whisper transcript + pretrained text encoder, fused with per-speaker history deltas and modality dropout, plus a call-level temporal layer. Fine-tune, never train from scratch.

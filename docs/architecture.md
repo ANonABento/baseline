@@ -2,7 +2,7 @@
 
 Status 2026-10-10. Written by V (Dae's session). C-owned parts are described from reading the code, not from C. Progress and checkpoint results: [`workplan.md`](workplan.md). Model design and evidence limits: [`finetuning_plan.md`](finetuning_plan.md).
 
-**Framing.** Baseline produces *voice and content signal summaries* with hedged notes. It makes **no lie or deception claim** and has no honesty output. The application story (protecting people such as elderly callers from scams, human connection) belongs to C.
+**Framing.** Baseline produces *voice and content signal summaries* with hedged notes. It makes **no lie or deception claim** and has no honesty output. The application story belongs to C. Product (2026-10-10): a credit-score-like trust profile for voice interactions with stakes; demo = scam-call simulation: a **human plays the scammer**, our AI pushes back and applies pressure (e.g. as the bank agent asking verification questions), with the scammer's signals and decisions on the Digital Twin (4b) and the credential. Offline model: 4c.
 
 ## 1. Runtime data flow
 
@@ -79,6 +79,18 @@ live call (C) -> per-utterance signals (V: prosody details incl. emotion_estimat
               -> docs/verify.html (anyone, offline, WebCrypto Ed25519) or `credential.py verify`
 ```
 Signals added beyond the first four: response latency, talk-over count, talk-time share, mean turn length, hedges per 100 words, verification attempts, refusals, compliance phrases (keyword-based), delivery change by scripted pressure level (pressure is the scenario's own manipulation, so no stress label is needed), and the WavLM emotion estimate (acted-speech probe, `EMOTION_PROVIDER=wavlm`). Credential: payload = session id, SHA-256 of the report, signal summary, decisions, claims text; proof = Ed25519 over the exact signed text; issuer = `did:key`. The credential proves who signed which observations; it does not prove skill, honesty or suitability.
+
+## 4c. Offline network: two-stage notebook (2026-10-10, not integrated)
+`notebooks/baseline_brief_architecture.ipynb`, trained on the RTX 5090 (results pending; [`train_on_gpu_machine.md`](train_on_gpu_machine.md)).
+```
+turn audio + transcript
+  -> Stage A signal model: WavLM-base-plus (top 4 fine-tuned) + DeBERTa-v3-base (top 2) + acoustic scalars, modality dropout
+       heads: emotion, arousal, delivery
+  -> measured per-turn signals (pitch level/spread, voiced fraction, loudness, pauses, speech rate, fillers, words)
+       + deltas vs the speaker's own earlier turns + conversation events (response latency)   -> signal_timeline (PRIMARY)
+  -> Stage B causal GRU per speaker -> optional bluff / fabrication / mismatch model scores (SECONDARY)
+```
+Not wired into `pipeline.py`/`DetectorResult`; integration goes through optional `details` keys agreed with C. Bluff and mismatch have too few labels in this run (6 and 12) and report `insufficient_evidence`.
 
 ## 5. Evidence so far (exploratory; details in `results/public_checks.md`)
 On the held-out half on held-out people the shipped sustained rule fired on a mean 9.5% of usable utterances per AMI speaker-meeting session (CI 0.7 to 22.9%, 14 sessions from 9 speaker ids; median session 0%, one session 93%; sessions share meetings with the tune half). A single-clip version without the persistence step flagged 79.9% of acted high-arousal RAVDESS clips and 16.7% of held-out calm/neutral clips (12 actors). That shows the signal moves with acted arousal; it does not show it tracks real stress.

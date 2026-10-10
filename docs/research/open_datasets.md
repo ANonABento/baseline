@@ -80,5 +80,5 @@ Download check before relying on any of this: CREMA-D official access path and l
 - Read vs spontaneous from LibriSpeech vs AMI is confounded by corpus, channel and speaker population; hold out whole speakers and ideally add own recordings in both modes.
 - "Arousal" from the open set is categorical or intensity only; dimensional arousal needs MSP-Podcast (agreement) or EMOVOME (agreement for audio).
 - Licences: hackathon use of NC sets is research only. Anything going into a startup needs human sign-off in `docs/licences.md`. I did not read LICENSE.md for EmoV-DB, IEMOCAP's PDF, the CC BY-SA implications for People's Speech, or EmoDB/SAVEE terms.
-- Deception corpora: deliberately not surveyed and not used.
+- Deception corpora: deliberately not surveyed and not used. *(2026-10-10: the notebook model's optional Stage B uses Diplomacy text; see `deception_delivery_datasets.md`.)*
 - Sizes are only those stated on pages I opened; blank = not stated.

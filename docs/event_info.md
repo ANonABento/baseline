@@ -7,7 +7,8 @@ Filtered from the event page. Source of truth: Partiful / MentorMates.
 - **Theme:** Future of Work for Enterprise. Pick one track:
   - **Digital Twin:** simulated business/space to test changes before rollout.
   - **Company Brain:** capture institutional knowledge + detect when it goes stale.
-  - **Customer Layer:** acquire, serve, keep customers (support, sales, onboarding, renewals). ← **Baseline's track**
+  - **Customer Layer:** acquire, serve, keep customers (support, sales, onboarding, renewals). (Baseline's first pick.)
+- **Baseline's track (2026-10-10):** "credit score for interviews" (short high-pressure voice simulation; real-time behavioural signals: tone drift, speech rate, hesitation, de-escalation latency; operational decisions on a live Digital Twin dashboard; independently verifiable credential), generalised to a credit-score-like trust profile for any voice interaction with stakes.
 - **Judging (all tracks):**
   1. Real improvement over the course of the build
   2. Quality relative to compute spent

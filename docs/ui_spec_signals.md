@@ -14,7 +14,7 @@ Everything below already exists in the backend payloads. Wording rule everywhere
 Do not display `stress_related_change` (alias). The existing `reason` string is already hedged and can be the caption.
 
 ## 2. Digital Twin (live state + timeline)
-Twin = a running model of the person on the call: baseline learned (n/3), current delivery state (above), pressure level currently applied by our AI (1..3, from the scenario script), decisions so far (section 3), alerts. Timeline: x = call time; rows = interviewer turns (with pressure level), person turns (delivery change as colour), decision events as flags.
+Twin = a running model of the person on the call (in the demo, the human playing the scammer): baseline learned (n/3), current delivery state (above), pressure level currently applied by our AI (1..3, from the scenario script), decisions so far (section 3), alerts. Timeline: x = call time; rows = AI turns (with pressure level), person turns (delivery change as colour), decision events as flags.
 
 ## 3. Decisions (operational)
 `behaviour.decision_events` = `[{t, utterance_id, event}]` with `event` in `verification_requested`, `refused`, `complied_phrase` (keyword-based; show as "detected phrases", not as verdicts). C may replace with an LLM tag; keep the same shape.
@@ -30,3 +30,6 @@ After saving the report: `scripts/credential.py` functions `issue(report, decisi
 
 ## 7. Emotion estimate: one practical tip
 It misfires on ordinary calm speech (labels it disgust/sad), so keep it out of the verdict and out of the headline numbers; show it as a side bar. The delivery gauge, pressure timeline, decisions and credential carry the story.
+
+## 8. From the two-stage notebook model (2026-10-10; NOT in the backend payloads yet)
+Demo: scam-call simulation: a **human plays the scammer**, our AI pushes back and applies pressure (e.g. as the bank agent asking verification questions); the twin shows the scammer. If C integrates `assess_call` output, `signal_timeline[]` is the primary feed: per turn `signals` (`pitch_st_median`, `pitch_st_spread`, `speech_rate_wps`, `pause_frac`, `filler_rate`, `loudness_db`, `voiced_frac`, ...) and `delta_vs_own_earlier_turns` (same keys) = tone drift, speech rate and hesitation rows; response latency from section 4. `deception_assessment` is optional and secondary: if shown, label it "possible reading (uncalibrated model score)", list the alternatives, link the evidence turns, never "lying", never a verdict, and keep it out of the credential's claims. Bluff and mismatch return `insufficient_evidence` in this run.
