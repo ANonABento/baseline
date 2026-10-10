@@ -28,19 +28,21 @@ make dev-frontend                 # terminal 2, open the URL, pick a clip, press
 ## V: Voice & Proof (teammate)
 *"Is this the real customer, and is it a real human?"*
 
-**Owns:**
-- Backend: `backend/detectors/{speaker,spoof,prosody}.py`, `backend/segmenter.py`, `backend/providers/stt_*`, `scripts/`, `data/`, enrollment.
-- Frontend: `components/SignalCards.tsx`, `CustomerPanel.tsx`, `TrustGauge.tsx`, new `ProofStrip.tsx`, new `EnrollPanel.tsx`.
+> **Updated ~11:30 PM:** the frontend is being redesigned as a public "try it live" site (lobby → queue → live call with an AI fraudster → call report). **V's frontend tasks are paused. Focus 100% on voice models, data and eval.** The real models (mlx-whisper, silero, ECAPA, pretrained spoof) are already merged. Don't edit `app.py`, `pipeline.py` or anything in `frontend/`: agents are building the live-call backend and the new UI there right now.
 
-**Tasks:**
-1. Record both teammates' voices (~3 min natural speech + the demo scripts). Make ElevenLabs clones (team voices only, with consent).
-2. Review and merge the real-models branch (mlx-whisper, silero, ECAPA enrollment, pretrained spoof).
-3. Generate ~60 eval clips (real/fake × benign/fraud, using TTS *and* the voice changer) and label them in `data/eval/labels.csv`. Run `make eval` to produce the **first history row** (the pretrained baseline).
-4. Signal cards for Voice Match and Synthetic Audio: real score, a one-line *why*, and evidence (similarity to the enrolled voice; fake probability per window).
-5. Train the WavLM + logistic-regression spoof classifier (`scripts/train_spoof.py --holdout-speaker`). Build the edge-case suite: held-out speaker, non-ElevenLabs TTS, pitch-shift, noise, phone codec.
-6. **ProofStrip:** accuracy over the night from `results/history.csv` (needs a small `GET /history` endpoint; ask C or add it), per-utterance latency, "runs on one MacBook."
-7. If on track: Pressure card (prosody vs. the caller's baseline), and EnrollPanel (record 20 s → enroll a customer live).
-8. **Pitch:** own the proof section; record the final demo audio + backup video.
+**Owns:** `backend/detectors/{speaker,spoof,prosody}.py`, `backend/segmenter.py`, `backend/providers/stt_*`, `backend/ml/`, `scripts/` (except `eval_fraud.py`), `data/` (except `text_eval/`).
+
+**Setup:** `make setup ML=1 && make enroll-demo && make test`. Weights download to `~/.cache/huggingface` (~5 GB), so start now.
+
+**Tasks, in order:**
+1. **Read `docs/research/spoof_detection.md`** (the "Do this tonight" checklist), and §3 + §10 of the master plan.
+2. **Record voices (both teammates):** ~3 min of natural speech each, plus the demo lines. Make ElevenLabs clones (team voices only, with consent). Record some clips **through the demo channel** as well.
+3. **Build the eval set:** real vs. ElevenLabs clone (benign + fraud scripts), plus non-ElevenLabs fakes (macOS `say`, pitch-shift) as unseen generators. Label in `data/eval/labels.csv` (`is_synthetic`, `speaker`, `expected_customer`, `is_customer`, `condition`). Run `make eval` to get the pretrained baseline row.
+4. **Train the spoof classifier** with `scripts/train_spoof.py --holdout-speaker`. Per the research: pool middle WavLM layers, normalize per window, push every clip through MP3, add augmentation. Run the **shortcut audit** (silence, loudness, codec, speaker identity) so it doesn't learn the wrong thing.
+5. **The live demo depends on this:** the AI fraudster speaks through **ElevenLabs TTS**, and its audio feeds straight into the pipeline as digital audio (no speaker-to-mic). Make sure the spoof detector flags ElevenLabs flash-model output reliably, and that real human mic audio (the "scammer" role, where a visitor speaks) is **not** flagged.
+6. **Recalibrate speaker thresholds** on real recordings (`SPEAKER_ACCEPT_SIM` / `SPEAKER_REJECT_SIM`).
+7. **Pressure meter** (prosody vs. the caller's own baseline), if time allows.
+8. Run `make eval NOTE="..."` after every change, so `results/history.csv` shows improvement over the night (a judging criterion).
 
 ---
 
