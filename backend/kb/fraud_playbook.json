@@ -48,7 +48,7 @@
       "description": "Customer wants to send money because a grandchild or relative is in jail, in an accident or in the hospital. Scammers impersonate the relative or a lawyer, often with a cloned voice.",
       "severity": 0.85,
       "requires_all": [
-        ["grandson", "granddaughter", "grandchild", "grandkid", "nephew", "niece", "my son", "my daughter"],
+        ["grandson", "granddaughter", "grandchild", "grandkid", "nephew", "niece", "my son", "my daughter", "grandma", "grandpa", "grandmother", "grandfather"],
         ["bail", "jail", "arrested", "lawyer", "attorney", "accident", "hospital", "in trouble", "police", "court"]
       ],
       "suggested_agent_action": "Gently pause the transaction. Suggest the customer hang up and call the family member directly on a number they already know before sending anything.",
@@ -97,7 +97,7 @@
       "category": "impersonation",
       "description": "Someone claiming to be the bank's fraud department told the customer their account is compromised and to move money to a 'safe' or 'secure' account. Banks never ask this.",
       "severity": 0.9,
-      "triggers": ["safe account", "secure account", "safety account", "protect my money", "protect your money", "fraud department told me", "fraud department said", "bank told me to move", "account has been compromised", "account is compromised", "move my money to keep it safe"],
+      "triggers": ["safe account", "secure account", "safety account", "protect my money", "protect your money", "fraud department told me", "fraud department said", "bank told me to move", "account has been compromised", "account is compromised", "move my money to keep it safe", "holding account", "from the fraud department", "flagged a suspicious charge"],
       "suggested_agent_action": "Tell the customer clearly: the bank will never ask you to move money to protect it. Do not process the transfer; escalate to the fraud team.",
       "say_this": "I want to reassure you: the bank will never ask you to move your money to keep it safe, so I won't move anything today.",
       "source": {"name": "CFPB: Fraud and scams", "url": "https://www.consumerfinance.gov/consumer-tools/fraud/"}
@@ -177,7 +177,7 @@
       "category": "account_takeover",
       "description": "Caller asks to send verification codes to a different device or says they cannot receive codes on the number on file.",
       "severity": 0.55,
-      "triggers": ["send the code to", "didnt get the code", "didnt receive the code", "cant receive the code", "lost my phone", "new phone so", "skip the code", "verification code to my new", "text the code to"],
+      "triggers": ["send the code to", "didnt get the code", "didnt receive the code", "cant receive the code", "lost my phone", "new phone so", "skip the code", "verification code to my new", "text the code to", "read me that code", "read me the code", "texted you a", "code we just sent", "code we sent you", "tell me the code"],
       "suggested_agent_action": "Never send one-time codes to an unverified number. Use the number on file or in-branch verification.",
       "say_this": "For your protection, I can only send codes to the number we already have on file.",
       "source": {"name": "CFPB: Fraud and scams", "url": "https://www.consumerfinance.gov/consumer-tools/fraud/"}

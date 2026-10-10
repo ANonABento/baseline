@@ -28,9 +28,9 @@ log = logging.getLogger(__name__)
 SR = 16_000
 
 # macOS voices that exist on a stock install. "Samantha" is the voice CUST-004217's demo
-# voiceprint was enrolled from (`make enroll-demo`), i.e. a perfect "clone" of Margaret.
+# voiceprint was enrolled from (`make enroll-demo`), i.e. a perfect "clone" of the demo voiceprint.
 SAY_VOICES: list[dict] = [
-    {"id": "Samantha", "label": "Samantha (US, matches Margaret's enrolled voice)"},
+    {"id": "Samantha", "label": "Samantha (US, matches the demo voiceprint)"},
     {"id": "Karen", "label": "Karen (Australian)"},
     {"id": "Moira", "label": "Moira (Irish)"},
     {"id": "Daniel", "label": "Daniel (British, male)"},
@@ -38,13 +38,15 @@ SAY_VOICES: list[dict] = [
     {"id": "Fred", "label": "Fred (US, male, robotic)"},
 ]
 
-# ElevenLabs premade voices (public library ids). ELEVENLABS_VOICE_ID, if set, is listed first.
+# ElevenLabs premade voices (public library ids) for the AI caller. ELEVENLABS_VOICE_ID, if set, is listed
+# first. Baseline's own voice (BASELINE_VOICE_ID, "Sarah") is deliberately not a caller voice.
 ELEVEN_VOICES: list[dict] = [
-    {"id": "21m00Tcm4TlvDq8ikWAM", "label": "Rachel (ElevenLabs)"},
-    {"id": "EXAVITQu4vr4xnPhcfhC", "label": "Sarah (ElevenLabs)"},
+    {"id": "CwhRBWXzGAHq8TQ4Fs17", "label": "Roger (ElevenLabs)"},
+    {"id": "N2lVS1w4EtoT3dr4eOWO", "label": "Callum (ElevenLabs)"},
+    {"id": "JBFqnCBsd6RMkjVDRZzb", "label": "George (ElevenLabs)"},
     {"id": "XrExE9yKIg1WjnnlVkGX", "label": "Matilda (ElevenLabs)"},
-    {"id": "pNInz6obpgDQGcFmaJgB", "label": "Adam (ElevenLabs, male)"},
 ]
+STOCK_CALLER_VOICES = ("CwhRBWXzGAHq8TQ4Fs17", "N2lVS1w4EtoT3dr4eOWO", "JBFqnCBsd6RMkjVDRZzb")
 
 
 class TTSProvider(ABC):
@@ -63,7 +65,7 @@ class TTSProvider(ABC):
         return self.voices()[0]["id"]
 
     def valid_voice(self, voice: str) -> bool:
-        return any(v["id"] == voice for v in self.voices())
+        return any(v["id"] == voice for v in self.voices()) or voice in getattr(self, "hidden_voices", ())
 
     async def synthesize(self, text: str, voice: str) -> bytes:
         return b"".join([c async for c in self.stream(text, voice)])
@@ -165,8 +167,10 @@ class ElevenLabsTTS(TTSProvider):
     URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice}/stream"
 
     def __init__(self, api_key: str, voice_id: str = "", model: str = "eleven_flash_v2_5",
-                 fallback: TTSProvider | None = None, timeout_s: float = 15.0, voices: list[dict] | None = None):
+                 fallback: TTSProvider | None = None, timeout_s: float = 15.0, voices: list[dict] | None = None,
+                 own_label: str = "Cloned customer voice (ElevenLabs)", hidden_voices: tuple[str, ...] = ()):
         self.api_key = api_key
+        self.hidden_voices = tuple(v for v in hidden_voices if v)  # usable (Baseline's voice) but not offered
         self.voice_id = voice_id
         self.model = model
         self.fallback = fallback
@@ -178,7 +182,7 @@ class ElevenLabsTTS(TTSProvider):
             voices = sorted(voices, key=lambda v: v["id"] != voice_id)
             self._voices = voices
         else:
-            own = [{"id": voice_id, "label": "Cloned customer voice (ElevenLabs)"}] if voice_id else []
+            own = [{"id": voice_id, "label": own_label}] if voice_id else []
             self._voices = own + [v for v in ELEVEN_VOICES if v["id"] != voice_id]
 
     def voices(self) -> list[dict]:
@@ -229,8 +233,35 @@ def _resample_int16(x: np.ndarray, sr_in: int, sr_out: int) -> np.ndarray:
     return (np.clip(y, -1, 1) * 32767).astype(np.int16)
 
 
+def baseline_voice(tts: TTSProvider, settings) -> str:
+    """The voice Baseline itself speaks with (interventions)."""
+    if tts.name == "elevenlabs":
+        return getattr(settings, "baseline_voice_id", "") or tts.default_voice()
+    if tts.name == "say":
+        v = getattr(settings, "baseline_say_voice", "Samantha")
+        return v if tts.valid_voice(v) else tts.default_voice()
+    ids = [v["id"] for v in tts.voices()]
+    return ids[-1] if ids else ""
+
+
+def caller_voice(tts: TTSProvider, settings, *, clone: bool, rng=None) -> str:
+    """voice=random for the AI caller: the cloned customer voice (ELEVENLABS_VOICE_ID) when the scenario
+    impersonates the customer, else a stock voice (never Baseline's own)."""
+    import random as _random
+
+    rng = rng or _random
+    ids = [v["id"] for v in tts.voices()]
+    clone_id = getattr(settings, "elevenlabs_voice_id", "")
+    if tts.name == "elevenlabs":
+        if clone and clone_id and clone_id in ids:
+            return clone_id
+        stock = [v for v in STOCK_CALLER_VOICES if v in ids] or [v for v in ids if v != clone_id] or ids
+        return rng.choice(stock)
+    return rng.choice(ids)
+
+
 def parse_voice_list(spec: str) -> list[dict]:
-    """"Margaret (clone):abc123,Daniel:def456" -> [{id, label}]. Entries without a label use the id."""
+    """"Kevin (clone):abc123,Daniel:def456" -> [{id, label}]. Entries without a label use the id."""
     out: list[dict] = []
     for item in (spec or "").split(","):
         item = item.strip()
@@ -256,7 +287,9 @@ def make_tts(settings) -> TTSProvider:
     if choice in ("auto", "elevenlabs") and key:
         return ElevenLabsTTS(key, getattr(settings, "elevenlabs_voice_id", ""),
                              getattr(settings, "elevenlabs_model", "eleven_flash_v2_5"), fallback=say,
-                             voices=parse_voice_list(getattr(settings, "elevenlabs_voices", "")))
+                             voices=parse_voice_list(getattr(settings, "elevenlabs_voices", "")),
+                             own_label=f"{getattr(settings, 'customer_name', 'Customer')} (cloned voice)",
+                             hidden_voices=(getattr(settings, "baseline_voice_id", ""),))
     if choice == "elevenlabs":
         log.warning("TTS_PROVIDER=elevenlabs but ELEVENLABS_API_KEY is empty; falling back")
     if say is not None:
