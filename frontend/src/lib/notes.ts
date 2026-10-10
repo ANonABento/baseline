@@ -183,14 +183,19 @@ export interface Verdict {
   reasons: string[];
 }
 
+/** The evidence item whose script line to surface: most severe, and among equals the most recent. */
+export function topEvidence(evidence: EvidenceItem[], needSayThis = false): EvidenceItem | undefined {
+  return [...evidence]
+    .filter((e) => !needSayThis || e.say_this)
+    .sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity] || b.first_utterance_id - a.first_utterance_id)[0];
+}
+
 /** What the verdict strip shows: the backend alert, with the best "say this" line attached. */
 export function verdictOf(alert: AlertEvent | null, notes: Note[], evidence: EvidenceItem[]): Verdict {
   const level: VerdictLevel = alert?.level === "high" ? "alert" : alert?.level === "caution" ? "watching" : "clear";
   const flaggedLanes = new Set(notes.filter((n) => n.tier === "flag").map((n) => n.kind));
   const agreeing = alert?.signals?.length ? new Set(alert.signals).size : flaggedLanes.size;
-  const top = [...evidence]
-    .filter((e) => e.say_this)
-    .sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity] || b.first_utterance_id - a.first_utterance_id)[0];
+  const top = topEvidence(evidence, true);
   const sayThis = level === "clear" ? null : top?.say_this || alert?.suggested_action || null;
   const headline =
     level === "alert" ? "Likely fraud. Don't move money." : level === "watching" ? "Something's off. Slow down." : "Nothing unusual so far.";

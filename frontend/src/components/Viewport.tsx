@@ -11,11 +11,17 @@ interface Props {
   resolve?: number;
   scale?: number;
   drift?: boolean;
+  zoom?: number;
   className?: string;
   label?: string;
 }
 
 const FALLBACK_ROWS = 14;
+
+// ?chaos=0..1 / ?resolve=0..1 force a state on every viewport (for tuning the look)
+const params = new URLSearchParams(location.search);
+const FORCE_CHAOS = params.has("chaos") ? Number(params.get("chaos")) : null;
+const FORCE_RESOLVE = params.has("resolve") ? Number(params.get("resolve")) : null;
 
 /** Static glyph field when WebGL isn't available. */
 function GlyphFallback({ chaos = 0 }: { chaos?: number }) {
@@ -35,7 +41,7 @@ function GlyphFallback({ chaos = 0 }: { chaos?: number }) {
   );
 }
 
-export function Viewport({ source, video = null, level, chaos = 0, resolve = 0, scale, drift, className, label }: Props) {
+export function Viewport({ source, video = null, level, chaos = 0, resolve = 0, scale, drift, zoom, className, label }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const stage = useRef<Stage | null>(null);
   const style = useRenderStyle();
@@ -48,7 +54,7 @@ export function Viewport({ source, video = null, level, chaos = 0, resolve = 0, 
     if (!gl || !canvas.current) return;
     let s: Stage | null = null;
     try {
-      s = new Stage({ canvas: canvas.current, source, style, video, scale, drift, reducedMotion: reduced });
+      s = new Stage({ canvas: canvas.current, source, style, video, scale, drift, zoom, reducedMotion: reduced });
     } catch {
       return;
     }
@@ -66,8 +72,8 @@ export function Viewport({ source, video = null, level, chaos = 0, resolve = 0, 
   useEffect(() => stage.current?.setVideo(video), [video]);
   useEffect(() => {
     if (!stage.current) return;
-    stage.current.target.chaos = chaos;
-    stage.current.target.resolve = resolve;
+    stage.current.target.chaos = FORCE_CHAOS ?? chaos;
+    stage.current.target.resolve = FORCE_RESOLVE ?? resolve;
   }, [chaos, resolve]);
 
   return (

@@ -42,6 +42,8 @@ export function Transcript({ lines, notes, active, onActive, scrollTo, who, foll
   const pinned = useRef(true);
   const [hover, setHover] = useState<string | null>(null);
   const byLine = useMemo(() => notesByLine(notes), [notes]);
+  // lines arrive when each utterance finishes; show them in spoken order
+  const ordered = useMemo(() => [...lines].sort((a, b) => a.t_start - b.t_start || a.utterance_id - b.utterance_id), [lines]);
   const lit = hover ?? active;
   const litNote = notes.find((n) => n.id === lit);
 
@@ -70,7 +72,7 @@ export function Transcript({ lines, notes, active, onActive, scrollTo, who, foll
       }}
       aria-live="polite"
     >
-      {lines.map((l) => {
+      {ordered.map((l) => {
         const ns = byLine.get(l.utterance_id) ?? [];
         const segs = segmentText(l.text, ns);
         const focus = litNote?.utterance_id === l.utterance_id;

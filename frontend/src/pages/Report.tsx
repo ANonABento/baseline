@@ -4,11 +4,13 @@ import { Baseline } from "../components/Baseline";
 import { TopBar } from "../components/Chrome";
 import { Transcript } from "../components/Transcript";
 import { fetchReport, isMockSetting } from "../lib/client";
-import { buildNotes, spikesFromNotes, TIER_GLYPH, verdictOf, type Note } from "../lib/notes";
+import { buildNotes, spikesFromNotes, TIER_GLYPH, topEvidence, verdictOf, type Note } from "../lib/notes";
 import { linkTo } from "../lib/prefs";
 import { eventsFromBackend, listReports, loadLocal, replay, type Recorded } from "../lib/reports";
 import type { SignalName } from "../types";
 import { SCENARIO_LABEL } from "./Lobby";
+
+const cap = (v: string) => v.charAt(0).toUpperCase() + v.slice(1);
 
 type Loaded = { events: Recorded[]; raw: unknown; source: "backend" | "local" };
 
@@ -75,7 +77,7 @@ export function Report({ id }: { id: string }) {
       </>
     );
 
-  const peakAlert = state.alert;
+  const peakAlert = state.peakAlert ?? state.alert;
   const verdict = verdictOf(peakAlert, notes, state.evidence.items);
   const level = state.peak === "high" ? "alert" : state.peak === "caution" ? "watching" : "clear";
   const dur = state.startedAt != null && state.endedAt != null ? (state.endedAt - state.startedAt) / 1000 : 0;
@@ -92,9 +94,11 @@ export function Report({ id }: { id: string }) {
     if (!evs.length) return null;
     return evs.reduce((a, b) => (b.score > a.score ? b : a));
   };
-  const action = verdict.sayThis
-    ? state.evidence.items[0]?.suggested_agent_action || peakAlert?.suggested_action || ""
-    : "No action needed. Nothing in this call deviated from the customer's baselines.";
+  const top = topEvidence(state.evidence.items);
+  const action =
+    level === "clear"
+      ? "No action needed. Nothing in this call deviated from the customer's baselines."
+      : top?.suggested_agent_action || peakAlert?.suggested_action || "Verify the caller through the number on file before acting.";
 
   return (
     <>
@@ -172,7 +176,7 @@ export function Report({ id }: { id: string }) {
                 <dt>Claimed</dt>
                 <dd>{call ? `${call.customer.name} ${call.customer.account_mask}` : "Unknown"}</dd>
                 <dt>Voice</dt>
-                <dd>{[reveal?.voice ?? call?.voice, reveal?.tts].filter(Boolean).join(", ") || "Unknown"}</dd>
+                <dd>{[cap(reveal?.voice ?? call?.voice ?? ""), reveal?.tts].filter(Boolean).join(", ") || "Unknown"}</dd>
                 <dt>Ended</dt>
                 <dd>{state.ended?.reason.replace(/_/g, " ") ?? "Disconnected"}</dd>
               </dl>

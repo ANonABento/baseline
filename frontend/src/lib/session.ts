@@ -24,8 +24,9 @@ export interface SessionState {
   trust: number;
   trustHistory: { t: number; score: number }[];
   alert: AlertEvent | null;
-  /** highest alert level seen in this call */
+  /** highest alert level seen in this call, and the alert that set it */
   peak: AlertEvent["level"];
+  peakAlert: AlertEvent | null;
   speaking: Record<Speaker, boolean>;
   warning: { message: string; seconds_left: number; at: number } | null;
   ended: MsgOf<"call_ended"> | null;
@@ -45,6 +46,7 @@ export const INITIAL: SessionState = {
   trustHistory: [],
   alert: null,
   peak: "none",
+  peakAlert: null,
   speaking: { ai: false, visitor: false },
   warning: null,
   ended: null,
@@ -122,8 +124,8 @@ function onMsg(s: SessionState, msg: ServerMsg, now: number): SessionState {
       return { ...s, trust: msg.score, trustHistory: [...s.trustHistory, { t: elapsed(s, now), score: msg.score }] };
     case "alert": {
       const alert: AlertEvent = { ...msg, type: "alert" };
-      const peak = LEVEL_RANK[msg.level] > LEVEL_RANK[s.peak] ? msg.level : s.peak;
-      return { ...s, alert, peak };
+      const up = LEVEL_RANK[msg.level] >= LEVEL_RANK[s.peak] && msg.level !== "none";
+      return { ...s, alert, peak: up ? msg.level : s.peak, peakAlert: up ? alert : s.peakAlert };
     }
     case "warning":
       return { ...s, warning: { message: msg.message, seconds_left: msg.seconds_left, at: now } };

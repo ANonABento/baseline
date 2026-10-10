@@ -37,6 +37,8 @@ export interface StageOptions {
   scale?: number;
   /** slow camera drift for the head */
   drift?: boolean;
+  /** head framing: >1 moves the camera closer */
+  zoom?: number;
   reducedMotion?: boolean;
 }
 
@@ -330,7 +332,7 @@ export class Stage {
     this.headCam.aspect = w / h;
     // fit ~2.5 units of height (and ~1.9 of width) whatever the tile's aspect
     const tanHalf = Math.tan(THREE.MathUtils.degToRad(this.headCam.fov / 2));
-    this.headCam.position.z = Math.max(1.25 / tanHalf, 0.95 / (tanHalf * (w / h)));
+    this.headCam.position.z = Math.max(1.25 / tanHalf, 0.95 / (tanHalf * (w / h))) / (this.opts.zoom ?? 1);
     this.headCam.updateProjectionMatrix();
     const s = this.cssScale() * this.dpr;
     const u = this.postMat?.uniforms;

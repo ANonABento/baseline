@@ -75,7 +75,7 @@ export function Landing() {
 
       <section className="hero">
         <div className="hero__head">
-          <Viewport source="head" label="An unidentified caller, rendered as a shifting field of glyphs" />
+          <Viewport source="head" zoom={1.2} label="An unidentified caller, rendered as a shifting field of glyphs" />
         </div>
         <Baseline className="hero__line" ambient interactive ariaLabel="The baseline: flat when a call is normal, spiking when something deviates" />
         <div className="hero__copy">

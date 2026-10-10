@@ -419,6 +419,8 @@ button { cursor: pointer; }
 .tile { position: relative; min-height: 0; border-bottom: 1px solid var(--rule); }
 .tile .viewport { position: absolute; inset: 0; }
 .tile__label { position: absolute; left: 0.85rem; right: 0.85rem; top: 0.7rem; z-index: 2; display: flex; justify-content: space-between; gap: 1rem; pointer-events: none; }
+.tile__label .label { background: var(--bg); padding: 0.1rem 0.3rem; margin: -0.1rem -0.3rem; }
+.tile__state .label { background: var(--bg); padding: 0.1rem 0.3rem; }
 .tile__name { color: var(--ink); }
 .tile__state { position: absolute; left: 0.85rem; bottom: 0.7rem; z-index: 2; display: flex; gap: 0.5rem; align-items: center; }
 .tile--speaking .tile__name::before { content: ""; display: inline-block; width: 6px; height: 6px; background: var(--ink); margin-right: 0.5rem; vertical-align: 0.1em; }
@@ -605,7 +607,7 @@ button { cursor: pointer; }
 }
 
 @media (max-width: 820px) {
-  .room { height: auto; min-height: 100svh; overflow: visible; grid-template-rows: auto auto auto; padding-bottom: 7.5rem; }
+  .room { height: auto; min-height: 100svh; overflow: visible; grid-template-rows: auto auto auto; padding-bottom: 9.5rem; }
   .room__bar { position: sticky; top: 0; z-index: 20; background: var(--bg); gap: 0.75rem; }
   .room__main { grid-template-columns: 1fr; }
   .room__left { grid-template-rows: auto; grid-template-columns: 1fr 1fr; border-right: 0; }

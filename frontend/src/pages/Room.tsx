@@ -290,7 +290,7 @@ export function Room({ state, aiLevel, onHangup, onText, onPcm, onBargeIn, onAga
       {state.phase === "ended" && (
         <div className="ended" role="dialog" aria-label="Call ended">
           <div className="ended__inner">
-            <span className="label">Call ended{state.ended ? `, ${state.ended.reason.replace(/_/g, " ")}` : ""}</span>
+            <span className="label">{state.ended?.reveal?.persona_label ? "Call ended. The caller was" : "Call ended"}</span>
             <h2 className="ended__title">
               {state.ended?.reveal
                 ? state.ended.reveal.persona_label || "Call over."

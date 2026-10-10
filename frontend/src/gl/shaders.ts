@@ -102,7 +102,7 @@ void main(){
   vec2 g = fract(frag / cellSize);
   float a = texture2D(uAtlas, vec2((idx + g.x) / uGlyphs, g.y)).r;
   vec3 ink = mix(uDim, uInk, smoothstep(0.05, 0.75, l) * (0.85 + uResolve * 0.15));
-  float red = step(1.0 - uChaos * 0.18, hash21(cell * 1.3 + tick));
+  float red = step(1.0 - uChaos * 0.07, hash21(cell * 1.3 + tick));
   ink = mix(ink, uRed, red * step(0.05, l));
   gl_FragColor = vec4(ink * a, 1.0);
 }`;
@@ -127,7 +127,7 @@ void main(){
   l = pow(l, 1.15 - uResolve * 0.2);
   float th = bayer8(px) + (hash21(px + tick) - 0.5) * uChaos * 0.5;
   float on = step(th, l * 0.98) * step(0.03, l);
-  vec3 ink = mix(uInk, uRed, tear * step(0.6, uChaos) * step(0.5, hash21(vec2(px.y, 9.0))));
+  vec3 ink = mix(uInk, uRed, tear * step(0.6, uChaos) * step(0.8, hash21(vec2(floor(px.y / 3.0), tick))));
   gl_FragColor = vec4(ink * on, 1.0);
 }`;
 
@@ -142,7 +142,7 @@ void main(){
   vec3 dir = normalize(vec3(hash11(aRand * 91.0) - 0.5, hash11(aRand * 37.0) - 0.5, hash11(aRand * 53.0) - 0.5) + aNormal * 0.6);
   float wob = 0.5 + 0.5 * sin(uTime * 1.1 + aRand * 31.0);
   float drift = vnoise(p * 2.0 + uTime * 0.3) * 0.5;
-  p += dir * uChaos * (0.15 + drift) * (0.4 + wob) * (0.3 + aRand);
+  p += dir * uChaos * (0.1 + drift * 0.7) * (0.4 + wob) * (0.3 + aRand);
   p += aNormal * (0.012 * sin(uTime * 0.6 + p.y * 4.0)) * (1.0 - uResolve);
   vec3 N = normalize(normalMatrix * aNormal);
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
@@ -152,7 +152,7 @@ void main(){
   float rim = pow(1.0 - max(dot(N, V), 0.0), 2.6);
   vL = clamp((diff * 0.65 + rim * 0.45 + 0.05) * (0.75 + uLevel * 0.8 + uResolve * 0.2), 0.0, 1.2);
   vL *= mix(0.12, 1.0, smoothstep(-0.15, 0.25, dot(N, V)));
-  vRed = step(1.0 - uChaos * 0.22, hash11(aRand * 13.0 + floor(uTime * 4.0)));
+  vRed = step(1.0 - uChaos * 0.07, hash11(aRand * 13.0 + floor(uTime * 4.0)));
   gl_PointSize = uPx * (0.6 + vL * 1.5) * (4.0 / -mv.z);
   gl_Position = projectionMatrix * mv;
 }`;
@@ -181,7 +181,7 @@ void main(){
   p += dir * uChaos * 0.5 * (0.3 + l) * (0.5 + 0.5 * sin(uTime * 1.3 + aRand * 20.0));
   p.y += l * 0.02 * (1.0 - uResolve);
   vL = l;
-  vRed = step(1.0 - uChaos * 0.2, hash11(aRand * 5.0 + floor(uTime * 4.0))) * step(0.1, l);
+  vRed = step(1.0 - uChaos * 0.07, hash11(aRand * 5.0 + floor(uTime * 4.0))) * step(0.1, l);
   gl_PointSize = uPx * (0.15 + l * 1.05);
   gl_Position = vec4(p, 0.0, 1.0);
 }`;
