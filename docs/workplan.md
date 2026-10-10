@@ -1,6 +1,6 @@
 # Work Plan: V (Dae) and C (Kevin), with 3 checkpoints
 
-Status: **PROPOSAL from V, not yet accepted by C.** Times are from `team_split.md` syncs (4 AM cuts, 6 AM feature freeze, submit 8:30 AM) and assume the plan is accepted by ~2 AM on 2026-10-10. Anything not done by a checkpoint is cut, not carried.
+Status: **PROPOSAL from V, not yet accepted by C** (V side executed through CP2, see Progress below). Times are from `team_split.md` syncs (4 AM cuts, 6 AM feature freeze, submit 8:30 AM) and assume the plan is accepted by ~2 AM on 2026-10-10. Anything not done by a checkpoint is cut, not carried.
 
 **Product frame (unchanged, C's):** a human-connection story, e.g. protecting an elderly caller from a scam. **Model frame (V's):** voice and content signal summaries with hedged notes, **no lie detection**, no deception score. See `finetuning_plan.md`.
 
@@ -70,3 +70,20 @@ Keys V will put in `DetectorResult.details` (proposal, not agreed): `stress_rela
 - The spoof detector flags 15/40 real LibriSpeech clips; do not let spoof alone drive a high alert.
 - Interpretation notes are only as strong as the evidence file allows.
 - No recordings of people are made (decision 2026-10-10). Open datasets are acted or confounded; S2 is unvalidated.
+
+## Progress (V side, 2026-10-10, updated at CP2)
+| # | Status | Evidence |
+|---|---|---|
+| 0.1 / 0.2 | done | `research/voice_signal_evidence.md`; plan §2 labelled |
+| 0.3 | retired | recording protocol banner (open data only) |
+| 0.4 / 0.5 / 0.6 | **OPEN, waiting on C**; no reply in the room (last read: sequence 14) | proposal in section Contract |
+| 1.1 | done | `detectors/voice_state.py`, `prosody.py` adapter; 160 passed, 44 skipped, 204 collected (`make test ML=1`) |
+| 1.2 | **blocked** | needs the team ElevenLabs key (private channel); not available to this session |
+| 1.3 | done | `scripts/fetch_open_data.py`; AMI 6.2 h subset, RAVDESS md5-verified, LibriSpeech test-clean; `licences.md` |
+| 1.4 | done (exploratory) | `results/public_checks.md`, `results/public_checks.json` |
+| 2.1 | done (exploratory) | `scripts/tune_voice_state.py`, `results/tune_voice_state.json`; defaults changed after an earlier run (output overwritten, so the 55% figure is UNVERIFIED from files; nearest recorded grid row z=2, baseline 3, 1 feature, sustain 2: 57% on the tune half) |
+| 2.2 | not started | optional encoder probe |
+| 2.3 | open | demo audio from TTS depends on C's 0.6 |
+| 2.4 | partly | `architecture.md`, `results/public_checks.md`; README limits section not written (C-adjacent file) |
+
+**CP2 result (V side):** tests 160 passed, 44 skipped (software passing, not science verified). Coordinator plan followed: `/code-qa` run once (`docs/reviews/code_qa_voice_state_2026-10-10.md`); fixed NaN/inf and empty-audio handling, moved pitch tracking off the event loop, split AMI tune/report by person, added provenance to the tuning output. Known gaps from that review, not fixed: RAVDESS rows skip the quality gate; AMI revision is not pinned; LibriSpeech has no fetch command; no test that state resets between calls. Deferred to CP3 by the coordinator: `/claim-audit`, skeptical-reviewer. `/known-answer-test`: the z-score known-answer unit test (`test_zscore_known_answer`) stands in for it.

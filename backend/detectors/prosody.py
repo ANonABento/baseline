@@ -1,61 +1,46 @@
-"""Pressure / arousal relative to the caller's OWN baseline (soft signal, never "lie detection").
+"""Delivery change relative to the caller's OWN earlier speech (soft signal, never "lie detection").
 
-Placeholder implementation: loudness (RMS dBFS) and zero-crossing rate per utterance,
-baseline = utterances that start in the first `baseline_s` seconds, risk = how far the
-current utterance deviates (z-score). Drop-in plan: parselmouth pitch + speech rate."""
+Thin pipeline adapter over `detectors/voice_state.py` (pitch, loudness, rate proxy, pauses
+vs the speaker's own baseline, sustained-change rule, `insufficient_evidence` on poor audio).
+`score` keeps its fusion meaning (0-1, soft, weight 0.3); the hedged observations live in
+`details` (`stress_related_change`, `delivery_markers`, `status`, `calibration_status`)."""
 
 from __future__ import annotations
 
-import numpy as np
+import asyncio
 
 from core import CallContext, Utterance
-from detectors.base import Detector
+from detectors import voice_state
+from detectors.base import Detector, stub_result
 from events import DetectorResult
-
-
-def features(audio: np.ndarray) -> dict[str, float]:
-    if audio.size == 0:
-        return {"rms_db": -120.0, "zcr": 0.0}
-    rms = float(np.sqrt(np.mean(np.square(audio, dtype=np.float64))))
-    zcr = float(np.mean(np.abs(np.diff(np.signbit(audio).astype(np.int8))))) if audio.size > 1 else 0.0
-    return {"rms_db": 20.0 * np.log10(max(rms, 1e-6)), "zcr": zcr}
 
 
 class ProsodyDetector(Detector):
     name = "prosody"
 
-    def __init__(self, baseline_s: float = 20.0, min_baseline_utts: int = 2):
-        self.baseline_s = baseline_s
-        self.min_baseline_utts = min_baseline_utts
+    def __init__(self, min_baseline_utts: int | None = None):
+        self.min_baseline_utts = min_baseline_utts or voice_state.MIN_BASELINE_UTTS
 
     async def analyze(self, utt: Utterance, ctx: CallContext) -> DetectorResult:
-        hint = ctx.stub_hints.get(self.name)
-        if hint is not None:
-            from detectors.base import stub_result
-
+        if ctx.stub_hints.get(self.name) is not None:
             return stub_result(self.name, ctx, "")
-        st = ctx.state.setdefault(self.name, {"baseline": []})
-        f = features(utt.audio)
-        base: list[dict[str, float]] = st["baseline"]
-        if utt.t_start < self.baseline_s or len(base) < self.min_baseline_utts:
-            base.append(f)
-            return DetectorResult(
-                signal=self.name, score=0.0, confidence=0.0,
-                reason=f"Building caller baseline ({len(base)} utterance(s)).",
-                details={"features": f, "baseline": True},
-            )
-        z = {}
-        for k, floor in (("rms_db", 2.0), ("zcr", 0.01)):
-            vals = np.array([b[k] for b in base])
-            z[k] = abs(f[k] - float(vals.mean())) / max(float(vals.std()), floor)
-        zmax = max(z.values())
-        score = float(np.clip((zmax - 1.0) / 3.0, 0.0, 1.0))
-        reason = (
-            "Speech energy/rate close to this caller's baseline."
-            if score < 0.3
-            else f"Delivery deviates from caller baseline (z={zmax:.1f}); possible pressure."
-        )
+        base = ctx.state.setdefault(self.name, voice_state.SpeakerBaseline(min_n=self.min_baseline_utts))
+        try:  # pitch tracking is blocking: keep it off the event loop; never raise into the pipeline
+            f = await asyncio.to_thread(voice_state.extract_features, utt.audio, utt.sample_rate)
+        except Exception:  # noqa: BLE001
+            f = None
+        d = voice_state.assess(f, base)
+        status, change = d["status"], d["stress_related_change"]
+        if status == "building_baseline":
+            reason = f"Building this caller's baseline ({d['baseline_n']} of {base.min_n} utterances)."
+        elif status == "insufficient_evidence":
+            reason = f"Not enough usable audio to compare delivery ({', '.join(d['quality_problems'])})."
+        elif d["delivery_markers"]:
+            reason = ("Delivery differs from this caller's earlier speech: " + "; ".join(d["delivery_markers"][:3])
+                      + ". This can have many causes, including a noisy line or a new topic.")
+        else:
+            reason = "Delivery close to this caller's earlier speech."
         return DetectorResult(
-            signal=self.name, score=round(score, 3), confidence=0.25, reason=reason,
-            details={"features": f, "z": {k: round(v, 2) for k, v in z.items()}},
+            signal=self.name, score=round(change or 0.0, 3), confidence=0.25 if status == "ok" else 0.0,
+            reason=reason, details=d,
         )

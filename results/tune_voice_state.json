@@ -1,0 +1,496 @@
+{
+ "label": "EXPLORATORY tuning",
+ "seed": 0,
+ "selection_rule": "see script docstring (incl. DEVIATION note)",
+ "n_settings": 48,
+ "grid_tune_half": [
+  {
+   "z_fire": 2.0,
+   "baseline_n": 3,
+   "min_feats": 1,
+   "sustain_n": 2,
+   "ami_sustained_rate": 0.57,
+   "ravdess_high_flag": 0.987,
+   "ravdess_calm_flag": 0.683
+  },
+  {
+   "z_fire": 2.0,
+   "baseline_n": 3,
+   "min_feats": 1,
+   "sustain_n": 3,
+   "ami_sustained_rate": 0.474,
+   "ravdess_high_flag": 0.987,
+   "ravdess_calm_flag": 0.683
+  },
+  {
+   "z_fire": 2.0,
+   "baseline_n": 3,
+   "min_feats": 2,
+   "sustain_n": 2,
+   "ami_sustained_rate": 0.261,
+   "ravdess_high_flag": 0.87,
+   "ravdess_calm_flag": 0.367
+  },
+  {
+   "z_fire": 2.0,
+   "baseline_n": 3,
+   "min_feats": 2,
+   "sustain_n": 3,
+   "ami_sustained_rate": 0.173,
+   "ravdess_high_flag": 0.87,
+   "ravdess_calm_flag": 0.367
+  },
+  {
+   "z_fire": 2.0,
+   "baseline_n": 5,
+   "min_feats": 1,
+   "sustain_n": 2,
+   "ami_sustained_rate": 0.351,
+   "ravdess_high_flag": 0.961,
+   "ravdess_calm_flag": 0.806
+  },
+  {
+   "z_fire": 2.0,
+   "baseline_n": 5,
+   "min_feats": 1,
+   "sustain_n": 3,
+   "ami_sustained_rate": 0.251,
+   "ravdess_high_flag": 0.961,
+   "ravdess_calm_flag": 0.806
+  },
+  {
+   "z_fire": 2.0,
+   "baseline_n": 5,
+   "min_feats": 2,
+   "sustain_n": 2,
+   "ami_sustained_rate": 0.12,
+   "ravdess_high_flag": 0.854,
+   "ravdess_calm_flag": 0.333
+  },
+  {
+   "z_fire": 2.0,
+   "baseline_n": 5,
+   "min_feats": 2,
+   "sustain_n": 3,
+   "ami_sustained_rate": 0.061,
+   "ravdess_high_flag": 0.854,
+   "ravdess_calm_flag": 0.333
+  },
+  {
+   "z_fire": 2.0,
+   "baseline_n": 8,
+   "min_feats": 1,
+   "sustain_n": 2,
+   "ami_sustained_rate": 0.237,
+   "ravdess_high_flag": 0.948,
+   "ravdess_calm_flag": null
+  },
+  {
+   "z_fire": 2.0,
+   "baseline_n": 8,
+   "min_feats": 1,
+   "sustain_n": 3,
+   "ami_sustained_rate": 0.127,
+   "ravdess_high_flag": 0.948,
+   "ravdess_calm_flag": null
+  },
+  {
+   "z_fire": 2.0,
+   "baseline_n": 8,
+   "min_feats": 2,
+   "sustain_n": 2,
+   "ami_sustained_rate": 0.06,
+   "ravdess_high_flag": 0.768,
+   "ravdess_calm_flag": null
+  },
+  {
+   "z_fire": 2.0,
+   "baseline_n": 8,
+   "min_feats": 2,
+   "sustain_n": 3,
+   "ami_sustained_rate": 0.019,
+   "ravdess_high_flag": 0.768,
+   "ravdess_calm_flag": null
+  },
+  {
+   "z_fire": 2.5,
+   "baseline_n": 3,
+   "min_feats": 1,
+   "sustain_n": 2,
+   "ami_sustained_rate": 0.415,
+   "ravdess_high_flag": 0.932,
+   "ravdess_calm_flag": 0.533
+  },
+  {
+   "z_fire": 2.5,
+   "baseline_n": 3,
+   "min_feats": 1,
+   "sustain_n": 3,
+   "ami_sustained_rate": 0.31,
+   "ravdess_high_flag": 0.932,
+   "ravdess_calm_flag": 0.533
+  },
+  {
+   "z_fire": 2.5,
+   "baseline_n": 3,
+   "min_feats": 2,
+   "sustain_n": 2,
+   "ami_sustained_rate": 0.135,
+   "ravdess_high_flag": 0.776,
+   "ravdess_calm_flag": 0.183
+  },
+  {
+   "z_fire": 2.5,
+   "baseline_n": 3,
+   "min_feats": 2,
+   "sustain_n": 3,
+   "ami_sustained_rate": 0.08,
+   "ravdess_high_flag": 0.776,
+   "ravdess_calm_flag": 0.183
+  },
+  {
+   "z_fire": 2.5,
+   "baseline_n": 5,
+   "min_feats": 1,
+   "sustain_n": 2,
+   "ami_sustained_rate": 0.25,
+   "ravdess_high_flag": 0.911,
+   "ravdess_calm_flag": 0.722
+  },
+  {
+   "z_fire": 2.5,
+   "baseline_n": 5,
+   "min_feats": 1,
+   "sustain_n": 3,
+   "ami_sustained_rate": 0.168,
+   "ravdess_high_flag": 0.911,
+   "ravdess_calm_flag": 0.722
+  },
+  {
+   "z_fire": 2.5,
+   "baseline_n": 5,
+   "min_feats": 2,
+   "sustain_n": 2,
+   "ami_sustained_rate": 0.059,
+   "ravdess_high_flag": 0.745,
+   "ravdess_calm_flag": 0.167
+  },
+  {
+   "z_fire": 2.5,
+   "baseline_n": 5,
+   "min_feats": 2,
+   "sustain_n": 3,
+   "ami_sustained_rate": 0.029,
+   "ravdess_high_flag": 0.745,
+   "ravdess_calm_flag": 0.167
+  },
+  {
+   "z_fire": 2.5,
+   "baseline_n": 8,
+   "min_feats": 1,
+   "sustain_n": 2,
+   "ami_sustained_rate": 0.117,
+   "ravdess_high_flag": 0.878,
+   "ravdess_calm_flag": null
+  },
+  {
+   "z_fire": 2.5,
+   "baseline_n": 8,
+   "min_feats": 1,
+   "sustain_n": 3,
+   "ami_sustained_rate": 0.042,
+   "ravdess_high_flag": 0.878,
+   "ravdess_calm_flag": null
+  },
+  {
+   "z_fire": 2.5,
+   "baseline_n": 8,
+   "min_feats": 2,
+   "sustain_n": 2,
+   "ami_sustained_rate": 0.016,
+   "ravdess_high_flag": 0.674,
+   "ravdess_calm_flag": null
+  },
+  {
+   "z_fire": 2.5,
+   "baseline_n": 8,
+   "min_feats": 2,
+   "sustain_n": 3,
+   "ami_sustained_rate": 0.005,
+   "ravdess_high_flag": 0.674,
+   "ravdess_calm_flag": null
+  },
+  {
+   "z_fire": 3.0,
+   "baseline_n": 3,
+   "min_feats": 1,
+   "sustain_n": 2,
+   "ami_sustained_rate": 0.308,
+   "ravdess_high_flag": 0.893,
+   "ravdess_calm_flag": 0.4
+  },
+  {
+   "z_fire": 3.0,
+   "baseline_n": 3,
+   "min_feats": 1,
+   "sustain_n": 3,
+   "ami_sustained_rate": 0.214,
+   "ravdess_high_flag": 0.893,
+   "ravdess_calm_flag": 0.4
+  },
+  {
+   "z_fire": 3.0,
+   "baseline_n": 3,
+   "min_feats": 2,
+   "sustain_n": 2,
+   "ami_sustained_rate": 0.078,
+   "ravdess_high_flag": 0.659,
+   "ravdess_calm_flag": 0.1
+  },
+  {
+   "z_fire": 3.0,
+   "baseline_n": 3,
+   "min_feats": 2,
+   "sustain_n": 3,
+   "ami_sustained_rate": 0.053,
+   "ravdess_high_flag": 0.659,
+   "ravdess_calm_flag": 0.1
+  },
+  {
+   "z_fire": 3.0,
+   "baseline_n": 5,
+   "min_feats": 1,
+   "sustain_n": 2,
+   "ami_sustained_rate": 0.169,
+   "ravdess_high_flag": 0.859,
+   "ravdess_calm_flag": 0.361
+  },
+  {
+   "z_fire": 3.0,
+   "baseline_n": 5,
+   "min_feats": 1,
+   "sustain_n": 3,
+   "ami_sustained_rate": 0.107,
+   "ravdess_high_flag": 0.859,
+   "ravdess_calm_flag": 0.361
+  },
+  {
+   "z_fire": 3.0,
+   "baseline_n": 5,
+   "min_feats": 2,
+   "sustain_n": 2,
+   "ami_sustained_rate": 0.02,
+   "ravdess_high_flag": 0.638,
+   "ravdess_calm_flag": 0.083
+  },
+  {
+   "z_fire": 3.0,
+   "baseline_n": 5,
+   "min_feats": 2,
+   "sustain_n": 3,
+   "ami_sustained_rate": 0.006,
+   "ravdess_high_flag": 0.638,
+   "ravdess_calm_flag": 0.083
+  },
+  {
+   "z_fire": 3.0,
+   "baseline_n": 8,
+   "min_feats": 1,
+   "sustain_n": 2,
+   "ami_sustained_rate": 0.057,
+   "ravdess_high_flag": 0.81,
+   "ravdess_calm_flag": null
+  },
+  {
+   "z_fire": 3.0,
+   "baseline_n": 8,
+   "min_feats": 1,
+   "sustain_n": 3,
+   "ami_sustained_rate": 0.012,
+   "ravdess_high_flag": 0.81,
+   "ravdess_calm_flag": null
+  },
+  {
+   "z_fire": 3.0,
+   "baseline_n": 8,
+   "min_feats": 2,
+   "sustain_n": 2,
+   "ami_sustained_rate": 0.004,
+   "ravdess_high_flag": 0.56,
+   "ravdess_calm_flag": null
+  },
+  {
+   "z_fire": 3.0,
+   "baseline_n": 8,
+   "min_feats": 2,
+   "sustain_n": 3,
+   "ami_sustained_rate": 0.0,
+   "ravdess_high_flag": 0.56,
+   "ravdess_calm_flag": null
+  },
+  {
+   "z_fire": 4.0,
+   "baseline_n": 3,
+   "min_feats": 1,
+   "sustain_n": 2,
+   "ami_sustained_rate": 0.149,
+   "ravdess_high_flag": 0.781,
+   "ravdess_calm_flag": 0.233
+  },
+  {
+   "z_fire": 4.0,
+   "baseline_n": 3,
+   "min_feats": 1,
+   "sustain_n": 3,
+   "ami_sustained_rate": 0.094,
+   "ravdess_high_flag": 0.781,
+   "ravdess_calm_flag": 0.233
+  },
+  {
+   "z_fire": 4.0,
+   "baseline_n": 3,
+   "min_feats": 2,
+   "sustain_n": 2,
+   "ami_sustained_rate": 0.046,
+   "ravdess_high_flag": 0.497,
+   "ravdess_calm_flag": 0.0
+  },
+  {
+   "z_fire": 4.0,
+   "baseline_n": 3,
+   "min_feats": 2,
+   "sustain_n": 3,
+   "ami_sustained_rate": 0.035,
+   "ravdess_high_flag": 0.497,
+   "ravdess_calm_flag": 0.0
+  },
+  {
+   "z_fire": 4.0,
+   "baseline_n": 5,
+   "min_feats": 1,
+   "sustain_n": 2,
+   "ami_sustained_rate": 0.089,
+   "ravdess_high_flag": 0.729,
+   "ravdess_calm_flag": 0.194
+  },
+  {
+   "z_fire": 4.0,
+   "baseline_n": 5,
+   "min_feats": 1,
+   "sustain_n": 3,
+   "ami_sustained_rate": 0.062,
+   "ravdess_high_flag": 0.729,
+   "ravdess_calm_flag": 0.194
+  },
+  {
+   "z_fire": 4.0,
+   "baseline_n": 5,
+   "min_feats": 2,
+   "sustain_n": 2,
+   "ami_sustained_rate": 0.002,
+   "ravdess_high_flag": 0.461,
+   "ravdess_calm_flag": 0.0
+  },
+  {
+   "z_fire": 4.0,
+   "baseline_n": 5,
+   "min_feats": 2,
+   "sustain_n": 3,
+   "ami_sustained_rate": 0.0,
+   "ravdess_high_flag": 0.461,
+   "ravdess_calm_flag": 0.0
+  },
+  {
+   "z_fire": 4.0,
+   "baseline_n": 8,
+   "min_feats": 1,
+   "sustain_n": 2,
+   "ami_sustained_rate": 0.018,
+   "ravdess_high_flag": 0.706,
+   "ravdess_calm_flag": null
+  },
+  {
+   "z_fire": 4.0,
+   "baseline_n": 8,
+   "min_feats": 1,
+   "sustain_n": 3,
+   "ami_sustained_rate": 0.006,
+   "ravdess_high_flag": 0.706,
+   "ravdess_calm_flag": null
+  },
+  {
+   "z_fire": 4.0,
+   "baseline_n": 8,
+   "min_feats": 2,
+   "sustain_n": 2,
+   "ami_sustained_rate": 0.0,
+   "ravdess_high_flag": 0.378,
+   "ravdess_calm_flag": null
+  },
+  {
+   "z_fire": 4.0,
+   "baseline_n": 8,
+   "min_feats": 2,
+   "sustain_n": 3,
+   "ami_sustained_rate": 0.0,
+   "ravdess_high_flag": 0.378,
+   "ravdess_calm_flag": null
+  }
+ ],
+ "chosen": {
+  "z_fire": 2.5,
+  "baseline_n": 3,
+  "min_feats": 2,
+  "sustain_n": 3,
+  "ami_sustained_rate": 0.08,
+  "ravdess_high_flag": 0.776,
+  "ravdess_calm_flag": 0.183
+ },
+ "report_half": {
+  "ami_sustained_rate": 0.095,
+  "ami_ci95_over_speakers": [
+   0.007,
+   0.229
+  ],
+  "n_ami_speakers": 14,
+  "ravdess_high_flag": 0.799,
+  "ravdess_calm_flag": 0.167,
+  "n_actors": 12
+ },
+ "git_sha": "e400e54-dirty?",
+ "command": "python scripts/tune_voice_state.py",
+ "data_manifests": {
+  "ami": {
+   "repo": "edinburghcstr/ami",
+   "licence": "cc-by-4.0 (HF tag)",
+   "config": "ihm",
+   "files": [
+    {
+     "file": "data/external/ami/ihm/train-00000-of-00042.parquet",
+     "bytes": 296004645,
+     "sha256": "782e6f65089b2b1de0be54f279bed4c08c262748ce71591b69bd27ff44811676"
+    },
+    {
+     "file": "data/external/ami/ihm/train-00001-of-00042.parquet",
+     "bytes": 288716572,
+     "sha256": "3726c7b40d0a2e085be79a12a8234ebfb902a7f2972e2a01bc04187fedf0a1b8"
+    },
+    {
+     "file": "data/external/ami/ihm/validation-00000-of-00005.parquet",
+     "bytes": 339196635,
+     "sha256": "30a90f2fc82658c2f749864236813d1ca106060fc3870676a7e9afb423d45f47"
+    }
+   ]
+  },
+  "ravdess": {
+   "source": "zenodo.org/records/1188976",
+   "licence": "CC BY-NC-SA 4.0 (research only, not shippable)",
+   "md5": "bc696df654c87fed845eb13823edef8a",
+   "wav_files": 1440
+  }
+ },
+ "n_ami_speaker_ids": {
+  "tune": 10,
+  "report": 9
+ }
+}
