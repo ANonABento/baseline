@@ -38,3 +38,7 @@ models/
 
 # Claude Code agent worktrees
 .claude/worktrees/
+
+# Text eval: raw HF page cache + no-license datasets (fetched locally by scripts/fetch_text_eval.py)
+data/text_eval/cache/
+data/text_eval/local/

@@ -1,0 +1,14 @@
+data/text_eval/ - transcript sets for scripts/eval_fraud.py
+
+held_out_bank.jsonl   Hand-written for Baseline (42 calls: 21 scams + a benign twin each).
+                      HELD OUT: never tune prompts/keywords on it.
+bothbosu_test.jsonl   Sample (150, balanced) of the test split of BothBosu/scam-dialogue,
+bothbosu_dev.jsonl    sample (200, balanced) of its train split. Source:
+                      https://huggingface.co/datasets/BothBosu/scam-dialogue
+                      License: Apache-2.0. Reformatted to our JSONL schema (dialogue split into
+                      turns; "caller" -> customer, "receiver" -> agent). Only bothbosu_dev may be
+                      used for keyword tuning.
+local/                NOT committed. Lakshan2003/customer_service_client_agent_conversations_40k_multi_task
+                      has no license, so scripts/fetch_text_eval.py downloads a filtered banking
+                      sample here on each machine.
+cache/                NOT committed. Raw HF datasets-server pages.
