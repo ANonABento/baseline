@@ -70,7 +70,13 @@ def test_pressure_by_time_and_refusal_keyword():
 def test_interaction_and_decisions():
     r = report()
     r["transcript"][3]["text"] = "No, I will not do that, I want to verify and call you back"
-    o = analyse(r, pressure={2: 3})
+    o = analyse(r, pressure=[{"t": 7.5, "level": 3}])
+    # same transcript measured by speaker instead of the analyzed flag (role client: the human is not the analysed channel)
+    r2 = report()
+    for u in r2["transcript"]:
+        u["analyzed"] = u["speaker"] == "ai"
+    o2 = analyse(r2, pressure=[{"t": 7.5, "level": 3}], person="visitor")
+    assert o2["n_turns_analysed"] == o["n_turns_analysed"] and o2["response_latency_s"] == o["response_latency_s"]
     assert o["interaction"]["verification_attempts"] == 1 and o["interaction"]["refusals"] == 1
     assert {e["event"] for e in o["decision_events"]} == {"verification_requested", "refused"}
     assert o["delivery_change_by_pressure_level"] == {"3": {"mean_max_abs_z": 1.57, "n": 3}}  # turns 3,4,5 all follow the level-3 turn: max abs z 3.5, 1.0, 0.2

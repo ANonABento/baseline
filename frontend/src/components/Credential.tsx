@@ -98,7 +98,7 @@ export function BehaviourSummary({ id, behaviour, twin }: { id: string; behaviou
             <p className="twin__note">Verification runs in your browser against the public key inside the issuer DID. It proves who signed which observations; it does not prove skill, honesty or suitability.</p>
           </>
         ) : (
-          <p className="twin__note">{err ? "No credential for this report (candidate calls on a running backend only)." : "Loading credential…"}</p>
+          <p className="twin__note">{err ? "No credential for this report (it is issued by a running backend when the call ends)." : "Loading credential…"}</p>
         )}
       </section>
     </>

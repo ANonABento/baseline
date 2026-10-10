@@ -110,12 +110,15 @@ def test_client_visitor_lines_use_call_time():
         async def visitor_line(text, t0, t1, ms=None):
             lines.append((text, t0, t1))
 
+        async def twin_prosody(*_a):
+            return None
+
         async def transcribe(_utt):
             return "Who is this?"
 
         call = SimpleNamespace(settings=SimpleNamespace(sample_rate=16000), stt=SimpleNamespace(transcribe=transcribe),
                                col=SimpleNamespace(errors=[]), _ending=False, candidate=False, turn_q=asyncio.Queue(),
-                               _mic_to_call_time=lambda t: round(t + 12.0, 2), _visitor_line=visitor_line)
+                               _mic_to_call_time=lambda t: round(t + 12.0, 2), _visitor_line=visitor_line, _twin_prosody=twin_prosody)
         seg = SimpleNamespace(audio=np.zeros(16000, dtype=np.float32))
         await LiveCall._stt_one(call, seg, None, 0, 1.0, 2.0, time.perf_counter())
         return lines, call.turn_q.get_nowait()

@@ -29,8 +29,8 @@ export interface SessionState {
   /** highest alert level seen in this call, and the alert that set it */
   peak: AlertEvent["level"];
   peakAlert: AlertEvent | null;
-  /** candidate simulation: scripted pressure applied by the AI caller, and keyword-detected decisions */
-  pressure: { utterance_id: number; level: number; t: number }[];
+  /** Digital Twin: scripted pressure the AI applied (role client) and keyword-detected decisions in the visitor's turns */
+  pressure: { level: number; t: number }[];
   decisions: { utterance_id: number; event: DecisionKind; t: number }[];
   speaking: Record<Speaker, boolean>;
   warning: { message: string; seconds_left: number; at: number } | null;
@@ -156,7 +156,7 @@ function onMsg(s: SessionState, msg: ServerMsg, now: number): SessionState {
       };
     }
     case "pressure":
-      return { ...s, pressure: [...s.pressure, { utterance_id: msg.utterance_id, level: msg.level, t: msg.t }] };
+      return { ...s, pressure: [...s.pressure, { level: msg.level, t: msg.t }] };
     case "decision":
       return { ...s, decisions: [...s.decisions, { utterance_id: msg.utterance_id, event: msg.event, t: msg.t }] };
     case "trust":

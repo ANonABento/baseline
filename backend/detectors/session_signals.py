@@ -51,11 +51,14 @@ def _slope_per_min(t: list[float], y: list[float]) -> float | None:
     return round(float(np.polyfit(t, y, 1)[0] * 60.0), 3)
 
 
-def analyse(report: dict, pressure: dict[int, int] | None = None) -> dict:
-    """`pressure` (optional): interviewer utterance_id -> scripted pressure level (1..3). Pressure is the
-    scenario's own manipulation (known, not inferred), so delivery change by applied level needs no stress label.
-    Every analysed turn counts toward the level of the most recent interviewer turn before it."""
-    turns = [u for u in report.get("transcript", []) if u.get("analyzed")]
+def analyse(report: dict, pressure: list[dict] | None = None, person: str = "analyzed") -> dict:
+    """`person`: whose delivery is measured. "analyzed" = transcript lines flagged analyzed (legacy); "visitor" = the
+    human on the call, whichever side the pipeline analyses.
+    `pressure` (optional): [{t, level}] scripted pressure levels the AI applied (1..3). Pressure is the scenario's
+    own manipulation (known, not inferred), so delivery change by applied level needs no stress label. A turn
+    counts toward the latest level that started at or before it."""
+    is_person = (lambda u: u.get("speaker") == "visitor") if person == "visitor" else (lambda u: bool(u.get("analyzed")))
+    turns = [u for u in report.get("transcript", []) if is_person(u)]
     allturns = sorted(report.get("transcript", []), key=lambda u: u["t_start"])
     pros = _prosody_by_utt(report)
     rows, resp = [], []
@@ -65,7 +68,7 @@ def analyse(report: dict, pressure: dict[int, int] | None = None) -> dict:
         d = pros.get(u["utterance_id"], {})
         z = d.get("z") or {}
         prev = [o for o in allturns if o["t_end"] <= u["t_start"]]
-        if prev and not prev[-1].get("analyzed"):  # only when the other party spoke immediately before
+        if prev and not is_person(prev[-1]):  # only when the other party spoke immediately before
             resp.append(round(u["t_start"] - prev[-1]["t_end"], 2))
         rows.append({"t": u["t_start"], "t_end": u["t_end"], "wps": words / dur, "words": words,
                      "fillers": len(FILLERS.findall(u["text"])), "pause_frac": (d.get("features") or {}).get("pause_frac"),
@@ -89,7 +92,7 @@ def analyse(report: dict, pressure: dict[int, int] | None = None) -> dict:
     }
     n = max(len(rows), 1)
     cand_dur = sum(r["t_end"] - r["t"] for r in rows)
-    other = [u for u in allturns if not u.get("analyzed")]
+    other = [u for u in allturns if not is_person(u)]
     other_dur = sum(u["t_end"] - u["t_start"] for u in other)
     talk_over = sum(1 for u in turns if any(o["t_start"] < u["t_start"] < o["t_end"] for o in other))
     texts = [u["text"] for u in turns]
@@ -108,12 +111,13 @@ def analyse(report: dict, pressure: dict[int, int] | None = None) -> dict:
     out["decision_events"] = [{"t": round(u["t_start"], 1), "utterance_id": u["utterance_id"], "event": ev}
                               for u in turns for ev in decision_tags(u["text"])]
     if pressure:
+        levels = sorted(pressure, key=lambda x: x["t"])
         by: dict[int, list[float]] = {}
         for u in turns:
-            prev = [o for o in allturns if o["t_end"] <= u["t_start"] and not o.get("analyzed")]
+            lv = [p["level"] for p in levels if p["t"] <= u["t_start"]]
             d = pros.get(u["utterance_id"], {})
-            if prev and prev[-1]["utterance_id"] in pressure and d.get("z"):
-                by.setdefault(pressure[prev[-1]["utterance_id"]], []).append(max(abs(v) for v in d["z"].values()))
+            if lv and d.get("z"):
+                by.setdefault(lv[-1], []).append(max(abs(v) for v in d["z"].values()))
         out["delivery_change_by_pressure_level"] = {str(k): {"mean_max_abs_z": round(float(np.mean(v)), 2), "n": len(v)} for k, v in sorted(by.items())}
     peak = max((r for r in ok if r["change"] is not None), key=lambda r: max(abs(v) for v in r["z"].values()), default=None)
     rec = None

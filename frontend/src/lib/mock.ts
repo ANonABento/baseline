@@ -80,7 +80,7 @@ export class MockTransport {
   constructor(req: SessionRequest, h: Handlers) {
     this.h = h;
     const sc = SCENARIOS.find((s) => s.id === req.scenario);
-    this.role = req.role === "random" ? (sc?.role ?? pick<"client" | "scammer">(["client", "client", "scammer"])) : req.role === "candidate" ? "client" : req.role; // the pressure simulation needs the live backend
+    this.role = req.role === "random" ? (sc?.role ?? pick<"client" | "scammer">(["client", "client", "scammer"])) : req.role;
     const pool = SCENARIOS.filter((s) => s.role === this.role);
     this.scenario = req.scenario === "random" || !sc || sc.role !== this.role ? (this.role === "client" ? "grandchild" : pick(pool).id) : req.scenario;
     this.voice = req.voice === "random" ? pick(VOICES).id : req.voice;

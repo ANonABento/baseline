@@ -5,7 +5,7 @@ import { CallAudio } from "../components/CallAudio";
 import { TopBar } from "../components/Chrome";
 import { BehaviourSummary } from "../components/Credential";
 import { Transcript } from "../components/Transcript";
-import { TwinPanel, TwinTimeline } from "../components/Twin";
+import { TwinPanel } from "../components/Twin";
 import { twinView } from "../lib/twin";
 import { fetchReport, fetchReportList, isMockSetting, loadConfig } from "../lib/client";
 import { buildNotes, spikesFromNotes, TIER_GLYPH, topEvidence, verdictOf, type Note } from "../lib/notes";
@@ -123,7 +123,6 @@ export function Report({ id }: { id: string }) {
     );
 
   const behaviour = (data.raw as { behaviour?: Record<string, unknown> } | null)?.behaviour;
-  const candidate = !!behaviour || state.call?.role === "candidate";
   const peakAlert = state.peakAlert ?? state.alert;
   const verdict = verdictOf(peakAlert, notes, state.evidence.items);
   const level = state.peak === "high" ? "alert" : state.peak === "caution" ? "watching" : "clear";
@@ -165,7 +164,7 @@ export function Report({ id }: { id: string }) {
               {data.source === "local" ? ", recorded in this browser" : ""}
             </span>
             <h1 className={`report__verdict report__verdict--${level}`}>
-              {candidate ? "Digital twin summary" : level === "alert" ? "Likely fraud" : level === "watching" ? "Needs a closer look" : "No fraud signals"}
+              {level === "alert" ? "Likely fraud" : level === "watching" ? "Needs a closer look" : "No fraud signals"}
             </h1>
           </div>
           <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
@@ -181,9 +180,6 @@ export function Report({ id }: { id: string }) {
 
         <section className="report__section report__timeline" aria-label="Timeline">
           <span className="label">Timeline, {fmtTime(dur)}</span>
-          {candidate && twin ? (
-            <TwinTimeline twin={twin} duration={axis} cursor={audio && playT > 0 ? Math.min(1, playT / axis) : undefined} />
-          ) : (
           <Baseline
             spikes={spikes}
             activeId={active}
@@ -195,7 +191,6 @@ export function Report({ id }: { id: string }) {
             }}
             ariaLabel="Call timeline"
           />
-          )}
         </section>
 
         <div className="report__grid">
@@ -216,9 +211,9 @@ export function Report({ id }: { id: string }) {
           </section>
 
           <aside>
-            {candidate && twin && <TwinPanel twin={twin} duration={axis} />}
-            {candidate && behaviour && <BehaviourSummary id={id} behaviour={behaviour} twin={twin!} />}
-            {!candidate && (reveal?.role ?? call?.role) !== "scammer" && (
+            {twin && <TwinPanel twin={twin} duration={axis} />}
+            {behaviour && <BehaviourSummary id={id} behaviour={behaviour} twin={twin!} />}
+            {(reveal?.role ?? call?.role) !== "scammer" && (
               <section className="report__section">
                 <span className="label">You vs Baseline</span>
                 <YouVsBaseline state={state} compact />
@@ -234,13 +229,11 @@ export function Report({ id }: { id: string }) {
                 )}
               </section>
             )}
-            {!candidate && (
             <section className="report__section">
               <span className="label">Recommended action</span>
               <p className="action">{action}</p>
               {!clientCall && verdict.sayThis && <p className="say__text" style={{ marginTop: "1rem", color: "var(--ink-2)" }}>{verdict.sayThis}</p>}
             </section>
-            )}
 
             <section className="report__section">
               <span className="label">Reveal</span>
@@ -248,7 +241,7 @@ export function Report({ id }: { id: string }) {
                 <dt>Caller</dt>
                 <dd>{reveal?.persona_label || "Not disclosed"}</dd>
                 <dt>Visitor</dt>
-                <dd>{(reveal?.role ?? call?.role) === "scammer" ? `Played the scammer, posing as ${call?.customer.name ?? "the customer"}` : (reveal?.role ?? call?.role) === "candidate" ? "Played the bank agent under scripted pressure" : `Played the client${call?.scenario === "grandchild" ? `, ${call.customer.name}'s grandparent` : ""}`}</dd>
+                <dd>{(reveal?.role ?? call?.role) === "scammer" ? `Played the scammer, posing as ${call?.customer.name ?? "the customer"}` : `Played the client${call?.scenario === "grandchild" ? `, ${call.customer.name}'s grandparent` : ""}`}</dd>
                 <dt>Scenario</dt>
                 <dd>{(() => {
                   const id = reveal?.scenario ?? call?.scenario ?? "";
@@ -266,7 +259,6 @@ export function Report({ id }: { id: string }) {
               </dl>
             </section>
 
-            {!candidate && (
             <section className="report__section">
               <span className="label">Signals, peak per detector</span>
               <table className="sigtable">
@@ -293,7 +285,6 @@ export function Report({ id }: { id: string }) {
                 </tbody>
               </table>
             </section>
-            )}
 
             {state.evidence.items.length > 0 && (
               <section className="report__section">

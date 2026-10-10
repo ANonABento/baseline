@@ -44,7 +44,7 @@ class Brain(ABC):
         self.persona = persona
         self.history: list[dict] = []  # [{"role": "assistant"|"user", "content": str}]
         self._stub_i = 0
-        self.pressure_hint = ""  # appended to the system prompt (candidate simulation)
+        self.pressure_hint = ""  # appended to the system prompt each turn (pressure level, recent lines)
 
     def add_ai(self, text: str) -> None:
         if text:

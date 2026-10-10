@@ -5,7 +5,7 @@
     WS   /ws/session/{session_id}    queue -> call; contract in backend/README.md "Live call API"
     GET  /api/report/{id}            full end-of-call report (data/reports/<id>.json)
     GET  /api/report/{id}/audio      call recording WAV (data/reports/<id>.wav), Range-capable
-    GET  /api/credential/{id}        signed Ed25519 did:key credential for a candidate-role call
+    GET  /api/credential/{id}        signed Ed25519 did:key credential for a finished call (Digital Twin summary)
     GET  /api/reports?limit=20       newest report summaries
 
 `LiveService` holds the process-wide pieces (session manager, TTS, STT, brain factory). Tests
@@ -31,7 +31,6 @@ from caller.personas import CUSTOMER, ROLES, SCENARIOS, build_persona, normalize
 from caller.report import list_reports, load_report, valid_report_id
 from caller.tts import TTSProvider, caller_voice, make_tts
 from credential import issuer_did, load_credential
-from detectors.prosody import ProsodyDetector
 from ml import voiceprints
 from pipeline import CallPipeline
 from providers import make_stt
@@ -41,7 +40,6 @@ from settings import Settings, get_settings
 
 log = logging.getLogger("baseline.live")
 
-ALL_ROLES = [*ROLES, "candidate"]  # "random" picks from ROLES only: candidate is the assessment mode
 
 router = APIRouter()
 
@@ -54,7 +52,7 @@ class LiveService:
         self.tts = tts or make_tts(settings)
         self._stt = stt
         self.brains = brain_factory or BrainFactory(settings)
-        self.pipeline_factory = pipeline_factory or self._default_pipeline
+        self.pipeline_factory = pipeline_factory or (lambda emit: CallPipeline(emit, settings))
         self.segmenter_factory = segmenter_factory or (lambda: make_segmenter(settings))
         self.manager = manager or SessionManager(
             settings.max_concurrent_calls, settings.max_call_seconds, reconnect_grace_s=settings.reconnect_grace_s,
@@ -63,11 +61,6 @@ class LiveService:
         log.info("live calls: tts=%s (%d voices), persona llm=%s, max_concurrent=%d, max_call_s=%d",
                  self.tts.name, len(self.tts.voices()), self.llm_info(), self.manager.max_concurrent,
                  int(settings.max_call_seconds))
-
-    def _default_pipeline(self, emit, role: str = "agent") -> CallPipeline:
-        # candidate: only delivery signals on the trainee's voice (no spoof/speaker/fraud scoring of the trainee)
-        dets = [ProsodyDetector()] if role == "candidate" else None
-        return CallPipeline(emit, self.settings, detectors=dets)
 
     @property
     def stt(self):
@@ -129,7 +122,7 @@ async def warmup_live(settings: Settings) -> None:
 async def api_config() -> dict:
     svc = service()
     return {
-        "roles": ALL_ROLES,
+        "roles": list(ROLES),
         "scenarios": [{"id": s.id, "label": s.label, "role": s.role, "brief": s.brief} for s in SCENARIOS.values()],
         "customer": {"id": CUSTOMER.id, "name": CUSTOMER.name, "account_mask": CUSTOMER.account_mask},
         "voices": svc.tts.voices(),
@@ -161,7 +154,7 @@ def _pick(value: str, options: list[str], what: str) -> str:
 @router.post("/api/session")
 async def api_session(req: SessionRequest, request: Request) -> dict:
     svc = service()
-    role = _pick(normalize_role((req.role or "random").strip()), list(ALL_ROLES) if (req.role or "").strip() == "candidate" else list(ROLES), "role")
+    role = _pick(normalize_role((req.role or "random").strip()), list(ROLES), "role")
     sc_req = (req.scenario or "random").strip()
     if sc_req != "random" and sc_req in SCENARIOS and SCENARIOS[sc_req].role != role:
         if req.role in ("random", "", None):  # a scenario implies its role
@@ -205,7 +198,7 @@ async def api_issuer() -> dict:
 
 @router.get("/api/credential/{report_id}")
 async def api_credential(report_id: str) -> dict:
-    """Signed simulation credential (candidate role only). Verify offline: /verify.html or scripts/credential.py."""
+    """Signed credential for a call (the Digital Twin summary). Verify offline: /verify.html or scripts/credential.py."""
     c = load_credential(service().settings.reports_dir, report_id)
     if c is None:
         raise HTTPException(404, "credential not found")
@@ -313,7 +306,7 @@ async def ws_session(ws: WebSocket, session_id: str) -> None:
 
         call = LiveCall(session=sess, settings=svc.settings, send_json=conn.send_json, send_bytes=conn.send_bytes,
                         persona=persona, brain=svc.brains(persona), tts=svc.tts, stt=svc.stt,
-                        pipeline=svc.pipeline_factory(lambda ev: asyncio.sleep(0), sess.role),
+                        pipeline=svc.pipeline_factory(lambda ev: asyncio.sleep(0)),
                         segmenter=svc.segmenter_factory(), customer_enrolled=svc.customer_enrolled(),
                         llm_info=svc.llm_info(), on_end=on_end)
         svc.calls[session_id] = call

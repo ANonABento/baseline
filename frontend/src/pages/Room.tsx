@@ -5,7 +5,7 @@ import { Baseline } from "../components/Baseline";
 import { Mark } from "../components/Chrome";
 import { Signals } from "../components/Signals";
 import { Transcript } from "../components/Transcript";
-import { TwinPanel, TwinTimeline } from "../components/Twin";
+import { TwinPanel } from "../components/Twin";
 import { twinView } from "../lib/twin";
 import { Viewport } from "../components/Viewport";
 import { currentCamera, micChoice } from "../lib/media";
@@ -166,7 +166,6 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
   const call = state.call!;
   const role = state.ended?.reveal.role ?? call.role;
   const notes = useMemo(() => buildNotes(state.lines, state.signals, state.evidence.items), [state.lines, state.signals, state.evidence.items]);
-  const candidate = role === "candidate";
   const twin = useMemo(() => twinView(state), [state.lines, state.signals, state.pressure, state.decisions]);
   const verdict = useMemo(() => verdictOf(state.alert, notes, state.evidence.items), [state.alert, notes, state.evidence.items]);
   const [active, setActive] = useState<string | null>(null);
@@ -314,7 +313,7 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
           <Mark alert={verdict.level === "alert"} />
           <span className="hide-sm">Baseline</span>
         </a>
-        <span className="role-badge">{role === "scammer" ? "You: scammer" : candidate ? "You: agent under pressure" : `You: ${call.visitor_as ?? cust.name}`}</span>
+        <span className="role-badge">{role === "scammer" ? "You: scammer" : `You: ${call.visitor_as ?? cust.name}`}</span>
         {live && <span className="live-dot" aria-hidden />}
         <span className="room__timer" aria-label="Call time">
           {fmtTime(t)}
@@ -334,7 +333,7 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
         <div className="room__left">
           <div className={`tile ${speakingAi ? "tile--speaking" : ""} ${aiIsCaller && verdict.level === "alert" ? "tile--alert" : ""}`}>
             <div className="tile__label">
-              <span className="label tile__name">{candidate ? (SCENARIO_LABEL[call.scenario] ?? "Caller") : aiIsCaller ? callerClaim(call.scenario, cust.name) : (call.agenda?.target.name ?? "The person you called")}</span>
+              <span className="label tile__name">{aiIsCaller ? callerClaim(call.scenario, cust.name) : (call.agenda?.target.name ?? "The person you called")}</span>
               <span className="label">{aiIsCaller ? "Caller (AI)" : "Protected by Baseline (AI)"}</span>
             </div>
             <Viewport source="head" level={aiLevel} chaos={aiIsCaller ? alertChaos : 0} resolve={aiIsCaller ? resolve : 0.4} drift label="The AI caller" />
@@ -342,8 +341,8 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
           </div>
           <div className={`tile ${speakingMe ? "tile--speaking" : ""} ${!aiIsCaller && verdict.level === "alert" ? "tile--alert" : ""}`}>
             <div className="tile__label">
-              <span className="label tile__name">{candidate ? "You, First City ops desk" : aiIsCaller ? `You, ${call.visitor_as ?? cust.name}` : "You, the scammer"}</span>
-              <span className="label">{candidate ? "Measured, not judged" : aiIsCaller ? "Protected by Baseline" : "Caller"}</span>
+              <span className="label tile__name">{aiIsCaller ? `You, ${call.visitor_as ?? cust.name}` : "You, the scammer"}</span>
+              <span className="label">{aiIsCaller ? "Protected by Baseline" : "Caller"}</span>
             </div>
             <Viewport source="video" video={video} level={() => myLevel.current} chaos={!aiIsCaller ? alertChaos : 0} resolve={!aiIsCaller ? resolve : 0} label="Your camera, stylized" />
             <div className="tile__state">{holding && <span className="label">Mic open</span>}</div>
@@ -397,16 +396,14 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
         </div>
 
         <div className="room__right">
-          {candidate ? (
-            <TwinPanel twin={twin} duration={duration} />
-          ) : (
-            /* role client: the banner speaks to the client; agent-side "say this" scripts would confuse */
-            <>
-              {!aiIsCaller && call.agenda && <AgendaPanel agenda={call.agenda} />}
-              <VerdictStrip v={{ ...verdict, sayThis: null }} />
-            </>
-          )}
-          <Signals behaviour={state.behaviour} signals={state.signals} />
+          {/* role client: the banner speaks to the client; agent-side "say this" scripts would confuse */}
+          {!aiIsCaller && call.agenda && <AgendaPanel agenda={call.agenda} />}
+          <VerdictStrip v={{ ...verdict, sayThis: null }} />
+          <TwinPanel twin={twin} duration={duration} />
+          <details className="twin__more">
+            <summary className="label">All behavioural signals</summary>
+            <Signals behaviour={state.behaviour} signals={state.signals} />
+          </details>
           <Transcript
             lines={state.lines}
             notes={notes}
@@ -427,11 +424,7 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
 
       <div className="room__timeline">
         <span className="label">0:00</span>
-        {candidate ? (
-          <TwinTimeline twin={twin} duration={duration} cursor={Math.min(1, t / duration)} />
-        ) : (
-          <Baseline spikes={spikes} cursor={Math.min(1, t / duration)} activeId={active} onSpike={focusNote} agitation={Math.max(0, (70 - state.trust) / 70) * 0.5} ariaLabel="Call timeline" />
-        )}
+        <Baseline spikes={spikes} cursor={Math.min(1, t / duration)} activeId={active} onSpike={focusNote} agitation={Math.max(0, (70 - state.trust) / 70) * 0.5} ariaLabel="Call timeline" />
         <span className="label num">{fmtTime(duration)}</span>
       </div>
 
@@ -445,8 +438,8 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
                 : state.error ?? "Call over."}
             </h2>
             {state.ended?.reveal?.summary && <p className="ended__summary">{state.ended.reveal.summary}</p>}
-            {state.ended?.reveal && aiIsCaller && !candidate && <YouVsBaseline state={state} />}
-            {state.ended?.reveal && !aiIsCaller && !candidate && (
+            {state.ended?.reveal && aiIsCaller && <YouVsBaseline state={state} />}
+            {state.ended?.reveal && !aiIsCaller && (
               <p className="label">
                 {state.peak === "high" ? "Baseline raised an alert" : state.peak === "caution" ? "Baseline was watching" : "You got past Baseline"}
               </p>
@@ -454,7 +447,7 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
             <div className="ended__actions">
               {state.ended?.report_id && (
                 <button className="btn" type="button" onClick={() => navigate(`/report/${state.ended!.report_id}`)}>
-                  {candidate ? "See the twin summary and credential" : "See the report"}
+                  See the report and your Digital Twin credential
                 </button>
               )}
               <button className="btn btn--ghost" type="button" onClick={onAgain}>

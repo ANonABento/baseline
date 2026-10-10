@@ -132,12 +132,8 @@ export function eventsFromBackend(id: string, raw: unknown): Recorded[] {
       msg: { type: "signal", utterance_id: uid, signal: s(g.signal) as "fraud", score: n(g.score), confidence: n(g.confidence), reason: s(g.reason), details: obj(g.details) },
     });
   }
-  // candidate reports: pressure per AI turn (report.pressure: utterance_id -> level) and keyword decisions
-  const pressure = obj(r.pressure);
-  for (const l of arr(r.transcript)) {
-    const lvl = n(pressure[String(n(l.utterance_id))], 0);
-    if (lvl) timed.push({ t: n(l.t_start), msg: { type: "pressure", level: lvl, utterance_id: n(l.utterance_id), t: n(l.t_start) } });
-  }
+  // Digital Twin: scripted pressure the AI applied (report.pressure: [{t, level}]) and keyword decisions
+  for (const p of arr(r.pressure)) timed.push({ t: n(p.t), msg: { type: "pressure", level: n(p.level), t: n(p.t) } });
   for (const d of arr(obj(r.behaviour).decision_events)) {
     timed.push({ t: n(d.t) + 0.003, msg: { type: "decision", event: s(d.event) as "refused", utterance_id: n(d.utterance_id), t: n(d.t) } });
   }

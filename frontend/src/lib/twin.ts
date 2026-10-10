@@ -65,7 +65,7 @@ export function twinView(s: Pick<SessionState, "lines" | "signals" | "pressure" 
   const pressureAt = [...s.pressure].sort((a, b) => a.t - b.t);
   const turns: TwinTurn[] = [];
   for (const l of lines) {
-    if (!l.analyzed) continue;
+    if (l.speaker !== "visitor") continue; // the Twin measures the human on the call, whichever side Baseline analyses
     const d = prosody.get(l.utterance_id) ?? {};
     const z = (d.z ?? null) as Record<string, number> | null;
     const dur = l.t_end - l.t_start;
@@ -78,7 +78,7 @@ export function twinView(s: Pick<SessionState, "lines" | "signals" | "pressure" 
       t_end: l.t_end,
       words,
       wps: dur > 0.2 ? words / dur : null,
-      latency_s: prev && !prev.analyzed ? Math.round((l.t_start - prev.t_end) * 100) / 100 : null,
+      latency_s: prev && prev.speaker !== "visitor" ? Math.round((l.t_start - prev.t_end) * 100) / 100 : null,
       status: ((d.status as TwinTurn["status"]) ?? "none"),
       change: typeof d.delivery_change === "number" ? d.delivery_change : null,
       maxAbsZ: z ? Math.max(...Object.values(z).map(Math.abs)) : null,
