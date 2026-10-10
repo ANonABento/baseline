@@ -30,6 +30,7 @@ import numpy as np
 
 from caller.brain import Brain
 from caller.personas import CUSTOMER, SCENARIOS, Persona
+from caller.recording import CallRecorder
 from caller.report import VERDICT_LABELS, save_report
 from caller.tts import TTSProvider
 from core import Utterance
@@ -220,6 +221,8 @@ class LiveCall:
         self._send_ok = True
         frame_ms = 1000 * getattr(segmenter, "frame", 480) / settings.sample_rate
         self._frame_ms = frame_ms
+        self.record_audio = bool((getattr(session, "requested", None) or {}).get("record_audio", False))
+        self.recorder = CallRecorder(settings.sample_rate, record_visitor=self.record_audio)
 
     # ------------------------------------------------------------------ io helpers
 
@@ -324,6 +327,7 @@ class LiveCall:
             return
         x = pcm16_to_float(data)
         self._mic_samples += len(x)
+        self.recorder.add_mic(time.monotonic() - self.t0, x)
         segs = self.turn_vad.feed(x)
         if self.role == "scammer":
             self.pipe.feed_float(x)
@@ -466,6 +470,9 @@ class LiveCall:
             self.ai_speaking = False
             self._cur_timing = None
             audio, n_started = player.played_audio(cut)
+            # recording: place the heard audio where playback actually began (falls back to turn start)
+            play_off = (player.first_play_at - self.t0) if player.first_play_at is not None else t_ai_start
+            self.recorder.add_ai(play_off, audio)
             spoken = " ".join(sentences[:n_started] if cut else sentences).strip()
             if cut and spoken:
                 spoken += " —"
@@ -508,6 +515,7 @@ class LiveCall:
             self.col.errors.append(f"analysis flush incomplete: {type(e).__name__}")
         report = self.build_report(reason)
         self.report_id = report["id"]
+        report["audio"] = await self._write_audio(report)
         try:
             save_report(self.settings.reports_dir, report)
         except Exception:
@@ -523,6 +531,22 @@ class LiveCall:
                 await self.on_end(self)
         self.ended.set()
         return self.report_id
+
+    async def _write_audio(self, report: dict) -> dict | None:
+        """Write data/reports/<id>.wav; never raises (failures go to report errors, audio null)."""
+        rec = self.recorder
+        if not rec.has_audio:
+            return None
+        rid = report["id"]
+        try:
+            path = self.settings.reports_dir / f"{rid}.wav"
+            dur = await asyncio.to_thread(rec.write_wav, path, float(report["durations"]["call_s"]))
+        except Exception as e:
+            log.exception("could not write call audio")
+            report["errors"].append(f"call audio not saved: {type(e).__name__}: {e}")
+            return None
+        return {"url": f"/api/report/{rid}/audio", "duration_s": dur,
+                "channels": {"left": "ai", "right": "visitor" if rec.mic else None}}
 
     def build_report(self, reason: str) -> dict:
         f = self.pipe.fusion
@@ -576,5 +600,6 @@ class LiveCall:
                 "max_turn_ms": round(max(lat), 1) if lat else None,
                 "pipeline": self.pipe.utterance_timings,
             },
+            "audio": None,  # filled in end() once the WAV is written
             "errors": self.col.errors,
         }

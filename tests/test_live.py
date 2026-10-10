@@ -361,6 +361,79 @@ def test_role_agent_mic_audio_goes_through_stt(tmp_path):
         assert r["latencies"]["turns"][0]["stt_ms"] is not None
 
 
+def _read_wav(data: bytes):
+    import io
+    import wave
+    with wave.open(io.BytesIO(data), "rb") as w:
+        x = np.frombuffer(w.readframes(w.getnframes()), dtype="<i2").reshape(-1, w.getnchannels())
+        return w.getnchannels(), w.getframerate(), w.getsampwidth(), x
+
+
+@pytest.mark.parametrize("record", [True, False])
+def test_call_audio_recording(tmp_path, record):
+    client, svc = make_client(tmp_path)
+    with client:
+        assert client.get("/api/report/does-not-exist/audio").status_code == 404
+        assert client.get("/api/report/bad..id/audio").status_code == 404
+        sid = new_session(client, role="agent", scenario="safe_account", voice="stub-b", record_audio=record)
+        assert svc.manager.get(sid).requested["record_audio"] is record
+        with client.websocket_connect(f"/ws/session/{sid}") as ws:
+            recv_until(ws, lambda m: m["type"] == "speaking" and m["who"] == "ai" and m["state"] == "end")
+            for i in range(0, 32000, 3200):
+                ws.send_bytes(tone(1.0)[i:i + 3200])
+            for _ in range(10):
+                ws.send_bytes(bytes(3200))
+            recv_until(ws, lambda m: m["type"] == "transcript" and m["speaker"] == "visitor")
+            ws.send_text(json.dumps({"type": "hangup"}))
+            recv_until(ws, lambda m: m["type"] == "call_ended")
+        r = client.get(f"/api/report/{sid}").json()
+        a = r["audio"]
+        assert a is not None and a["url"] == f"/api/report/{sid}/audio"
+        assert a["channels"] == {"left": "ai", "right": "visitor" if record else None}
+        assert a["duration_s"] >= r["durations"]["call_s"] - 0.05
+        assert (tmp_path / "reports" / f"{sid}.wav").is_file()
+        res = client.get(a["url"])
+        assert res.status_code == 200 and res.headers["content-type"] == "audio/wav"
+        ch, sr, width, x = _read_wav(res.content)
+        assert (ch, sr, width) == (2, 16000, 2)
+        assert abs(len(x) / sr - a["duration_s"]) < 0.01
+        assert np.abs(x[:, 0]).max() > 1000  # AI opener on the left
+        assert bool(np.abs(x[:, 1]).max() > 1000) is record  # visitor tone on the right only if recorded
+        part = client.get(a["url"], headers={"Range": "bytes=0-99"})
+        assert part.status_code == 206 and len(part.content) == 100
+        assert client.get("/api/reports?limit=5").json()[0]["id"] == sid
+
+
+def test_call_audio_write_failure_keeps_report(tmp_path, monkeypatch):
+    from caller.recording import CallRecorder
+
+    def boom(self, path, duration_s):
+        raise OSError("disk full")
+    monkeypatch.setattr(CallRecorder, "write_wav", boom)
+    client, svc = make_client(tmp_path)
+    with client:
+        sid = new_session(client, role="agent", scenario="safe_account", voice="stub-b")
+        with client.websocket_connect(f"/ws/session/{sid}") as ws:
+            recv_until(ws, lambda m: m["type"] == "speaking" and m["who"] == "ai" and m["state"] == "end")
+            ws.send_text(json.dumps({"type": "hangup"}))
+            recv_until(ws, lambda m: m["type"] == "call_ended")
+        r = client.get(f"/api/report/{sid}").json()
+        assert r["audio"] is None and any("call audio not saved" in e for e in r["errors"])
+        assert client.get(f"/api/report/{sid}/audio").status_code == 404
+
+
+def test_call_recorder_placement(tmp_path):
+    from caller.recording import CallRecorder
+    rec = CallRecorder(16000, record_visitor=False)
+    rec.add_mic(1.0, np.ones(1600, dtype=np.float32))
+    assert not rec.has_audio  # visitor audio is dropped unless opted in
+    rec.add_ai(0.5, np.full(1600, 0.5, dtype=np.float32))
+    dur = rec.write_wav(tmp_path / "x.wav", 1.0)
+    ch, sr, _, x = _read_wav((tmp_path / "x.wav").read_bytes())
+    assert dur == 1.0 and len(x) == 16000 and ch == 2
+    assert x[7999, 0] == 0 and x[8000, 0] > 16000 and x[9600, 0] == 0 and not x[:, 1].any()
+
+
 def test_barge_in_stops_ai_audio(tmp_path):
     client, svc = make_client(tmp_path, barge_in_ms=200, audio_lead_ms=100)
     svc.tts = StubTTS(seconds_per_word=0.5, max_seconds=4.0)  # long opener so we can interrupt it
