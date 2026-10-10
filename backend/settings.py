@@ -139,6 +139,7 @@ class Settings(BaseSettings):
     audio_chunk_ms: int = 50  # AI audio frame size sent to the client (also the ai_level rate)
     audio_lead_ms: int = 250  # how far ahead of real time AI audio is sent (client jitter buffer)
     reports_dir: Path = REPO_ROOT / "data" / "reports"
+    issuer_key_path: Path = REPO_ROOT / "data" / "issuer.key"  # credential signing seed (gitignored, never commit)
 
     def providers_summary(self) -> dict[str, str]:
         """What each stage is configured to use (eval.py / /health record this)."""

@@ -253,7 +253,7 @@ def test_config_and_session_validation(tmp_path):
     client, svc = make_client(tmp_path)
     with client:
         c = client.get("/api/config").json()
-        assert c["roles"] == ["client", "scammer"]
+        assert c["roles"] == ["client", "scammer", "candidate"]
         assert {s["id"] for s in c["scenarios"]} == set(SCENARIOS)
         assert all(set(s) == {"id", "label", "role", "brief"} for s in c["scenarios"])
         assert c["customer"]["name"] == "Kevin"
@@ -456,6 +456,54 @@ def test_call_recorder_placement(tmp_path):
     ch, sr, _, x = _read_wav((tmp_path / "x.wav").read_bytes())
     assert dur == 1.0 and len(x) == 16000 and ch == 2
     assert x[7999, 0] == 0 and x[8000, 0] > 16000 and x[9600, 0] == 0 and not x[:, 1].any()
+
+
+def test_role_candidate_signals_pressure_and_credential(tmp_path):
+    """The trainee's own voice is analysed (prosody only), the AI applies scripted pressure, the report carries
+    `behaviour`, and a verifiable credential is served. Software correctness only, not a validity claim."""
+    import credential
+
+    client, svc = make_client(tmp_path)
+    with client:
+        sid = new_session(client, role="candidate", scenario="pressure_account_takeover", voice="stub-a")
+        with client.websocket_connect(f"/ws/session/{sid}") as ws:
+            assert jsons(recv_until(ws, lambda m: m["type"] == "call_started"), "call_started")[-1]["role"] == "candidate"
+            seen = recv_until(ws, lambda m: m["type"] == "speaking" and m["who"] == "ai" and m["state"] == "end")
+            assert jsons(seen, "pressure")[0]["level"] == 1
+            for i in range(0, 32000, 3200):
+                ws.send_bytes(tone(1.0)[i:i + 3200])
+            for _ in range(10):
+                ws.send_bytes(bytes(3200))
+            seen = recv_until(ws, lambda m: m["type"] == "signal" and m["signal"] == "prosody")
+            vis = [m for m in jsons(seen, "transcript") if m["speaker"] == "visitor"]
+            assert vis and vis[0]["analyzed"] is True  # the candidate is the analysed channel
+            ws.send_text(json.dumps({"type": "text", "text": "I can't do that until I verify you, I will call you back on the number on file."}))
+            recv_until(ws, lambda m: m["type"] == "transcript" and m["speaker"] == "ai" and m["utterance_id"] >= 1000 and m["text"] != "")
+            ws.send_text(json.dumps({"type": "hangup"}))
+            seen = recv_until(ws, lambda m: m["type"] == "call_ended")
+            assert not [m for m in jsons(seen) if m["type"] in ("alert", "trust")]  # trainee is not fraud-scored
+        r = client.get(f"/api/report/{sid}").json()
+        assert r["meta"]["analyzed_channel"] == "visitor" and r["pressure"]
+        b = r["behaviour"]
+        assert b["calibration_status"] == "not_established" and b["n_turns_analysed"] >= 2
+        assert {e["event"] for e in b["decision_events"]} >= {"verification_requested"}
+        cred = client.get(f"/api/credential/{sid}").json()
+        assert credential.verify(cred, r)[0] and cred["payload"]["session_id"] == sid
+        r["transcript"][1]["text"] = "edited after signing"
+        assert not credential.verify(cred, r)[0]
+        assert client.get("/api/credential/does-not-exist").status_code == 404
+        assert client.get("/api/issuer").json()["issuer"] == cred["payload"]["issuer"]
+
+
+def test_candidate_prompt_is_human_and_pressure_aware():
+    from caller.brain import StubBrain
+    from caller.personas import PRESSURE_HINTS, build_persona
+
+    persona = build_persona("candidate", "pressure_account_takeover")
+    assert "real person" in persona.system_prompt and "NEW angle" in persona.system_prompt
+    brain = StubBrain(persona)
+    brain.pressure_hint = PRESSURE_HINTS[3]
+    assert set(PRESSURE_HINTS) == {1, 2, 3} and "LEVEL 3" in PRESSURE_HINTS[3]
 
 
 def test_barge_in_stops_ai_audio(tmp_path):

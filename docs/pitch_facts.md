@@ -78,12 +78,12 @@ Backup one-liners:
 
 **Why this matters for the pitch:** in the UK, a coached-customer transfer now costs the *bank* up to £85K. That is the direct ROI case for flagging "vulnerable customer being coached" in real time.
 
-### 3c. EU AI Act: emotion recognition (supports "we don't do lie detection")
+### 3c. EU AI Act: emotion recognition (supports "signals and possible meanings, never a lie verdict")
 
 | # | Claim | Number | Source | URL | Date | Confidence |
 |---|---|---|---|---|---|---|
 | 3.8 | Article 5(1)(f) of the EU AI Act **bans AI systems that infer the emotions of people in the workplace or in education** from biometric data (voice included), except for medical or safety reasons. The ban has applied since **2 February 2025**; the Commission published Article 5 guidelines on 4 Feb 2025. | 2 Feb 2025 | Regulation (EU) 2024/1689; FPF analysis; Lewis Silkin | https://eur-lex.europa.eu/eli/reg/2024/1689/oj ; https://fpf.org/blog/red-lines-under-eu-ai-act-unpacking-the-prohibition-of-emotion-recognition-in-the-workplace-and-education-institutions/ | 2024-07-12 (OJ); applies 2025-02-02 | High |
-| 3.9 | **Design implication:** analyzing the *call-center agent's* emotions would be a prohibited practice in the EU. Emotion recognition on *customers* is not banned, but it is listed as **high-risk** (Annex III, point 1) and carries a duty to inform the people analyzed (Art. 50(3)). The May 2026 "Digital Omnibus" deal pushes stand-alone Annex III high-risk obligations to **2 Dec 2027**. | 2 Dec 2027 | AI Act text; Hogan Lovells / White & Case on the Omnibus | https://www.hoganlovells.com/en/publications/eu-legislators-agree-to-delay-for-highrisk-ai-rules | 2026-05 | Med (Annex III / Art. 50 placement is from my reading of the Act text, not re-verified this session; Omnibus formal adoption status unconfirmed). **Pitch line:** "We never score the agent, and we never claim to detect lies. We show deviation from the caller's own baseline, labeled 'pressure', and the evidence behind every flag." |
+| 3.9 | **Design implication:** analyzing the *call-center agent's* emotions would be a prohibited practice in the EU. Emotion recognition on *customers* is not banned, but it is listed as **high-risk** (Annex III, point 1) and carries a duty to inform the people analyzed (Art. 50(3)). The May 2026 "Digital Omnibus" deal pushes stand-alone Annex III high-risk obligations to **2 Dec 2027**. | 2 Dec 2027 | AI Act text; Hogan Lovells / White & Case on the Omnibus | https://www.hoganlovells.com/en/publications/eu-legislators-agree-to-delay-for-highrisk-ai-rules | 2026-05 | Med (Annex III / Art. 50 placement is from my reading of the Act text, not re-verified this session; Omnibus formal adoption status unconfirmed). **Pitch line:** "We never score the agent, and we never hand down a lie verdict. We show how the caller's voice moves against their own baseline, what that could mean (deception is one possible reading among others), and the evidence behind every flag." |
 
 ### 3d. FCC: AI voices in robocalls
 
@@ -125,7 +125,7 @@ Backup one-liners:
 2. **Catches the case voice-auth can't: the real customer being coached.** That's the authorized-push-payment loss that the UK already makes banks pay (up to £85K/claim) and US regulators keep pressuring on.
 3. **On-prem / one box.** Call audio never leaves the bank. It runs on a single laptop or GPU box, with no per-call cloud fees, which matters as AWS Voice ID exits.
 4. **Priced for credit unions.** There are 4,214 of them, serving 146M members, many older and lower-income, and most can't sign a Pindrop-scale enterprise contract.
-5. **Honest signals.** No lie detection, no agent emotion scoring (EU-prohibited), and measured accuracy shown on held-out data.
+5. **Signals plus what they could mean, not a lie detector.** We show tone drift, speech rate, hesitation, response latency, emotion, arousal and delivery vs the speaker's own baseline, with hedged possible meanings and alternatives; deception is one possible interpretation, never a verdict. No agent emotion scoring (EU-prohibited); measured accuracy on held-out data.
 
 ---
 

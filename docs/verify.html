@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Verify credential</title>
+<style>body{font:16px system-ui;max-width:760px;margin:2rem auto;padding:0 16px}textarea{width:100%;height:220px;font:12px monospace}
+#r{font-weight:600;margin:1rem 0}.ok{color:#0a7d2c}.bad{color:#b3261e}pre{background:#f4f4f4;padding:12px;overflow:auto;font-size:12px}</style></head><body>
+<h1>Verify a Baseline simulation credential</h1>
+<p>Runs entirely in your browser (no server, no upload). Checks the Ed25519 signature against the public key inside the issuer <code>did:key</code>. It proves who signed which exact text; it does not prove skill, honesty or suitability.</p>
+<textarea id="in" placeholder="paste credential JSON"></textarea><p><button id="go">Verify</button></p><div id="r"></div><pre id="out"></pre>
+<script>
+const B58="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+function b58dec(s){let n=0n;for(const c of s){n=n*58n+BigInt(B58.indexOf(c))}let h=n.toString(16);if(h.length%2)h="0"+h;
+ const body=h.match(/../g)?.map(x=>parseInt(x,16))||[];let z=0;for(const c of s){if(c==="1")z++;else break}return new Uint8Array([...Array(z).fill(0),...body])}
+function eq(a,b){if(a===b)return true;if(typeof a!=="object"||typeof b!=="object"||!a||!b)return false;const ka=Object.keys(a),kb=Object.keys(b);
+ return ka.length===kb.length&&ka.every(k=>eq(a[k],b[k]))}
+const hex=s=>new Uint8Array(s.match(/../g).map(x=>parseInt(x,16)));
+document.getElementById("go").onclick=async()=>{const r=document.getElementById("r"),o=document.getElementById("out");
+ try{const c=JSON.parse(document.getElementById("in").value),p=c.payload,t=c.proof.signed_text;
+  const raw=b58dec(p.issuer.replace("did:key:z",""));if(raw[0]!==0xed||raw[1]!==0x01||raw.length!==34)throw Error("issuer is not an Ed25519 did:key");
+  const key=await crypto.subtle.importKey("raw",raw.slice(2),{name:"Ed25519"},false,["verify"]);
+  const ok=await crypto.subtle.verify({name:"Ed25519"},key,hex(c.proof.signature),new TextEncoder().encode(t));
+  if(!ok)throw Error("signature does not match the signed text and issuer key");
+  if(!eq(JSON.parse(t),p))throw Error("payload differs from the signed text");
+  r.className="ok";r.textContent="VALID: signed by "+p.issuer;o.textContent=JSON.stringify(p,null,1)}
+ catch(e){r.className="bad";r.textContent="INVALID: "+e.message;o.textContent=""}};
+</script></body></html>

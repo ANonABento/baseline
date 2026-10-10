@@ -149,3 +149,26 @@ async def test_mlx_whisper_transcribes_utterance():
     a = read_audio(DEMO / "takeover_clone.wav")[int(11.0 * SR):int(16.2 * SR)]
     text = (await stt.transcribe(Utterance(0, a, SR, 11.0, 16.2))).lower()
     assert "wire" in text and "account" in text
+
+
+def test_segnet_disabled_without_env_or_weights(monkeypatch):
+    from ml import segnet
+
+    monkeypatch.delenv("SEGNET_PROVIDER", raising=False)
+    assert not segnet.enabled() and segnet.estimate(__import__("numpy").zeros(16000, dtype="float32"), 16000, "hi") is None
+
+
+def test_segnet_fine_tuned_model_runs(monkeypatch):
+    """Loads data/models/baseline_brief_full.pt (needs `git lfs pull` and the cached HF base models); software check only."""
+    import numpy as np
+
+    from ml import segnet
+
+    monkeypatch.setenv("SEGNET_PROVIDER", "brief")
+    if not segnet.enabled():
+        pytest.skip("baseline_brief_full.pt not pulled (git lfs pull)")
+    y = (0.1 * np.sin(2 * np.pi * 180 * np.arange(32000) / 16000)).astype("float32")
+    r = segnet.estimate(y, 16000, "I need to verify who you are")
+    assert r is not None and r["mode"] == "fused" and r["calibration_status"] == "not_established"
+    assert set(r["emotion"]) == {"neutral", "calm", "happy", "sad", "angry", "fearful", "disgust", "surprised"}
+    assert abs(sum(r["emotion"].values()) - 1) < 0.02 and abs(sum(r["arousal"].values()) - 1) < 0.02

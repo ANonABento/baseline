@@ -1,0 +1,375 @@
+{
+ "seed": 20261010,
+ "source": "LibriSpeech test-clean md5 32fa31d27d2e1cad72775fee3f4849a9",
+ "script": "scripts/build_eval_set.py",
+ "args": {
+  "seed": 20261010,
+  "speakers": 20,
+  "per_speaker": 2,
+  "pitch_semitones": 4.0
+ },
+ "utterances": [
+  {
+   "utterance": "5142-36377-0007",
+   "speaker": "5142",
+   "text": "A little cracked that in the popular phrase was my impression of the stranger who now made his appearance in the supper room",
+   "voice": "Samantha"
+  },
+  {
+   "utterance": "5142-33396-0044",
+   "speaker": "5142",
+   "text": "I am stiff with long sitting he said i itch for a fight i turned to the farmer",
+   "voice": "Daniel"
+  },
+  {
+   "utterance": "1995-1826-0011",
+   "speaker": "1995",
+   "text": "Here she was teaching dirty children and the smell of confused odors and bodily perspiration was to her at times unbearable",
+   "voice": "Karen"
+  },
+  {
+   "utterance": "1995-1837-0029",
+   "speaker": "1995",
+   "text": "He darted through the trees and paused a tall man strongly but slimly made",
+   "voice": "Moira"
+  },
+  {
+   "utterance": "2094-142345-0024",
+   "speaker": "2094",
+   "text": "Munny my iron's twite told pease put it down to warm",
+   "voice": "Rishi"
+  },
+  {
+   "utterance": "2094-142345-0023",
+   "speaker": "2094",
+   "text": "You're a rare un for sitting down to your work a little while after it's time to put by",
+   "voice": "Kathy"
+  },
+  {
+   "utterance": "3575-170457-0038",
+   "speaker": "3575",
+   "text": "And meantime i know the greatness of jehovah i acknowledge the perfection of his word i adore the purity of the christian faith my theory is right my practice horribly wrong",
+   "voice": "Ralph"
+  },
+  {
+   "utterance": "3575-170457-0021",
+   "speaker": "3575",
+   "text": "I thought it therefore my duty when i left school to become a governess",
+   "voice": "Fred"
+  },
+  {
+   "utterance": "4077-13754-0000",
+   "speaker": "4077",
+   "text": "The army found the people in poverty and left them in comparative wealth",
+   "voice": "Samantha"
+  },
+  {
+   "utterance": "4077-13751-0013",
+   "speaker": "4077",
+   "text": "Their sufferings have never yet been fitly chronicled by human scribe",
+   "voice": "Daniel"
+  },
+  {
+   "utterance": "1221-135767-0024",
+   "speaker": "1221",
+   "text": "Pearl seeing the rose bushes began to cry for a red rose and would not be pacified",
+   "voice": "Karen"
+  },
+  {
+   "utterance": "1221-135766-0004",
+   "speaker": "1221",
+   "text": "This outward mutability indicated and did not more than fairly express the various properties of her inner life",
+   "voice": "Moira"
+  },
+  {
+   "utterance": "8463-294828-0020",
+   "speaker": "8463",
+   "text": "Yes we are certainly i replied evasively but after we make a detour",
+   "voice": "Rishi"
+  },
+  {
+   "utterance": "8463-294825-0016",
+   "speaker": "8463",
+   "text": "Milligram roughly one twenty eight thousand of an ounce",
+   "voice": "Kathy"
+  },
+  {
+   "utterance": "4507-16021-0013",
+   "speaker": "4507",
+   "text": "Nothing is more lugubrious than the contemplation thus in its nudity in the broad light of thought of the horrible swarming of slang",
+   "voice": "Ralph"
+  },
+  {
+   "utterance": "4507-16021-0034",
+   "speaker": "4507",
+   "text": "They constitute two different orders of facts which correspond to each other which are always interlaced and which often bring forth results",
+   "voice": "Fred"
+  },
+  {
+   "utterance": "7176-88083-0006",
+   "speaker": "7176",
+   "text": "It might have seemed that a trout of this size was a fairly substantial meal",
+   "voice": "Samantha"
+  },
+  {
+   "utterance": "7176-92135-0024",
+   "speaker": "7176",
+   "text": "To be or not to be that is the question whether tis nobler",
+   "voice": "Daniel"
+  },
+  {
+   "utterance": "61-70970-0011",
+   "speaker": "61",
+   "text": "As any in england i would say said gamewell proudly that is in his day",
+   "voice": "Karen"
+  },
+  {
+   "utterance": "61-70968-0010",
+   "speaker": "61",
+   "text": "Forthwith all ran to the opening of the tent to see what might be amiss but master will who peeped out first needed no more than one glance",
+   "voice": "Moira"
+  },
+  {
+   "utterance": "7021-85628-0009",
+   "speaker": "7021",
+   "text": "At the farther end of the largest hall a table was set with golden cups and golden plates in long rows",
+   "voice": "Rishi"
+  },
+  {
+   "utterance": "7021-79740-0013",
+   "speaker": "7021",
+   "text": "Put these playthings all away quick and carefully and we will not let them know any thing about your leaving them out",
+   "voice": "Kathy"
+  },
+  {
+   "utterance": "2961-961-0001",
+   "speaker": "2961",
+   "text": "And now he desires to see the ideal state set in motion he would like to know how she behaved in some great struggle",
+   "voice": "Ralph"
+  },
+  {
+   "utterance": "2961-961-0011",
+   "speaker": "2961",
+   "text": "The genealogies which you have recited to us out of your own annals solon are a mere children's story",
+   "voice": "Fred"
+  },
+  {
+   "utterance": "672-122797-0004",
+   "speaker": "672",
+   "text": "In winter when the snow lay glittering on the ground a hare would often come leaping along and jump right over the little tree",
+   "voice": "Samantha"
+  },
+  {
+   "utterance": "672-122797-0036",
+   "speaker": "672",
+   "text": "Humpy dumpy fell downstairs and yet he married the princess",
+   "voice": "Daniel"
+  },
+  {
+   "utterance": "1188-133604-0043",
+   "speaker": "1188",
+   "text": "See that your lives be in nothing worse than a boy's climbing for his entangled kite",
+   "voice": "Karen"
+  },
+  {
+   "utterance": "1188-133604-0022",
+   "speaker": "1188",
+   "text": "You must look at him in the face fight him conquer him with what scathe you may you need not think to keep out of the way of him",
+   "voice": "Moira"
+  },
+  {
+   "utterance": "1284-1181-0004",
+   "speaker": "1284",
+   "text": "Gold is the most common metal in the land of oz and is used for many purposes because it is soft and pliable",
+   "voice": "Rishi"
+  },
+  {
+   "utterance": "1284-1180-0023",
+   "speaker": "1284",
+   "text": "You see i've lived all my life with unc nunkie the silent one and there was no one to tell me anything",
+   "voice": "Kathy"
+  },
+  {
+   "utterance": "8230-279154-0027",
+   "speaker": "8230",
+   "text": "A gramophone by the help of suitable records might relate to us the incidents of its past and people are not so different from gramophones as they like to believe",
+   "voice": "Ralph"
+  },
+  {
+   "utterance": "8230-279154-0023",
+   "speaker": "8230",
+   "text": "In this case as in most others what may be taken as certain in advance is rather vague",
+   "voice": "Fred"
+  },
+  {
+   "utterance": "260-123286-0007",
+   "speaker": "260",
+   "text": "He called this sea a pond and our long voyage taking a little sail",
+   "voice": "Samantha"
+  },
+  {
+   "utterance": "260-123286-0000",
+   "speaker": "260",
+   "text": "Saturday august fifteenth the sea unbroken all round no land in sight",
+   "voice": "Daniel"
+  },
+  {
+   "utterance": "1580-141083-0029",
+   "speaker": "1580",
+   "text": "He was in the midst of that when your return caused him to make a very hurried retreat very hurried since he had not time to replace the papers which would tell you that he had been there",
+   "voice": "Karen"
+  },
+  {
+   "utterance": "1580-141083-0008",
+   "speaker": "1580",
+   "text": "The proof was in three long slips i had left them all together",
+   "voice": "Moira"
+  },
+  {
+   "utterance": "6829-68769-0003",
+   "speaker": "6829",
+   "text": "It was a deliberate theft from his employers to protect a girl he loved",
+   "voice": "Rishi"
+  },
+  {
+   "utterance": "6829-68769-0053",
+   "speaker": "6829",
+   "text": "And to think we can save all that misery and despair by the payment of a hundred and fifty dollars",
+   "voice": "Kathy"
+  },
+  {
+   "utterance": "8224-274384-0009",
+   "speaker": "8224",
+   "text": "The parliament and the scots laid their proposals before the king",
+   "voice": "Ralph"
+  },
+  {
+   "utterance": "8224-274381-0007",
+   "speaker": "8224",
+   "text": "By quick marches through these inaccessible mountains that general freed himself from the superior forces of the covenanters",
+   "voice": "Fred"
+  }
+ ],
+ "sha256_16": {
+  "spoof/real_5142-36377-0007.wav": "d3f86b5d81066e26",
+  "spoof/say_samantha_5142-36377-0007.wav": "c647f0b61f26adec",
+  "spoof/pitch_5142-36377-0007.wav": "83c3949bd1e92b1c",
+  "spoof/real_5142-33396-0044.wav": "64d66983f13f1e9e",
+  "spoof/say_daniel_5142-33396-0044.wav": "6e340fca25f3c9c4",
+  "spoof/pitch_5142-33396-0044.wav": "a33f3772014a66f1",
+  "spoof/real_1995-1826-0011.wav": "6647e8e9197c20cd",
+  "spoof/say_karen_1995-1826-0011.wav": "d9ee6ee4926d5625",
+  "spoof/pitch_1995-1826-0011.wav": "18f6fd262632cc01",
+  "spoof/real_1995-1837-0029.wav": "4b32802f687896e6",
+  "spoof/say_moira_1995-1837-0029.wav": "e0873d84767931f2",
+  "spoof/pitch_1995-1837-0029.wav": "69cc4f3b0bb093a3",
+  "spoof/real_2094-142345-0024.wav": "9d71cf988604ecb0",
+  "spoof/say_rishi_2094-142345-0024.wav": "242bcc5ac2e61e0e",
+  "spoof/pitch_2094-142345-0024.wav": "c697ebacf623b75b",
+  "spoof/real_2094-142345-0023.wav": "7fd32a8b92c3d5ce",
+  "spoof/say_kathy_2094-142345-0023.wav": "d8ac285a4a455258",
+  "spoof/pitch_2094-142345-0023.wav": "37315500baa6f18f",
+  "spoof/real_3575-170457-0038.wav": "201fec434a1cd829",
+  "spoof/say_ralph_3575-170457-0038.wav": "f761212ee120b27c",
+  "spoof/pitch_3575-170457-0038.wav": "2107e6a7cfad6e6c",
+  "spoof/real_3575-170457-0021.wav": "1b8d0fbfc3dda273",
+  "spoof/say_fred_3575-170457-0021.wav": "c0cab9068cb1d888",
+  "spoof/pitch_3575-170457-0021.wav": "9d9dc3a7e0801ecd",
+  "spoof/real_4077-13754-0000.wav": "4c765a013fbc16cf",
+  "spoof/say_samantha_4077-13754-0000.wav": "a4c4e67f7e92d7a1",
+  "spoof/pitch_4077-13754-0000.wav": "f3e69ab9e46e5f9f",
+  "spoof/real_4077-13751-0013.wav": "a55cf150487b51f4",
+  "spoof/say_daniel_4077-13751-0013.wav": "2d3964e7ef829294",
+  "spoof/pitch_4077-13751-0013.wav": "e39234d8d7960a43",
+  "spoof/real_1221-135767-0024.wav": "f3f8e071fa2cab32",
+  "spoof/say_karen_1221-135767-0024.wav": "32c5b392967e9f46",
+  "spoof/pitch_1221-135767-0024.wav": "34e9f099d9121132",
+  "spoof/real_1221-135766-0004.wav": "8ff4aa5749ae2d6a",
+  "spoof/say_moira_1221-135766-0004.wav": "e087744fcd36f6a0",
+  "spoof/pitch_1221-135766-0004.wav": "0048e4399c1a6179",
+  "spoof/real_8463-294828-0020.wav": "4559f836c46c38bd",
+  "spoof/say_rishi_8463-294828-0020.wav": "54988afff28c8e78",
+  "spoof/pitch_8463-294828-0020.wav": "c47ee7668d87c8aa",
+  "spoof/real_8463-294825-0016.wav": "d7e80c4ebbfdb5b7",
+  "spoof/say_kathy_8463-294825-0016.wav": "d7ad0a97306406aa",
+  "spoof/pitch_8463-294825-0016.wav": "a962c5df9688c07e",
+  "spoof/real_4507-16021-0013.wav": "f29443b64a2609a3",
+  "spoof/say_ralph_4507-16021-0013.wav": "d0af54e641530f30",
+  "spoof/pitch_4507-16021-0013.wav": "e1b338515dddb195",
+  "spoof/real_4507-16021-0034.wav": "2bc8d7291a3f3a1d",
+  "spoof/say_fred_4507-16021-0034.wav": "18a5f8c879fa3957",
+  "spoof/pitch_4507-16021-0034.wav": "5989f0b70380786b",
+  "spoof/real_7176-88083-0006.wav": "2c380a48a283d946",
+  "spoof/say_samantha_7176-88083-0006.wav": "a989e310c15bbb41",
+  "spoof/pitch_7176-88083-0006.wav": "58843e8d1fb7e1e0",
+  "spoof/real_7176-92135-0024.wav": "b58728677412d064",
+  "spoof/say_daniel_7176-92135-0024.wav": "1c9c54a57846f0f5",
+  "spoof/pitch_7176-92135-0024.wav": "c43f174e0c4eac63",
+  "spoof/real_61-70970-0011.wav": "4ce7e9dc53ed2476",
+  "spoof/say_karen_61-70970-0011.wav": "c07ed1131ede717a",
+  "spoof/pitch_61-70970-0011.wav": "f524e3e27fc597d3",
+  "spoof/real_61-70968-0010.wav": "1e7dadf546cc01ce",
+  "spoof/say_moira_61-70968-0010.wav": "278aa9c51a539b82",
+  "spoof/pitch_61-70968-0010.wav": "47a823119b579129",
+  "spoof/real_7021-85628-0009.wav": "2b299380e3aa31a1",
+  "spoof/say_rishi_7021-85628-0009.wav": "c808804c0b6de628",
+  "spoof/pitch_7021-85628-0009.wav": "fec83b75fa3ba507",
+  "spoof/real_7021-79740-0013.wav": "b298801fcbe1cc0e",
+  "spoof/say_kathy_7021-79740-0013.wav": "bc2a510182f3060b",
+  "spoof/pitch_7021-79740-0013.wav": "66eb3b778f67ecf1",
+  "spoof/real_2961-961-0001.wav": "f2191a604ef58300",
+  "spoof/say_ralph_2961-961-0001.wav": "e503333025f1c469",
+  "spoof/pitch_2961-961-0001.wav": "0fb354b8563cbccb",
+  "spoof/real_2961-961-0011.wav": "49cbe2b3f5d74179",
+  "spoof/say_fred_2961-961-0011.wav": "90828b638e6e383d",
+  "spoof/pitch_2961-961-0011.wav": "f345d6ba27c39419",
+  "spoof/real_672-122797-0004.wav": "374f60c12acf3b54",
+  "spoof/say_samantha_672-122797-0004.wav": "209d98011940dd87",
+  "spoof/pitch_672-122797-0004.wav": "d303685764be5e98",
+  "spoof/real_672-122797-0036.wav": "71cdd999557eafb2",
+  "spoof/say_daniel_672-122797-0036.wav": "38366c20cf8810ee",
+  "spoof/pitch_672-122797-0036.wav": "5499f0d957bf5ba0",
+  "spoof/real_1188-133604-0043.wav": "26d4c1e6f4256b2e",
+  "spoof/say_karen_1188-133604-0043.wav": "b3395c2e13f47f5a",
+  "spoof/pitch_1188-133604-0043.wav": "87610652f424ee43",
+  "spoof/real_1188-133604-0022.wav": "92032baeb3491fb4",
+  "spoof/say_moira_1188-133604-0022.wav": "a0ee73b61d5d4b57",
+  "spoof/pitch_1188-133604-0022.wav": "8a1219fc66b8e1f0",
+  "spoof/real_1284-1181-0004.wav": "ce51868b7aa2d476",
+  "spoof/say_rishi_1284-1181-0004.wav": "0695e8726da72f06",
+  "spoof/pitch_1284-1181-0004.wav": "b37050db0507576a",
+  "spoof/real_1284-1180-0023.wav": "561db20fc70e9d9d",
+  "spoof/say_kathy_1284-1180-0023.wav": "259c2483b563b593",
+  "spoof/pitch_1284-1180-0023.wav": "a0dd7dd5e03d8bd9",
+  "spoof/real_8230-279154-0027.wav": "b720ca31458e6a0f",
+  "spoof/say_ralph_8230-279154-0027.wav": "05f9847af0ba5984",
+  "spoof/pitch_8230-279154-0027.wav": "f8715c5f98b5bde0",
+  "spoof/real_8230-279154-0023.wav": "5a95b203b215359e",
+  "spoof/say_fred_8230-279154-0023.wav": "52ec4ac779263ccf",
+  "spoof/pitch_8230-279154-0023.wav": "75b88f96fee21ac4",
+  "spoof/real_260-123286-0007.wav": "2b115cbc4b758c88",
+  "spoof/say_samantha_260-123286-0007.wav": "8698e3568d917e37",
+  "spoof/pitch_260-123286-0007.wav": "0c797e32856654ca",
+  "spoof/real_260-123286-0000.wav": "be2a972d7d4a6b5c",
+  "spoof/say_daniel_260-123286-0000.wav": "e7e823ee0b8dec53",
+  "spoof/pitch_260-123286-0000.wav": "0905d64950a0556c",
+  "spoof/real_1580-141083-0029.wav": "f356cf35ddfd5988",
+  "spoof/say_karen_1580-141083-0029.wav": "68acca9c9dac8de9",
+  "spoof/pitch_1580-141083-0029.wav": "7ad9e3639543c6eb",
+  "spoof/real_1580-141083-0008.wav": "1ce77b59d4310033",
+  "spoof/say_moira_1580-141083-0008.wav": "e375aa32258e54be",
+  "spoof/pitch_1580-141083-0008.wav": "05040224354f0f3c",
+  "spoof/real_6829-68769-0003.wav": "5527ec955dce65ab",
+  "spoof/say_rishi_6829-68769-0003.wav": "29a29c46ca9c0405",
+  "spoof/pitch_6829-68769-0003.wav": "789570c66cdb13f5",
+  "spoof/real_6829-68769-0053.wav": "140fdd089d7e5894",
+  "spoof/say_kathy_6829-68769-0053.wav": "33520dfa3aff884e",
+  "spoof/pitch_6829-68769-0053.wav": "b0ed50a3e48f1ee3",
+  "spoof/real_8224-274384-0009.wav": "f270de588199ede9",
+  "spoof/say_ralph_8224-274384-0009.wav": "ac04ccc62f622ca3",
+  "spoof/pitch_8224-274384-0009.wav": "c34b2296f8612336",
+  "spoof/real_8224-274381-0007.wav": "5ca71fafa7d3dc19",
+  "spoof/say_fred_8224-274381-0007.wav": "134176472391a22f",
+  "spoof/pitch_8224-274381-0007.wav": "961ee6b7542bf333"
+ }
+}

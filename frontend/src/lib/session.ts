@@ -2,7 +2,7 @@
 // Pure reducer, no DOM: unit-tested under node --test (tests/session.test.ts).
 import { EMPTY_EVIDENCE, mergeEvidence, type EvidenceState } from "../analysis.ts";
 import type { AlertEvent, SignalEvent, TranscriptEvent } from "../types.ts";
-import type { MsgOf, ServerMsg, Speaker } from "./contract.ts";
+import type { Behaviour, DecisionKind, MsgOf, ServerMsg, Speaker } from "./contract.ts";
 
 export type Phase = "lobby" | "requesting" | "queued" | "live" | "ended" | "error";
 
@@ -23,10 +23,15 @@ export interface SessionState {
   evidence: EvidenceState;
   trust: number;
   trustHistory: { t: number; score: number }[];
+  /** latest behavioural-signal summary for the analysed speaker */
+  behaviour: Behaviour | null;
   alert: AlertEvent | null;
   /** highest alert level seen in this call, and the alert that set it */
   peak: AlertEvent["level"];
   peakAlert: AlertEvent | null;
+  /** candidate simulation: scripted pressure applied by the AI caller, and keyword-detected decisions */
+  pressure: { utterance_id: number; level: number; t: number }[];
+  decisions: { utterance_id: number; event: DecisionKind; t: number }[];
   speaking: Record<Speaker, boolean>;
   warning: { message: string; seconds_left: number; at: number } | null;
   /** Baseline's warnings to the client (role client), with call time in seconds */
@@ -54,9 +59,12 @@ export const INITIAL: SessionState = {
   evidence: EMPTY_EVIDENCE,
   trust: 100,
   trustHistory: [],
+  behaviour: null,
   alert: null,
   peak: "none",
   peakAlert: null,
+  pressure: [],
+  decisions: [],
   speaking: { ai: false, visitor: false },
   warning: null,
   interventions: [],
@@ -147,6 +155,10 @@ function onMsg(s: SessionState, msg: ServerMsg, now: number): SessionState {
         evidence: ev.signal === "fraud" ? mergeEvidence(s.evidence, ev, s.lines) : s.evidence,
       };
     }
+    case "pressure":
+      return { ...s, pressure: [...s.pressure, { utterance_id: msg.utterance_id, level: msg.level, t: msg.t }] };
+    case "decision":
+      return { ...s, decisions: [...s.decisions, { utterance_id: msg.utterance_id, event: msg.event, t: msg.t }] };
     case "trust":
       return { ...s, trust: msg.score, trustHistory: [...s.trustHistory, { t: elapsed(s, now), score: msg.score }] };
     case "alert": {
@@ -154,6 +166,10 @@ function onMsg(s: SessionState, msg: ServerMsg, now: number): SessionState {
       const up = LEVEL_RANK[msg.level] >= LEVEL_RANK[s.peak] && msg.level !== "none";
       const flagT = s.flagT ?? (msg.level !== "none" ? round1(elapsed(s, now)) : null);
       return { ...s, alert, peak: up ? msg.level : s.peak, peakAlert: up ? alert : s.peakAlert, flagT };
+    }
+    case "behaviour": {
+      const { type: _t, t: _at, ...b } = msg;
+      return { ...s, behaviour: b };
     }
     case "warning":
       return { ...s, warning: { message: msg.message, seconds_left: msg.seconds_left, at: now } };

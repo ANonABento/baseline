@@ -1,0 +1,99 @@
+# Architecture: how everything fits (V model side + C application side)
+
+Status 2026-10-10. Written by V (Dae's session). C-owned parts are described from reading the code, not from C. Progress and checkpoint results: [`workplan.md`](workplan.md). Model design and evidence limits: [`finetuning_plan.md`](finetuning_plan.md).
+
+**Framing.** Baseline produces *voice and content signal summaries* with hedged notes. It makes **no lie or deception claim** and has no honesty output. The application story belongs to C. Product (2026-10-10): a credit-score-like trust profile for voice interactions with stakes; demo = scam-call simulation: a **human plays the scammer**, our AI pushes back and applies pressure (e.g. as the bank agent asking verification questions), with the scammer's signals and decisions on the Digital Twin (4b) and the credential. Offline model: 4c.
+
+## 1. Runtime data flow
+
+```
+mic / replayed WAV (16 kHz mono)
+        │  app.py WebSocket /ws/call            (C)
+        ▼
+ pipeline.py  CallPipeline                      (C)
+        │  segmenter.py: VAD -> Utterance        (V)  EnergyVAD | SileroVAD
+        ▼
+ per utterance, concurrently
+   ├─ STT provider  (providers/stt_*)            (V)  mlx-whisper | stub sidecar
+   ├─ speaker.py    ECAPA voice match            (V)  signal "speaker"
+   ├─ spoof.py      pretrained synthetic-voice   (V)  signal "spoof"
+   ├─ prosody.py -> voice_state.py               (V)  signal "prosody"  <- new this session
+   └─ after STT: fraud.py (LLM + rules, kb/)     (C)  signal "fraud"
+        ▼
+ events.py DetectorResult {signal, score, confidence, reason, details}   (C schema)
+        ▼
+ fusion.py  noisy-OR of score x confidence x weight -> Trust Score,
+            alert level, reasons, action                                   (C)
+        ▼
+ frontend (React): transcript, trust, alert, panels                        (C)
+```
+
+Rules that keep V and C decoupled:
+- The only interface is `DetectorResult` in `backend/events.py`. V adds only optional keys inside `details`; nothing is renamed or removed. `SignalName` (`speaker|spoof|prosody|fraud`) is C's file, so the voice-state output rides on the existing `prosody` signal instead of a new one.
+- Fusion reads only `score` and `confidence` of `prosody` (weight 0.3, soft: it can raise a caution but never a "high" alert alone; `tests/test_fusion.py::test_prosody_alone_never_high`).
+- `confidence = 0` means fusion ignores the result. Poor audio and the baseline-building phase use that.
+
+## 2. The voice-state module (V, new)
+
+`backend/detectors/voice_state.py` (pure functions + `SpeakerBaseline`) and `backend/detectors/prosody.py` (pipeline adapter).
+
+| Step | What it does | Where |
+|---|---|---|
+| Features | median pitch and pitch spread (semitones, `librosa.yin`), mean active-frame loudness (relative dBFS), energy-peak rate (a rough syllable-rate proxy, not words per minute), pause fraction | `extract_features` |
+| Quality gate | under 1 s, clipped (>1% of samples), SNR proxy under 10 dB, too little voiced speech -> `insufficient_evidence`, `confidence = 0`, never joins the baseline | `quality_problems` |
+| Baseline | first 3 usable utterances of this call and speaker; robust centre and spread (median, MAD) with per-feature floors; frozen once ready so a pressure run cannot drag it along | `SpeakerBaseline` |
+| Change rule | a feature counts when abs(z) >= 2.5; at least 2 features together; reported only after 3 consecutive utterances (sustained); score maps the largest abs(z) to 0..1 | `assess` |
+| Output | `details`: `status`, `stress_related_change` (0..1 or null), `delivery_markers` (hedged strings, e.g. "higher pitch than this speaker's earlier delivery"), `emotion_estimate` (null for now), `calibration_status = not_established`; the change score is sign-agnostic (any direction of change raises it) and is shown to users as "change vs this speaker's earlier delivery", not as stress, `z`, `features` | `assess` |
+
+What it is not: no deception key exists or will be added; the numbers are changes relative to the speaker's own earlier delivery, which can come from excitement, a noisy line, a new topic or a different microphone. **Calibration against real stress is not established** (no open dataset has stress ground truth), so S2 stays a `HYPOTHESIS` (the claim that no open dataset has stress ground truth rests on the survey in `research/open_datasets.md`, not re-verified).
+
+Built later (4b): response latency and the emotion estimate, as library code (`session_signals.py`, `ml/emotion.py`); not yet shown live in the UI (see `ui_spec_signals.md` §9). Not built: content observations S4 (C).
+
+## 3. Data and evaluation
+
+| Piece | Where | Notes |
+|---|---|---|
+| Open datasets (gitignored) | `data/external/` via `scripts/fetch_open_data.py` (md5/sha256 manifests) | AMI ihm subset (3 shards; 7,788 segments and 6.2 h counted from the parquet files on 2026-10-10, not stored in a results file), RAVDESS (1,440 clips), LibriSpeech test-clean |
+| Licence register | [`licences.md`](licences.md) | research-only, hackathon scope; RAVDESS and CREMA-D marked non-shippable |
+| Public checks | `scripts/public_checks.py` -> `results/public_checks.json` | exploratory; seed 0; bootstrap CIs resample speakers/actors |
+| Unit tests | `tests/test_voice_state.py` (11 cases from 8 test functions), full suite via `make test ML=1` | software correctness only |
+| Spoof/speaker/e2e eval | `scripts/eval.py` -> `results/history.csv` | existing |
+| Demo audio | `data/demo/` (TTS, three clips tracked) | no participant voices |
+
+No recordings of people are made (decision 2026-10-10).
+
+## 4. Ownership
+
+| Area | Owner | Files |
+|---|---|---|
+| Voice and model side | V (Dae) | `backend/detectors/{speaker,spoof,prosody,voice_state}.py`, `segmenter.py`, `providers/stt_*`, `ml/`, `scripts/` (not `eval_fraud.py`), `data/` (not `text_eval/`), `tests/test_voice_state.py`, `docs/{finetuning_plan,licences,workplan,architecture}.md`, `docs/research/` |
+| Application, content, UI, pitch | C (Kevin) | `events.py`, `fusion.py`, `pipeline.py`, `app.py`, `fraud*.py`, `kb/`, `providers/llm_*`, `frontend/` |
+
+## 4b. Session layer, twin and credential (added 2026-10-10)
+```
+live call (C) -> per-utterance signals (V: prosody details incl. emotion_estimate, delivery_change, z, features)
+              -> call report JSON (C, caller/report.py)
+              -> session_signals.analyse(report, pressure?)   (V)  -> report['behaviour']  (C stores)
+              -> Digital Twin page (C): live state while the call runs, full summary at the end
+              -> scripts/credential.py issue (V logic; CLI today: no API endpoint or UI call at call end yet) -> credential JSON
+              -> docs/verify.html (anyone, offline, WebCrypto Ed25519) or `credential.py verify`
+```
+Signals added beyond the first four: response latency, talk-over count, talk-time share, mean turn length, hedges per 100 words, verification attempts, refusals, compliance phrases (keyword-based), delivery change by scripted pressure level (pressure is the scenario's own manipulation, so no stress label is needed), and the WavLM emotion estimate (acted-speech probe, `EMOTION_PROVIDER=wavlm`). Credential: payload = session id, SHA-256 of the report, signal summary, decisions, claims text; proof = Ed25519 over the exact signed text; issuer = `did:key`. The credential proves who signed which observations; it does not prove skill, honesty or suitability.
+
+## 4c. Offline network: two-stage notebook (2026-10-10, not integrated)
+`notebooks/baseline_brief_architecture.ipynb`, trained on the RTX 5090 on 2026-10-10 (weights `data/models/baseline_brief_full.pt`, results `results/brief_architecture_full.json`; summary and the known Stage A delivery bug in [`train_on_gpu_machine.md`](train_on_gpu_machine.md)).
+```
+turn audio + transcript
+  -> Stage A signal model: WavLM-base-plus (top 4 fine-tuned) + DeBERTa-v3-base (top 2) + acoustic scalars, modality dropout
+       heads: emotion, arousal, delivery
+  -> measured per-turn signals (pitch level/spread, voiced fraction, loudness, pauses, speech rate, fillers, words)
+       + deltas vs the speaker's own earlier turns + conversation events (response latency)   -> signal_timeline (PRIMARY)
+  -> Stage B causal GRU per speaker -> optional bluff / fabrication / mismatch model scores (SECONDARY)
+```
+Not wired into `pipeline.py`/`DetectorResult`; integration goes through optional `details` keys agreed with C. Bluff and mismatch have too few labels in this run (6 and 12) and report `insufficient_evidence`.
+
+## 5. Evidence so far (exploratory; details in `results/public_checks.md`)
+On the held-out half on held-out people the shipped sustained rule fired on a mean 9.5% of usable utterances per AMI speaker-meeting session (CI 0.7 to 22.9%, 14 sessions from 9 speaker ids; median session 0%, one session 93%; sessions share meetings with the tune half). A single-clip version without the persistence step flagged 79.9% of acted high-arousal RAVDESS clips and 16.7% of held-out calm/neutral clips (12 actors). That shows the signal moves with acted arousal; it does not show it tracks real stress.
+
+## 6. Open interface items (waiting on C)
+0.4 accept the output contract, 0.5 which `details` keys `fusion.py` may read, 0.6 demo persona and clip source. Posted in the room; no reply as of the last read (sequence 14). Until C replies, the keys in section 2 are a **proposal**.

@@ -134,3 +134,22 @@ test("queue position 0 (immediate slot) then call_started", () => {
   const s = run([{ kind: "request" }, msg({ type: "queue", position: 0, queue_length: 0, eta_s: 0 }), msg(started)]);
   assert.equal(s.phase, "live");
 });
+
+test("behaviour messages keep the latest signal summary", () => {
+  const b = {
+    n_turns_analysed: 2, n_turns_with_baseline: 0, calibration_status: "not_established",
+    tone_drift: { pitch_z_per_min: null, loudness_z_per_min: null, max_abs_z: 0 },
+    speech_rate: { words_per_s_mean: 2.4, words_per_s_trend_per_min: null },
+    hesitation: { fillers_per_100_words: 12.5, pause_frac_mean: null },
+    response_latency_s: { mean: 1.8, max: 2.6, n: 2 },
+    recovery_latency: { status: "no_peak_over_threshold" },
+    interaction: { talk_over_count: 0, talk_time_share: 0.4, mean_turn_s: 3, hedges_per_100_words: 0,
+                   verification_attempts: 1, refusals: 1, compliance_phrases: 0 },
+    decision_events: [{ t: 12.3, utterance_id: 1, event: "refused" }],
+  };
+  let s = run([{ kind: "request" }, msg(started, 0), msg({ type: "behaviour", t: 5, ...b, n_turns_analysed: 1 })]);
+  assert.equal(s.behaviour?.n_turns_analysed, 1);
+  s = run([msg({ type: "behaviour", t: 9, ...b })], s);
+  assert.deepEqual(s.behaviour, b);
+  assert.equal(run([msg(started, 0)], s).behaviour, null); // a new call starts clean
+});

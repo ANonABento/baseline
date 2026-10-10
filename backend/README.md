@@ -138,6 +138,7 @@ ECAPA, spoof pretrained, persona LLM Ollama `qwen3.5:4b`, `HF_HUB_OFFLINE=1`; en
 |---|---|---|---|
 | `agent` | the bank agent | a fraudster calling as Margaret Chen (CUST-004217), per `scenario` | the AI caller's TTS audio vs Margaret's voiceprint; its LLM text is the transcript (no STT) |
 | `scammer` | a fraudster trying to take over Margaret's account | a polite bank agent ("Jordan", First City Bank) who follows verification procedure | the visitor's mic (VAD + STT + all detectors) vs Margaret's voiceprint |
+| `candidate` | the bank agent under scripted pressure (assessment/training mode; never picked by `"random"`) | the same fraudster personas as `agent`, with pressure level 1 to 3 rising by AI turn (2 calm turns, 2 rising, then high) | the visitor's own voice, **prosody only** (STT then `feed_utterance`; no spoof/speaker/fraud scoring, no `trust`/`alert` events). Delivery change is vs their own first 3 usable turns |
 
 The `say` voice `Samantha` is the voice Margaret's demo voiceprint was enrolled from, so in role `agent`
 it plays a perfect clone (speaker check passes; spoof + fraud catch it).
@@ -145,7 +146,7 @@ it plays a perfect clone (speaker check passes; spoof + fraud catch it).
 ### HTTP
 
 - `GET /api/config` ->
-  `{roles:["agent","scammer"], scenarios:[{id,label}], voices:[{id,label}], max_concurrent, queue_length,
+  `{roles:["agent","scammer","candidate"], scenarios:[{id,label}], voices:[{id,label}], max_concurrent, queue_length,
   active_calls, tts:"elevenlabs"|"say"|"stub", llm:{provider, model}}`.
   Scenarios: `account_takeover`, `grandparent_coached`, `safe_account`, `verification_evasion`.
   Voices: `say` voices without an ElevenLabs key; with `ELEVENLABS_API_KEY`, the `ELEVENLABS_VOICES` list
@@ -158,6 +159,9 @@ it plays a perfect clone (speaker check passes; spoof + fraud catch it).
 - `GET /api/report/{id}` -> the full report (404 if unknown). `GET /api/report/{id}/audio` -> the call
   audio as a stereo WAV (seekable; 404 if none). `GET /api/reports?limit=20` -> newest
   first: `[{id, created_at, role, scenario, voice, ended_reason, call_s, level, label, trust, caught, turns}]`.
+- `GET /api/credential/{id}` -> the signed credential for a `candidate` call (404 otherwise). Written at call end
+  to `data/reports/credentials/<id>.json`; signing seed `data/issuer.key` (created on first use, gitignored `*.key`,
+  never commit). Format and offline verification: `credential.py`, `frontend/public/verify.html`.
 
 ### WebSocket `/ws/session/{session_id}`
 
@@ -186,6 +190,11 @@ Server -> client JSON:
   `utterance_id` >= 1000 so they never collide. AI lines are sent when the AI finishes its turn (an
   interrupted line ends with ` —`). `t_start`/`t_end` are seconds since call start.
 - `signal`, `trust`, `alert`: unchanged pipeline events (see above / `events.py`).
+- Role `candidate` only: `{"type":"pressure","level":1..3,"utterance_id","t"}` when each AI turn starts
+  (`utterance_id` is the AI line's id, >= 1000) and `{"type":"decision","event":"verification_requested"|
+  "refused"|"complied_phrase","utterance_id","t"}` per candidate turn (keyword-based, from
+  `session_signals.decision_tags`; phrases, not verdicts). The prosody `signal` `details` carry
+  `status`, `baseline_n`, `delivery_change`, `delivery_markers`, `z`, `features`, optional `emotion_estimate`.
 - `{"type":"warning","message","seconds_left"}`: `CALL_WARNING_SECONDS` (30) before the hard cap.
 - `{"type":"call_ended","reason":"hangup"|"timeout"|"error","report_id","reveal":{"role","scenario",
   "persona_label","voice","tts"}}`, sent after the final analysis flush and report save.
@@ -216,6 +225,10 @@ speech_end_to_first_audio_ms?}], mean_turn_ms, p50_turn_ms, max_turn_ms, pipelin
 16-bit stereo at the pipeline rate, AI caller left (always), visitor mic right (only with `record_audio`), on
 the transcript's timeline (AI lines are stamped when their audio starts playing).
 `caught` = an alert was raised (the fraudster side is always a fraudster in this simulation).
+Role `candidate` adds `pressure` (`{ai utterance_id: level}`) and `behaviour` (`detectors/session_signals.analyse`:
+tone_drift, speech_rate, hesitation, response_latency_s, interaction, decision_events,
+delivery_change_by_pressure_level, recovery_latency; `calibration_status: not_established`); the credential
+signs the SHA-256 of that saved report.
 
 ### AI side
 

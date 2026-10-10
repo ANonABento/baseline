@@ -18,11 +18,17 @@ frontend/dist/
 
 # Audio data (large / personal voices). Small demo clips in data/demo/ ARE tracked.
 data/train/
+data/external/
 data/enroll/
 data/eval/**/*.wav
 data/eval/**/*.flac
 data/eval/**/*.mp3
 data/eval/**/*.m4a
+# any stray recording outside data/ (data/demo/ stays tracked by design)
+*.wav
+*.flac
+*.m4a
+!data/demo/**
 *.aiff
 *.aif
 models/
@@ -49,3 +55,9 @@ data/text_eval/local/
 .sharednet/
 # Live-call reports (WS /ws/session)
 data/reports/
+
+# synthetic call data (generated; regenerate with scripts/generate_synthetic_calls.py)
+data/synthetic/
+
+# Credential issuer signing key (never commit)
+*.key
