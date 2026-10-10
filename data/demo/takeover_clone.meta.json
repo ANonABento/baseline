@@ -1,0 +1,14 @@
+{
+  "stub_hints": {
+    "spoof": {
+      "score": 0.88,
+      "confidence": 0.8,
+      "reason": "[stub hint] synthetic-speech artifacts (placeholder until spoof model lands)"
+    },
+    "speaker": {
+      "score": 0.1,
+      "confidence": 0.8,
+      "reason": "[stub hint] voice matches enrolled customer (clone fools voice-ID)"
+    }
+  }
+}

@@ -1,0 +1,218 @@
+{
+  "version": 1,
+  "notes": "Fraud / social-engineering patterns for bank call-center calls. Triggers are case-insensitive phrases matched on word boundaries (apostrophes are ignored, so \"don't\" == \"dont\"); a trigger starting with \"re:\" is a raw regex. If `requires_all` is present, every group must have at least one hit and `triggers` is ignored. `severity` is the risk score (0-1) contributed when the pattern matches. Sources are top-level consumer-protection pages; verify before citing in the pitch.",
+  "patterns": [
+    {
+      "id": "ato_contact_change_then_money",
+      "name": "Account takeover: contact change + money movement",
+      "category": "account_takeover",
+      "description": "Caller changes the phone number, email or mailing address on file and, in the same call, asks to move money. Classic account-takeover sequence: redirect one-time codes and callbacks to the fraudster, then drain the account.",
+      "severity": 0.9,
+      "requires_all": [
+        ["change my phone number", "update my phone number", "change the phone number", "update the phone number", "new phone number", "new number", "change my email", "update my email", "change the email", "update the email", "new email", "change my address", "update my address", "change the address", "new address", "re:\\b(change|update)\\s+(my|the)\\s+(phone|number|email|address|contact)"],
+        ["re:\\bwir(e|ed|ing)\\b", "transfer", "send money", "move money", "move the money", "withdraw", "re:\\$\\s?\\d", "re:\\b\\d[\\d,]*\\s+(dollars|thousand)", "thousand dollars", "hundred dollars", "new account", "new payee"]
+      ],
+      "suggested_agent_action": "Do not process the change or the payment in this call. Verify identity by calling back on the phone number already on file (not the new one), and place a hold on outgoing transfers per account-takeover policy.",
+      "source": {"name": "FTC Consumer Advice: Scam Alerts", "url": "https://consumer.ftc.gov/features/scam-alerts"}
+    },
+    {
+      "id": "contact_info_change",
+      "name": "Contact details change request",
+      "category": "account_takeover",
+      "description": "Request to change phone, email or address. Usually legitimate, but it is the first step of most account takeovers, so it raises risk slightly and combines with other signals.",
+      "severity": 0.25,
+      "triggers": ["change my phone number", "update my phone number", "new phone number", "change my email", "update my email", "new email address", "change my address", "update my address", "re:\\b(change|update)\\s+(my|the)\\s+(phone|number|email|address|contact)"],
+      "suggested_agent_action": "Complete step-up verification before changing contact details, and send a confirmation to the old contact method.",
+      "source": {"name": "CFPB: Fraud and scams", "url": "https://www.consumerfinance.gov/consumer-tools/fraud/"}
+    },
+    {
+      "id": "urgent_wire_new_payee",
+      "name": "Urgent wire to a new payee",
+      "category": "payment_pressure",
+      "description": "Caller insists a wire or transfer must go out right now, often to a new recipient. Urgency is the most common lever in authorized-push-payment fraud.",
+      "severity": 0.55,
+      "requires_all": [
+        ["re:\\bwir(e|ed|ing)\\b", "transfer", "send money", "send the money", "move money"],
+        ["right now", "immediately", "urgent", "urgently", "today", "as soon as possible", "asap", "emergency", "before its too late", "cant wait"]
+      ],
+      "suggested_agent_action": "Slow the call down. Ask who the recipient is and how the customer knows them; offer a cooling-off hold before releasing the wire.",
+      "source": {"name": "FBI IC3", "url": "https://www.ic3.gov/"}
+    },
+    {
+      "id": "grandparent_bail",
+      "name": "Grandparent / family emergency scam",
+      "category": "impersonation",
+      "description": "Customer wants to send money because a grandchild or relative is in jail, in an accident or in the hospital. Scammers impersonate the relative or a lawyer, often with a cloned voice.",
+      "severity": 0.85,
+      "requires_all": [
+        ["grandson", "granddaughter", "grandchild", "grandkid", "nephew", "niece", "my son", "my daughter"],
+        ["bail", "jail", "arrested", "lawyer", "attorney", "accident", "hospital", "in trouble", "police", "court"]
+      ],
+      "suggested_agent_action": "Gently pause the transaction. Suggest the customer hang up and call the family member directly on a number they already know before sending anything.",
+      "source": {"name": "FTC Consumer Advice: Scam Alerts", "url": "https://consumer.ftc.gov/features/scam-alerts"}
+    },
+    {
+      "id": "gift_cards",
+      "name": "Gift card payment",
+      "category": "payment_method",
+      "description": "Someone asked the customer to pay with gift cards or read gift-card numbers over the phone. No legitimate business or agency demands payment in gift cards.",
+      "severity": 0.8,
+      "triggers": ["gift card", "gift cards", "itunes card", "apple card numbers", "google play card", "steam card", "numbers on the back", "scratch off the back"],
+      "suggested_agent_action": "Explain that gift-card payment demands are always scams. Do not process related withdrawals; offer to report to the FTC.",
+      "source": {"name": "FTC: Avoiding and reporting gift card scams", "url": "https://consumer.ftc.gov/articles/avoiding-and-reporting-gift-card-scams"}
+    },
+    {
+      "id": "crypto_payment",
+      "name": "Cryptocurrency / crypto ATM payment",
+      "category": "payment_method",
+      "description": "Customer is being directed to buy cryptocurrency or deposit cash into a crypto ATM. Common in impersonation, romance and investment scams.",
+      "severity": 0.7,
+      "triggers": ["bitcoin", "crypto", "cryptocurrency", "crypto atm", "bitcoin atm", "usdt", "tether", "crypto wallet", "wallet address", "qr code"],
+      "suggested_agent_action": "Ask who instructed the crypto purchase. Warn that no bank, agency or business asks customers to move money into crypto to protect it.",
+      "source": {"name": "FTC: What to know about cryptocurrency and scams", "url": "https://consumer.ftc.gov/articles/what-know-about-cryptocurrency-and-scams"}
+    },
+    {
+      "id": "government_impersonation",
+      "name": "Government agency impersonation (IRS / SSA / law enforcement)",
+      "category": "impersonation",
+      "description": "Caller references the IRS, Social Security, US Marshals, customs or a warrant to pressure a payment. Agencies do not demand immediate payment by phone.",
+      "severity": 0.75,
+      "triggers": ["irs", "internal revenue", "social security administration", "social security number has been suspended", "social security number is suspended", "warrant for your arrest", "warrant for my arrest", "us marshal", "u s marshal", "federal agent", "customs", "back taxes", "tax debt"],
+      "suggested_agent_action": "Tell the customer that government agencies never demand payment over the phone. Pause the payment and point them to the agency's official site.",
+      "source": {"name": "IRS: Tax scams / consumer alerts", "url": "https://www.irs.gov/newsroom/tax-scams-consumer-alerts"}
+    },
+    {
+      "id": "safe_account",
+      "name": "\"Bank fraud department\" safe-account scam",
+      "category": "impersonation",
+      "description": "Someone claiming to be the bank's fraud department told the customer their account is compromised and to move money to a 'safe' or 'secure' account. Banks never ask this.",
+      "severity": 0.9,
+      "triggers": ["safe account", "secure account", "safety account", "protect my money", "protect your money", "fraud department told me", "fraud department said", "bank told me to move", "account has been compromised", "account is compromised", "move my money to keep it safe"],
+      "suggested_agent_action": "Tell the customer clearly: the bank will never ask you to move money to protect it. Do not process the transfer; escalate to the fraud team.",
+      "source": {"name": "CFPB: Fraud and scams", "url": "https://www.consumerfinance.gov/consumer-tools/fraud/"}
+    },
+    {
+      "id": "remote_access",
+      "name": "Remote-access software / tech support",
+      "category": "tech_support",
+      "description": "Customer installed or was told to install remote-access software (AnyDesk, TeamViewer, Quick Assist) or let someone 'fix' their computer or bank account.",
+      "severity": 0.75,
+      "triggers": ["anydesk", "any desk", "teamviewer", "team viewer", "quick assist", "remote access", "screen share", "share my screen", "control my computer", "into my computer", "install an app", "tech support", "microsoft support", "apple support", "virus on my computer"],
+      "suggested_agent_action": "Advise disconnecting the device from the internet and not logging in to online banking. Lock online access and reset credentials before any transaction.",
+      "source": {"name": "FBI: Common frauds and scams", "url": "https://www.fbi.gov/how-we-can-help-you/scams-and-safety/common-frauds-and-scams"}
+    },
+    {
+      "id": "secrecy",
+      "name": "Secrecy instruction",
+      "category": "coaching",
+      "description": "The customer was told not to tell the bank, family or anyone else about the transaction. Secrecy is a hallmark of social-engineering scams.",
+      "severity": 0.65,
+      "triggers": ["dont tell", "do not tell", "not to tell", "keep this between", "keep it a secret", "keep this secret", "its a secret", "dont mention", "not supposed to say", "dont call my old number", "dont contact my old"],
+      "suggested_agent_action": "Name the red flag kindly: anyone asking you to keep a payment secret from your bank or family is likely a scammer.",
+      "source": {"name": "FTC Consumer Advice: Scam Alerts", "url": "https://consumer.ftc.gov/features/scam-alerts"}
+    },
+    {
+      "id": "urgency_pressure",
+      "name": "Urgency / time pressure",
+      "category": "pressure",
+      "description": "Generic urgency language. Weak on its own (many real calls are urgent) but it compounds other patterns.",
+      "severity": 0.3,
+      "triggers": ["right now", "immediately", "urgent", "urgently", "as soon as possible", "asap", "emergency", "before its too late", "cant wait", "running out of time", "deadline"],
+      "suggested_agent_action": "Acknowledge the urgency but follow the standard verification steps; urgency is never a reason to skip them.",
+      "source": {"name": "FTC Consumer Advice: Scam Alerts", "url": "https://consumer.ftc.gov/features/scam-alerts"}
+    },
+    {
+      "id": "coached_caller",
+      "name": "Caller being coached by a third party",
+      "category": "coaching",
+      "description": "Customer appears to be relaying instructions from someone else on another line ('they told me to say...', 'he is on the other phone').",
+      "severity": 0.75,
+      "triggers": ["they told me to say", "he told me to say", "she told me to say", "told me what to say", "on the other line", "on the other phone", "they said to tell you", "theyre telling me", "hes telling me", "shes telling me", "stay on the line with them", "they are still on the phone"],
+      "suggested_agent_action": "Ask if anyone else is on the line or instructing them. Offer to continue only once the customer is alone; consider a trusted-contact callback.",
+      "source": {"name": "CFPB: Fraud and scams", "url": "https://www.consumerfinance.gov/consumer-tools/fraud/"}
+    },
+    {
+      "id": "romance",
+      "name": "Romance scam",
+      "category": "relationship",
+      "description": "Money going to someone the customer met online and has never met in person, often 'stuck overseas' or needing fees.",
+      "severity": 0.7,
+      "triggers": ["met online", "met on facebook", "dating site", "never met in person", "havent met in person", "boyfriend overseas", "girlfriend overseas", "fiance overseas", "stuck overseas", "customs fee", "plane ticket to see me"],
+      "suggested_agent_action": "Ask how long they have known the recipient and whether they have met in person. Share romance-scam warning signs before processing.",
+      "source": {"name": "FBI IC3", "url": "https://www.ic3.gov/"}
+    },
+    {
+      "id": "overpayment_refund",
+      "name": "Overpayment / refund scam",
+      "category": "tech_support",
+      "description": "Customer was told they were 'accidentally refunded too much' and must send the difference back.",
+      "severity": 0.7,
+      "requires_all": [
+        ["refund", "refunded", "overpaid", "overpayment", "too much money", "sent too much"],
+        ["send it back", "send back", "return the difference", "pay it back", "give it back", "re:\\bwir(e|ed|ing)\\b", "transfer", "gift card"]
+      ],
+      "suggested_agent_action": "Check whether any incoming 'refund' actually cleared (often it is a move between the customer's own accounts). Do not send money back.",
+      "source": {"name": "FTC Consumer Advice: Scam Alerts", "url": "https://consumer.ftc.gov/features/scam-alerts"}
+    },
+    {
+      "id": "otp_redirect",
+      "name": "One-time code redirection",
+      "category": "account_takeover",
+      "description": "Caller asks to send verification codes to a different device or says they cannot receive codes on the number on file.",
+      "severity": 0.55,
+      "triggers": ["send the code to", "didnt get the code", "didnt receive the code", "cant receive the code", "lost my phone", "new phone so", "skip the code", "verification code to my new", "text the code to"],
+      "suggested_agent_action": "Never send one-time codes to an unverified number. Use the number on file or in-branch verification.",
+      "source": {"name": "CFPB: Fraud and scams", "url": "https://www.consumerfinance.gov/consumer-tools/fraud/"}
+    },
+    {
+      "id": "investment_guaranteed",
+      "name": "Investment scam (guaranteed returns)",
+      "category": "investment",
+      "description": "Promises of guaranteed or unusually high returns, a 'trading platform' or an advisor met online.",
+      "severity": 0.65,
+      "triggers": ["guaranteed return", "guaranteed returns", "guaranteed profit", "double my money", "double your money", "trading platform", "investment opportunity", "risk free investment", "my investment advisor told me"],
+      "suggested_agent_action": "Ask how they found the opportunity and whether they have withdrawn any profits. Recommend checking the firm with regulators before sending funds.",
+      "source": {"name": "FBI IC3", "url": "https://www.ic3.gov/"}
+    },
+    {
+      "id": "prize_lottery",
+      "name": "Prize / lottery / sweepstakes fee",
+      "category": "advance_fee",
+      "description": "Customer must pay a fee or taxes to claim a prize or lottery winnings.",
+      "severity": 0.65,
+      "triggers": ["won the lottery", "won a lottery", "sweepstakes", "won a prize", "claim my prize", "claim the prize", "processing fee", "taxes on my winnings", "publishers clearing house"],
+      "suggested_agent_action": "Explain that real prizes never require paying a fee first. Pause the payment.",
+      "source": {"name": "FTC Consumer Advice: Scam Alerts", "url": "https://consumer.ftc.gov/features/scam-alerts"}
+    },
+    {
+      "id": "payment_instructions_change",
+      "name": "Changed payment instructions (BEC / vendor fraud)",
+      "category": "business_email_compromise",
+      "description": "Caller says a vendor, contractor, title company or landlord sent 'new' wire instructions. Typical business-email-compromise and real-estate closing fraud.",
+      "severity": 0.6,
+      "triggers": ["new wire instructions", "updated wire instructions", "new banking details", "new bank details", "changed their bank account", "different account this time", "title company emailed", "closing costs wire"],
+      "suggested_agent_action": "Recommend confirming the new instructions by calling the vendor on a known number (not one from the email) before sending.",
+      "source": {"name": "FBI IC3", "url": "https://www.ic3.gov/"}
+    },
+    {
+      "id": "cash_courier",
+      "name": "Cash withdrawal for courier pickup",
+      "category": "payment_method",
+      "description": "Customer is withdrawing a large amount of cash that someone will pick up in person or that must be mailed. Growing pattern in grandparent and government-impersonation scams.",
+      "severity": 0.75,
+      "triggers": ["courier", "someone will pick it up", "pick up the money", "pick up the cash", "coming to get the money", "mail the cash", "overnight the cash", "in a box", "withdraw it in cash", "all in cash"],
+      "suggested_agent_action": "Ask who is collecting the cash. Legitimate agencies and relatives' lawyers do not send couriers; escalate before releasing large cash withdrawals.",
+      "source": {"name": "FTC Consumer Advice: Scam Alerts", "url": "https://consumer.ftc.gov/features/scam-alerts"}
+    },
+    {
+      "id": "verification_evasion",
+      "name": "Verification evasion",
+      "category": "account_takeover",
+      "description": "Caller cannot answer security questions, pushes the agent to skip verification, or offers unusual substitutes.",
+      "severity": 0.5,
+      "triggers": ["dont remember my security", "forgot my security questions", "skip the verification", "skip verification", "just verify me", "i dont have my card", "you can trust me", "i dont have time for this", "why do you need that"],
+      "suggested_agent_action": "Do not bypass verification. Offer an alternative channel (branch visit or callback to the number on file).",
+      "source": {"name": "CFPB: Fraud and scams", "url": "https://www.consumerfinance.gov/consumer-tools/fraud/"}
+    }
+  ]
+}

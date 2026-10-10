@@ -1,0 +1,6 @@
+# Sidecar transcript for stub STT mode: [start_seconds] text
+[0.50] Hi, this is Margaret Chen. I need to update the phone number on my account.
+[6.07] I got a new phone, so please change my phone number and my email too.
+[11.15] Once that's done, I need to wire nine thousand dollars to a new account today.
+[16.47] It's urgent, it has to go out right now.
+[19.79] And please don't call my old number, I don't have that phone anymore.

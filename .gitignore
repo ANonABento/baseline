@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Node
+node_modules/
+frontend/dist/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Audio data (large / personal voices). Small demo clips in data/demo/ ARE tracked.
+data/train/
+data/enroll/
+data/eval/**/*.wav
+data/eval/**/*.flac
+data/eval/**/*.mp3
+data/eval/**/*.m4a
+*.aiff
+*.aif
+models/
+*.ckpt
+*.pt
+*.onnx
+*.safetensors
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/

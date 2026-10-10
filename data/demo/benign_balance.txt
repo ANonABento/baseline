@@ -1,0 +1,6 @@
+# Sidecar transcript for stub STT mode: [start_seconds] text
+[0.50] Hi, this is Margaret Chen, I'm calling about my checking account.
+[5.55] I'd like to know my current balance, please.
+[9.02] Also, could you tell me when my last deposit cleared?
+[13.10] And what's the interest rate on my savings account these days?
+[17.07] Wonderful, that's all I needed. Thank you so much.
