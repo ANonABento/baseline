@@ -2,10 +2,17 @@ import type { ReactNode } from "react";
 import { linkTo } from "../lib/prefs";
 
 export function Mark({ alert = false }: { alert?: boolean }) {
+  const c = alert ? "var(--red)" : "currentColor";
   return (
-    // the logo: the baseline rising into a person (public/brand/logo.jpg)
-    <svg width="32" height="16" viewBox="0 0 32 16" aria-hidden>
-      <path d="M0 13 H2.5 L3.3 12.5 L4 13.3 L4.8 12.2 L5.5 13.2 L6.3 12.7 L7 13.1 L8.6 13 L9.2 10 Q9.6 8.3 12.2 7.8 Q14 7.4 14.3 6.3 Q13.2 5.4 13.2 3.4 Q13.2 0.6 16 0.6 Q18.8 0.6 18.8 3.4 Q18.8 5.4 17.7 6.3 Q18 7.4 19.8 7.8 Q22.4 8.3 22.8 10 L23.4 13 H32" fill="none" stroke={alert ? "var(--red)" : "currentColor"} strokeWidth="1.1" strokeLinejoin="round" />
+    // the logo: a heartbeat baseline that rises into a person, inside a ring (public/brand/logo.svg)
+    <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden>
+      <mask id="mark-gap">
+        <rect width="32" height="32" fill="#fff" />
+        <rect x="0" y="17.9" width="5.4" height="3" fill="#000" />
+        <rect x="26.6" y="17.9" width="5.4" height="3" fill="#000" />
+      </mask>
+      <circle cx="16" cy="16" r="12.3" fill="none" stroke={c} strokeWidth="1" mask="url(#mark-gap)" />
+      <path d="M3.6 19.4 H6.9 L7.7 17.7 L8.4 20.9 L9.5 15.2 L10.6 23 L11.6 18.3 L12.1 18.9 H12.8 L13.4 17 Q13.8 15.4 16 14.9 Q16.8 14.6 16.3 14 Q15.3 12.9 15.3 11.3 Q15.3 9.1 17.35 9.1 Q19.4 9.1 19.4 11.3 Q19.4 12.9 18.4 14 Q17.9 14.6 18.7 14.9 Q21.3 15.6 21.8 17 L22.3 19.4 H28.4" fill="none" stroke={c} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
