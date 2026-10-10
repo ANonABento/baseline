@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     llm_model: str = ""  # empty = preset default (confirm the id in the provider console)
     llm_timeout_s: float = 2.0  # per call; on timeout the fraud detector falls back to keywords
     llm_max_tokens: int = 220
+    llm_reasoning_effort: str = ""  # empty = preset default (nebius gpt-oss: low, ollama: none)
     llm_json_mode: bool = True  # response_format=json_object (auto-disabled if the endpoint rejects it)
     llm_context_utterances: int = 16  # rolling transcript window sent to the LLM
     # In stub STT mode, read `<clip>.txt` next to a replayed WAV as the transcript.
