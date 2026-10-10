@@ -8,7 +8,16 @@ Confidence key: **High** = read in the primary source (government doc / company 
 
 ## Top 5 facts for the 3-minute pitch
 
-_(filled in at the end)_
+1. **Americans 60+ reported $7.7 billion in losses to the FBI in 2025, up 59% in one year, with an average loss of $38,500, the highest of any age group.** (FBI IC3 2025 Internet Crime Report, Apr 2026; §1.8)
+2. **"AI has fully defeated" voiceprint authentication, OpenAI's Sam Altman told a Federal Reserve conference in July 2025, and a reporter had already shown it by getting into his own Lloyds account with a free ElevenLabs clone.** (AP, 2025-07-22; Vice, Feb 2023; §2.1–2.2)
+3. **Pindrop counted deepfake fraud attempts on contact centers rising more than 1,300% in 2024, from about one a month to seven a day, across 1.2 billion calls.** (Pindrop 2025 Voice Intelligence & Security Report, vendor data; §2.3)
+4. **Bank impersonators were the costliest business-impersonation scam in 2025, part of a record ~$16 billion Americans reported losing to fraud, and older adults' $100K+ impersonation losses grew eightfold from 2020 to 2024 ($55M to $445M).** (FTC, Jun 2026 and Aug 2025; §1.1–1.3, §4.1)
+5. **Since October 2024, UK banks have had to reimburse scam victims up to £85,000 a claim, returning 88% of money lost. In the US, scams where the victim sends the money still fall outside Reg E, so it's the bank that chooses whether to stop the coached customer.** (UK PSR, 2024–2025; CFPB Reg E; §3.1–3.6)
+
+Backup one-liners:
+- AWS shut down Amazon Connect Voice ID on 20 May 2026, so the cloud giants are leaving voice authentication just as cloning gets cheap. (§5)
+- 4,214 US credit unions serve 146 million members, and almost none can afford an enterprise voice-security contract. (§5)
+- The Senior Safe Act already shields trained bank staff who report suspected elder exploitation. Baseline gives them the evidence to do it. (§4.6)
 
 ---
 
