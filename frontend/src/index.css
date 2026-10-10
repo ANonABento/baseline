@@ -234,7 +234,7 @@ button { cursor: pointer; }
   gap: 2rem;
   margin-bottom: clamp(2.5rem, 6vh, 4.5rem);
 }
-.section__title { font-size: var(--t-h2); font-weight: 300; letter-spacing: -0.035em; line-height: 1.08; max-width: 22ch; }
+.section__title { font-size: var(--t-h2); font-weight: 300; letter-spacing: -0.035em; line-height: 1.08; max-width: 26ch; }
 .section__lede { color: var(--ink-2); font-size: var(--t-lead); max-width: 38rem; margin-top: 1rem; }
 
 /* problem: numbers stand on a ruled baseline */
@@ -543,7 +543,7 @@ button { cursor: pointer; }
 .warning { font-family: var(--mono); font-size: var(--t-label); letter-spacing: 0.06em; text-transform: uppercase; color: var(--amber); }
 
 .ended {
-  position: absolute; inset: 0; z-index: 30; background: rgb(0 0 0 / 0.86);
+  position: absolute; inset: 0; z-index: 30; background: rgb(0 0 0 / 0.94);
   display: grid; place-items: center; text-align: center; padding: var(--gutter);
   animation: say-in 400ms var(--ease) both;
 }

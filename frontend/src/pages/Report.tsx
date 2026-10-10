@@ -3,7 +3,7 @@ import { fmtTime, SIGNAL_LABEL } from "../analysis";
 import { Baseline } from "../components/Baseline";
 import { TopBar } from "../components/Chrome";
 import { Transcript } from "../components/Transcript";
-import { fetchReport, isMockSetting, loadConfig } from "../lib/client";
+import { fetchReport, fetchReportList, isMockSetting, loadConfig } from "../lib/client";
 import { buildNotes, spikesFromNotes, TIER_GLYPH, topEvidence, verdictOf, type Note } from "../lib/notes";
 import { linkTo } from "../lib/prefs";
 import { eventsFromBackend, listReports, loadLocal, replay, type Recorded } from "../lib/reports";
@@ -262,13 +262,35 @@ export function Report({ id }: { id: string }) {
   );
 }
 
+interface ServerSummary {
+  id: string;
+  created_at: string | number;
+  role: string;
+  scenario: string;
+  call_s: number;
+  level: string;
+}
+
 export function Reports() {
-  const list = listReports();
+  const [server, setServer] = useState<ServerSummary[]>([]);
+  useEffect(() => {
+    if (isMockSetting()) return;
+    fetchReportList().then((r) => setServer(Array.isArray(r) ? (r as ServerSummary[]) : []), () => undefined);
+  }, []);
+  const local = listReports();
+  const seen = new Set(local.map((r) => r.id));
+  const toMs = (v: string | number) => (typeof v === "number" ? (v < 1e12 ? v * 1000 : v) : Date.parse(v));
+  const list = [
+    ...local,
+    ...server
+      .filter((r) => !seen.has(r.id))
+      .map((r) => ({ id: r.id, savedAt: toMs(r.created_at), scenario: r.scenario, role: r.role, peak: r.level, duration: r.call_s })),
+  ].sort((a, b) => b.savedAt - a.savedAt);
   return (
     <>
       <TopBar rule />
       <main className="report">
-        <span className="label">Reports recorded in this browser</span>
+        <span className="label">Reports from this browser and this server</span>
         <h1 className="section__title" style={{ marginTop: "0.75rem" }}>
           Recent calls
         </h1>
