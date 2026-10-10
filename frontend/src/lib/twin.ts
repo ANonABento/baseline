@@ -58,14 +58,14 @@ export interface TwinView {
 
 type Obj = Record<string, unknown>;
 
-export function twinView(s: Pick<SessionState, "lines" | "signals" | "pressure" | "decisions">): TwinView {
+export function twinView(s: Pick<SessionState, "lines" | "signals" | "pressure" | "decisions">, person: "visitor" | "ai" = "visitor"): TwinView {
   const prosody = new Map<number, Obj>();
   for (const g of s.signals) if (g.signal === "prosody") prosody.set(g.utterance_id, g.details as Obj);
   const lines = [...s.lines].sort((a, b) => a.t_start - b.t_start);
   const pressureAt = [...s.pressure].sort((a, b) => a.t - b.t);
   const turns: TwinTurn[] = [];
   for (const l of lines) {
-    if (l.speaker !== "visitor") continue; // the Twin measures the human on the call, whichever side Baseline analyses
+    if (l.speaker !== person) continue; // scammer role: you; client role: the AI caller
     const d = prosody.get(l.utterance_id) ?? {};
     const z = (d.z ?? null) as Record<string, number> | null;
     const dur = l.t_end - l.t_start;
@@ -78,7 +78,7 @@ export function twinView(s: Pick<SessionState, "lines" | "signals" | "pressure" 
       t_end: l.t_end,
       words,
       wps: dur > 0.2 ? words / dur : null,
-      latency_s: prev && prev.speaker !== "visitor" ? Math.round((l.t_start - prev.t_end) * 100) / 100 : null,
+      latency_s: prev && prev.speaker !== person ? Math.round((l.t_start - prev.t_end) * 100) / 100 : null,
       status: ((d.status as TwinTurn["status"]) ?? "none"),
       change: typeof d.delivery_change === "number" ? d.delivery_change : null,
       maxAbsZ: z ? Math.max(...Object.values(z).map(Math.abs)) : null,

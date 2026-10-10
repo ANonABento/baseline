@@ -60,7 +60,7 @@ export function Report({ id }: { id: string }) {
 
   const state = useMemo(() => (data ? replay(data.events) : null), [data]);
   const notes = useMemo(() => (state ? buildNotes(state.lines, state.signals, state.evidence.items) : []), [state]);
-  const twin = useMemo(() => (state ? twinView(state) : null), [state]);
+  const twin = useMemo(() => (state ? twinView(state, (state.ended?.reveal?.role ?? state.call?.role) === "scammer" ? "visitor" : "ai") : null), [state]);
   const [active, setActive] = useState<string | null>(null);
   const [scrollTo, setScrollTo] = useState<{ id: number; n: number } | null>(null);
 

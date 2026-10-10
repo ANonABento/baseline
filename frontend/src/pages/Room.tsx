@@ -166,7 +166,7 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
   const call = state.call!;
   const role = state.ended?.reveal.role ?? call.role;
   const notes = useMemo(() => buildNotes(state.lines, state.signals, state.evidence.items), [state.lines, state.signals, state.evidence.items]);
-  const twin = useMemo(() => twinView(state), [state.lines, state.signals, state.pressure, state.decisions]);
+  const twin = useMemo(() => twinView(state, role === "scammer" ? "visitor" : "ai"), [state.lines, state.signals, state.pressure, state.decisions]);
   const verdict = useMemo(() => verdictOf(state.alert, notes, state.evidence.items), [state.alert, notes, state.evidence.items]);
   const [active, setActive] = useState<string | null>(null);
   const [scrollTo, setScrollTo] = useState<{ id: number; n: number } | null>(null);

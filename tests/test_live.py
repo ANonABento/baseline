@@ -477,7 +477,7 @@ def _audio_turns(ws, n=1):
 
 
 def test_twin_and_credential_for_client_role(tmp_path):
-    """Role client: the human's own voice is measured (prosody on the visitor's turns), the AI applies scripted
+    """Role client: the Twin is built from the AI caller (the analysed speaker), the AI applies scripted
     pressure, the report carries `behaviour`, and a verifiable credential is served. Software correctness only."""
     import credential
 
@@ -487,19 +487,14 @@ def test_twin_and_credential_for_client_role(tmp_path):
         with client.websocket_connect(f"/ws/session/{sid}") as ws:
             seen = recv_until(ws, lambda m: m["type"] == "speaking" and m["who"] == "ai" and m["state"] == "end")
             assert jsons(seen, "pressure")[0]["level"] == 1
-            _audio_turns(ws)
-            seen = recv_until(ws, lambda m: m["type"] == "signal" and m["signal"] == "prosody" and m["utterance_id"] >= 1000)
-            vis = [m for m in jsons(seen, "transcript") if m["speaker"] == "visitor"]
-            assert vis and vis[0]["utterance_id"] >= 1000  # the human's line; the twin signal points at it
             ws.send_text(json.dumps({"type": "text", "text": "I can't do that until I verify you, I will call you back on the number on file."}))
-            recv_until(ws, lambda m: m["type"] == "decision")
+            recv_until(ws, lambda m: m["type"] == "speaking" and m["who"] == "ai" and m["state"] == "end")
             ws.send_text(json.dumps({"type": "hangup"}))
             recv_until(ws, lambda m: m["type"] == "call_ended")
         r = client.get(f"/api/report/{sid}").json()
         assert r["meta"]["analyzed_channel"] == "ai" and r["pressure"]
         b = r["behaviour"]
-        assert b["calibration_status"] == "not_established" and b["n_turns_analysed"] >= 2
-        assert {e["event"] for e in b["decision_events"]} >= {"verification_requested"}
+        assert b["calibration_status"] == "not_established" and b["n_turns_analysed"] >= 1  # the AI caller's turns
         cred = client.get(f"/api/credential/{sid}").json()
         assert credential.verify(cred, r)[0] and cred["payload"]["session_id"] == sid
         r["transcript"][1]["text"] = "edited after signing"

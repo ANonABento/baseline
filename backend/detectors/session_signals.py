@@ -52,12 +52,12 @@ def _slope_per_min(t: list[float], y: list[float]) -> float | None:
 
 
 def analyse(report: dict, pressure: list[dict] | None = None, person: str = "analyzed") -> dict:
-    """`person`: whose delivery is measured. "analyzed" = transcript lines flagged analyzed (legacy); "visitor" = the
-    human on the call, whichever side the pipeline analyses.
+    """`person`: whose delivery is measured. "analyzed" = transcript lines flagged analyzed (legacy); "visitor" / "ai" = that speaker's
+    turns (scammer role: the human; client role: the AI caller).
     `pressure` (optional): [{t, level}] scripted pressure levels the AI applied (1..3). Pressure is the scenario's
     own manipulation (known, not inferred), so delivery change by applied level needs no stress label. A turn
     counts toward the latest level that started at or before it."""
-    is_person = (lambda u: u.get("speaker") == "visitor") if person == "visitor" else (lambda u: bool(u.get("analyzed")))
+    is_person = (lambda u: u.get("speaker") == person) if person in ("visitor", "ai") else (lambda u: bool(u.get("analyzed")))
     turns = [u for u in report.get("transcript", []) if is_person(u)]
     allturns = sorted(report.get("transcript", []), key=lambda u: u["t_start"])
     pros = _prosody_by_utt(report)
