@@ -1,1 +1,4 @@
-file,speaker,is_synthetic,is_fraud,condition,notes
+file,speaker,is_synthetic,is_fraud,condition,notes,expected_customer,is_customer
+../demo/benign_balance.wav,margaret_say_samantha,1,0,demo_say_tts,macOS say Samantha (stands in for Margaret's voice); benign balance call,CUST-004217,1
+../demo/takeover_clone.wav,margaret_say_samantha,1,1,demo_say_tts,macOS say Samantha = clone of Margaret; account takeover + wire,CUST-004217,1
+../demo/grandparent_vulnerable.wav,moira_say,1,1,demo_say_tts,macOS say Moira (different voice from the enrolled Samantha); grandparent scam,CUST-004217,0
