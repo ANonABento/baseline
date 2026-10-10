@@ -21,7 +21,7 @@ dev-backend:      ## FastAPI on :8000 with reload
 # Ollama as the persona (LLM_PROVIDER=ollama) serializes both on one model and adds ~3 s per AI reply.
 dev-live:         ## live "try it" backend on :8000: real models, Ollama persona LLM, say/ElevenLabs TTS
 	@test -f data/enroll/CUST-004217.npy || $(MAKE) enroll-demo
-	cd backend && STT_PROVIDER=mlx STT_MODEL=$${STT_MODEL:-mlx-community/whisper-small-mlx} VAD_PROVIDER=silero SPEAKER_PROVIDER=ecapa SPOOF_PROVIDER=pretrained \
+	cd backend && STT_PROVIDER=mlx STT_MODEL=$${STT_MODEL:-$$(test -d $$HOME/.cache/huggingface/hub/models--mlx-community--whisper-large-v3-turbo && echo mlx-community/whisper-large-v3-turbo || echo mlx-community/whisper-small-mlx)} VAD_PROVIDER=silero SPEAKER_PROVIDER=ecapa SPOOF_PROVIDER=pretrained \
 	  LLM_TIMEOUT_S=$${LLM_TIMEOUT_S:-3} CALLER_LLM_PROVIDER=$${CALLER_LLM_PROVIDER:-nebius} CALLER_LLM_MODEL=$${CALLER_LLM_MODEL:-openai/gpt-oss-120b} \
 	  EMOTION_PROVIDER=$${EMOTION_PROVIDER:-wavlm} SEGNET_PROVIDER=$${SEGNET_PROVIDER:-brief} HF_HUB_OFFLINE=1 $(UV) run --extra ml uvicorn app:app --host $${HOST:-127.0.0.1} --port $${PORT:-8000}
 

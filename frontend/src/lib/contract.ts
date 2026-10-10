@@ -7,7 +7,7 @@ import type { AlertLevel, Citation, SignalName } from "../types";
 export type Role = "client" | "scammer" | "agent" | "candidate";
 export type Speaker = "ai" | "visitor";
 /** Keyword-detected phrases in the candidate's turn (not verdicts). */
-export type DecisionKind = "verification_requested" | "refused" | "complied_phrase";
+export type DecisionKind = "verification_requested" | "refused" | "complied_phrase" | "escalated" | "offered_alternative" | "overpromised";
 
 export interface Option {
   id: string;

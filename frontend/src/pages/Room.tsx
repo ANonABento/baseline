@@ -5,7 +5,7 @@ import { Baseline } from "../components/Baseline";
 import { Mark } from "../components/Chrome";
 import { Signals } from "../components/Signals";
 import { Transcript } from "../components/Transcript";
-import { TwinPanel } from "../components/Twin";
+import { TwinPanel, TwinTimeline } from "../components/Twin";
 import { twinView } from "../lib/twin";
 import { Viewport } from "../components/Viewport";
 import { currentCamera, micChoice } from "../lib/media";
@@ -334,7 +334,7 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
         <div className="room__left">
           <div className={`tile ${speakingAi ? "tile--speaking" : ""} ${aiIsCaller && verdict.level === "alert" ? "tile--alert" : ""}`}>
             <div className="tile__label">
-              <span className="label tile__name">{aiIsCaller ? callerClaim(call.scenario, cust.name) : (call.agenda?.target.name ?? "The person you called")}</span>
+              <span className="label tile__name">{candidate ? (SCENARIO_LABEL[call.scenario] ?? "Caller") : aiIsCaller ? callerClaim(call.scenario, cust.name) : (call.agenda?.target.name ?? "The person you called")}</span>
               <span className="label">{aiIsCaller ? "Caller (AI)" : "Protected by Baseline (AI)"}</span>
             </div>
             <Viewport source="head" level={aiLevel} chaos={aiIsCaller ? alertChaos : 0} resolve={aiIsCaller ? resolve : 0.4} drift label="The AI caller" />
@@ -342,8 +342,8 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
           </div>
           <div className={`tile ${speakingMe ? "tile--speaking" : ""} ${!aiIsCaller && verdict.level === "alert" ? "tile--alert" : ""}`}>
             <div className="tile__label">
-              <span className="label tile__name">{aiIsCaller ? `You, ${call.visitor_as ?? cust.name}` : "You, the scammer"}</span>
-              <span className="label">{aiIsCaller ? "Protected by Baseline" : "Caller"}</span>
+              <span className="label tile__name">{candidate ? "You, First City ops desk" : aiIsCaller ? `You, ${call.visitor_as ?? cust.name}` : "You, the scammer"}</span>
+              <span className="label">{candidate ? "Measured, not judged" : aiIsCaller ? "Protected by Baseline" : "Caller"}</span>
             </div>
             <Viewport source="video" video={video} level={() => myLevel.current} chaos={!aiIsCaller ? alertChaos : 0} resolve={!aiIsCaller ? resolve : 0} label="Your camera, stylized" />
             <div className="tile__state">{holding && <span className="label">Mic open</span>}</div>
@@ -427,7 +427,11 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
 
       <div className="room__timeline">
         <span className="label">0:00</span>
-        <Baseline spikes={spikes} cursor={Math.min(1, t / duration)} activeId={active} onSpike={focusNote} agitation={Math.max(0, (70 - state.trust) / 70) * 0.5} ariaLabel="Call timeline" />
+        {candidate ? (
+          <TwinTimeline twin={twin} duration={duration} cursor={Math.min(1, t / duration)} />
+        ) : (
+          <Baseline spikes={spikes} cursor={Math.min(1, t / duration)} activeId={active} onSpike={focusNote} agitation={Math.max(0, (70 - state.trust) / 70) * 0.5} ariaLabel="Call timeline" />
+        )}
         <span className="label num">{fmtTime(duration)}</span>
       </div>
 

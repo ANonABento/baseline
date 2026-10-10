@@ -776,7 +776,10 @@ class LiveCall:
         if self.candidate:
             level = max(pressure_for_turn(self._ai_turns), pressure_for_time(self.now()))
             self._ai_turns += 1
-            self.brain.pressure_hint = PRESSURE_HINTS[level]
+            recent = [x["text"] for x in self.col.transcript if x["speaker"] == "ai"][-5:]
+            self.brain.pressure_hint = PRESSURE_HINTS[level] + (
+                "\nYOUR RECENT LINES (never reuse their wording, numbers, reasons or questions; make a new move that "
+                "answers the agent's last words): " + " | ".join(recent) if recent else "")
             await self.send_json({"type": "pressure", "level": level, "utterance_id": self._next_unanalyzed,
                                   "t": self.now()})  # lets the live Twin show the pressure as the turn starts
         player = Player(self)

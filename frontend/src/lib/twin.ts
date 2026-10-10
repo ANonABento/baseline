@@ -19,6 +19,9 @@ export const DECISION_LABEL: Record<DecisionKind, string> = {
   verification_requested: "Asked to verify",
   refused: "Refused",
   complied_phrase: "Compliance phrase",
+  escalated: "Escalated",
+  offered_alternative: "Offered an alternative",
+  overpromised: "Promised an outcome",
 };
 
 export interface TwinTurn {

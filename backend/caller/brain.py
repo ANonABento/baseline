@@ -27,7 +27,7 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from types import SimpleNamespace
 
-from caller.personas import Persona, clean_line, redact, split_first_clause, split_sentences
+from caller.personas import Persona, clean_line, normalize_spoken, redact, split_first_clause, split_sentences
 
 log = logging.getLogger(__name__)
 
@@ -176,7 +176,7 @@ class LLMBrain(Brain):
                     tok = await asyncio.wait_for(tokens.__anext__(), timeout=remaining)
                 except StopAsyncIteration:
                     break
-                raw += tok
+                raw += normalize_spoken(tok)
                 speak, reasoning = strip_reasoning(raw)
                 if reasoning:
                     continue

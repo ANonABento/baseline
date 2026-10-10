@@ -475,7 +475,7 @@ def test_role_candidate_signals_pressure_and_credential(tmp_path):
 
     client, svc = make_client(tmp_path)
     with client:
-        sid = new_session(client, role="candidate", scenario="pressure_account_takeover", voice="stub-a")
+        sid = new_session(client, role="candidate", scenario="pressure_vip_wire", voice="stub-a")
         with client.websocket_connect(f"/ws/session/{sid}") as ws:
             assert jsons(recv_until(ws, lambda m: m["type"] == "call_started"), "call_started")[-1]["role"] == "candidate"
             seen = recv_until(ws, lambda m: m["type"] == "speaking" and m["who"] == "ai" and m["state"] == "end")
@@ -509,11 +509,31 @@ def test_candidate_prompt_is_human_and_pressure_aware():
     from caller.brain import StubBrain
     from caller.personas import PRESSURE_HINTS, build_persona
 
-    persona = build_persona("candidate", "pressure_account_takeover")
-    assert "real person" in persona.system_prompt and "NEW angle" in persona.system_prompt
+    persona = build_persona("candidate", "pressure_vip_wire")
+    assert "real person" in persona.system_prompt and "Dana Whitfield" in persona.system_prompt
     brain = StubBrain(persona)
     brain.pressure_hint = PRESSURE_HINTS[3]
     assert set(PRESSURE_HINTS) == {1, 2, 3} and "LEVEL 3" in PRESSURE_HINTS[3]
+
+
+def test_spoken_text_normalisation():
+    from caller.personas import clean_line
+
+    assert clean_line("Right now.\u202fI\u2019m on my way, call 555\u20110198.") == "Right now. I\u2019m on my way, call 555-0198."
+
+
+def test_dashes_become_pauses():
+    from caller.personas import clean_line
+
+    assert clean_line("I can\u2019t wait\u2014Greg promised it. Call line\u2014no one picks up") == "I can\u2019t wait, Greg promised it. Call line, no one picks up"
+
+
+def test_decision_tags_operational():
+    from detectors.session_signals import decision_tags
+
+    assert "escalated" in decision_tags("Let me escalate this to my supervisor")
+    assert "offered_alternative" in decision_tags("What I can do is open a ticket in the meantime")
+    assert "overpromised" in decision_tags("I guarantee it will be there by five")
 
 
 def test_barge_in_stops_ai_audio(tmp_path):

@@ -100,10 +100,11 @@ export function TwinPanel({ twin, duration }: { twin: TwinView; duration: number
 }
 
 /** x = call time; top row = AI turns by pressure level; bottom row = person turns coloured by delivery change; flags = decisions. */
-export function TwinTimeline({ twin, duration }: { twin: TwinView; duration: number }) {
+export function TwinTimeline({ twin, duration, cursor }: { twin: TwinView; duration: number; cursor?: number }) {
   const x = (t: number) => `${Math.min(100, Math.max(0, (t / Math.max(duration, 1)) * 100))}%`;
   return (
     <div className="ttl" role="img" aria-label="Pressure and delivery timeline">
+      {cursor != null && <i className="ttl__cursor" style={{ left: `${Math.round(cursor * 100)}%` }} />}
       <div className="ttl__row">
         {twin.turns.length >= 0 &&
           twin.turns.map((t) =>
