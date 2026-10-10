@@ -101,6 +101,14 @@ FILLERS = ["um,", "uh,", "I mean,", "you know,", "well,", "sort of,"]
 EMO_SETTINGS = {"neutral": dict(stability=0.6, style=0.1, speed=1.0), "fearful": dict(stability=0.3, style=0.5, speed=1.1),
                 "angry": dict(stability=0.25, style=0.7, speed=1.1), "sad": dict(stability=0.5, style=0.3, speed=0.9),
                 "happy": dict(stability=0.35, style=0.6, speed=1.05)}
+EMO8 = ["neutral", "calm", "happy", "sad", "angry", "fearful", "disgust", "surprised"]  # same labels as RAVDESS / the notebook
+V3_TAGS = {"neutral": "", "calm": "[calmly]", "happy": "[cheerfully]", "sad": "[sadly]", "angry": "[angry]", "fearful": "[fearfully, voice trembling]",
+           "disgust": "[disgusted]", "surprised": "[surprised, gasps]"}
+V3_MODEL = "eleven_v3"  # the only ElevenLabs model that renders audio tags; stability must be 0.0 / 0.5 / 1.0
+CORPUS_SENTENCES = ["The meeting is on Thursday at three o'clock.", "I put the package on the kitchen table.", "She told me the bank closes at five.",
+                    "We need to talk about the account.", "He said the number was on the back of the card.", "The car is parked outside the office.",
+                    "I will call you back tomorrow morning.", "There is a letter for you on the desk.", "They moved the appointment to next week.",
+                    "My phone has been ringing all afternoon.", "The report is ready if you want to see it.", "I did not expect to hear from you today."]
 READ_SETTINGS = dict(stability=0.85, style=0.0, speed=1.0)
 SPONT_SETTINGS = dict(stability=0.35, style=0.35, speed=1.0)
 KNOWN_VOICES = {"roger": "CwhRBWXzGAHq8TQ4Fs17", "callum": "N2lVS1w4EtoT3dr4eOWO", "george": "JBFqnCBsd6RMkjVDRZzb", "sarah": "EXAVITQu4vr4xnSDxMaL",
@@ -171,6 +179,8 @@ def llm_expand(texts: list[str], n: int) -> list[str]:
 
 
 def tts(key: str, voice_id: str, text: str, model: str, settings: dict) -> np.ndarray:
+    if model == V3_MODEL:  # v3: audio tags are in the text; only stability is accepted (0.0 creative / 0.5 natural / 1.0 robust)
+        settings = {"stability": settings.get("stability", 0.0)}
     req = urllib.request.Request(f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}?output_format=pcm_16000",
                                  data=json.dumps({"text": text, "model_id": model, "voice_settings": settings}).encode(),
                                  headers={"xi-api-key": key, "Content-Type": "application/json", "Accept": "audio/pcm"})
@@ -188,6 +198,9 @@ def main() -> None:
     ap.add_argument("--max-chars", type=int, default=60_000, help="stop before sending more than this many characters to ElevenLabs")
     ap.add_argument("--dry-run", action="store_true", help="write scripts and labels only; no API calls, no audio")
     ap.add_argument("--llm", action="store_true", help="paraphrase scripted lines with the Nebius LLM (labels unchanged)")
+    ap.add_argument("--emotions", dest="emotions", action="store_true", default=True, help="render non-neutral customer / pressure-3 scammer turns with eleven_v3 audio tags (default on)")
+    ap.add_argument("--no-emotions", dest="emotions", action="store_false", help="use only voice settings (flash/multilingual) for emotion")
+    ap.add_argument("--emotion-corpus", type=int, default=0, metavar="N", help="also write N sentences x 8 emotions x voices as single-turn clips with eleven_v3 (acted, labelled by construction)")
     a = ap.parse_args()
     rng = random.Random(a.seed)
     key = os.environ.get("ELEVENLABS_API_KEY", "")
@@ -221,18 +234,23 @@ def main() -> None:
                 if not a.dry_run:
                     if chars + len(t["text"]) > a.max_chars: print("max-chars reached, stopping"); break
                     emo = t.get("emotion")
+                    mdl, text_in = a.model, t["text"]
+                    if a.emotions and emo and emo != "neutral" and t["role"] in ("customer", "buyer") and t["delivery"] == "spontaneous":
+                        mdl, text_in = V3_MODEL, f"{V3_TAGS[emo]} {t['text']}"
+                    elif a.emotions and t["role"] == "scammer" and t.get("pressure_level") == 3 and t["delivery"] == "spontaneous":
+                        mdl, text_in, t["emotion"] = V3_MODEL, f"{V3_TAGS['angry']} {t['text']}", "angry"
                     st = dict(EMO_SETTINGS[emo]) if (emo and t["role"] in ("customer", "buyer") and t["delivery"] == "spontaneous") else dict(READ_SETTINGS if t["delivery"] == "read" else SPONT_SETTINGS)
                     st.update(similarity_boost=0.75)
-                    audio = tts(key, voices[vmap[t["role"]]], t["text"], a.model, st); chars += len(t["text"])
+                    audio = tts(key, voices[vmap[t["role"]]], text_in, mdl, st); chars += len(text_in)
                     import soundfile as sf
                     sf.write(cdir / f"seg_{k:03d}.wav", audio, SR)
                     gap = {"anxious_hesitant": 1.8, "calm_verifying": 0.7, "agitated": 0.25, "compliant": 1.0}.get(t.get("customer_style", ""), 0.6) if t["role"] in ("customer", "buyer") else 0.5
                     wavs += [np.zeros(int(gap * SR), np.float32), audio]; t_now += gap; dur = len(audio) / SR
                 else:
-                    dur, st, gap = len(t["text"].split()) / 2.6, {}, 0.5
+                    mdl, dur, st, gap = None, len(t["text"].split()) / 2.6, {}, 0.5
                 emo = t.get("emotion")
                 segs.append(dict(segment_id=f"seg_{k:03d}", speaker_id=f"{vmap[t['role']]}_{t['role']}", audio_file=f"calls/{call['call_id']}/seg_{k:03d}.wav", start_seconds=round(t_now, 2),
-                                 end_seconds=round(t_now + dur, 2), text=t["text"], voice_settings=st,
+                                 end_seconds=round(t_now + dur, 2), text=t["text"], voice_settings=st, tts_model=(mdl if not a.dry_run else None),
                                  annotations=dict(role=t["role"], delivery_mode=t["delivery"], pressure_level=t.get("pressure_level"), intended_emotion=emo,
                                                   fabrication=t.get("fabrication"), negotiating_bluff=t.get("bluff"), mismatch=t.get("mismatch"), customer_style=t.get("customer_style"),
                                                   label_source="scripted")))
@@ -242,6 +260,23 @@ def main() -> None:
                 sf.write(cdir / "call.wav", np.concatenate(wavs), SR)
             calls_out.append(dict(call_id=call["call_id"], scenario=call["scenario"], voices=vmap, segments=segs, events=call["events"], split="train"))
             for s in segs: flat.append(dict(call_id=call["call_id"], scenario=call["scenario"], **{k: s[k] for k in ("segment_id", "speaker_id", "audio_file", "start_seconds", "end_seconds", "text")}, **s["annotations"]))
+    if a.emotion_corpus:  # acted emotion clips: same neutral sentence in every emotion, several voices; one single-turn "call" each
+        corpus_voices = [v for v in ("roger", "george", "callum", "sarah", "laura", "charlie") if v in voices and (v not in SCAMMER_VOICES or v in scammer_voices)]
+        sents = rng.sample(CORPUS_SENTENCES, k=min(a.emotion_corpus, len(CORPUS_SENTENCES))); import soundfile as sf
+        for vi, vname in enumerate(corpus_voices):
+            for si, sent in enumerate(sents):
+                for emo in EMO8:
+                    cid = f"emo_{vname}_{si:02d}_{emo}"; cdir = run / "calls" / cid; cdir.mkdir(); text_in = f"{V3_TAGS[emo]} {sent}".strip()
+                    if not a.dry_run:
+                        if chars + len(text_in) > a.max_chars: print("max-chars reached, stopping"); break
+                        audio = tts(key, voices[vname], text_in, V3_MODEL, dict(stability=0.0)); chars += len(text_in); sf.write(cdir / "seg_000.wav", audio, SR); sf.write(cdir / "call.wav", audio, SR)
+                        dur = len(audio) / SR
+                    else:
+                        dur = len(sent.split()) / 2.6
+                    ann = dict(role="speaker", delivery_mode="acted", pressure_level=None, intended_emotion=emo, fabrication=None, negotiating_bluff=None, mismatch=None, customer_style=None, label_source="scripted_v3_audio_tag")
+                    seg = dict(segment_id="seg_000", speaker_id=f"{vname}_speaker", audio_file=f"calls/{cid}/seg_000.wav", start_seconds=0.0, end_seconds=round(dur, 2), text=sent, voice_settings={}, tts_model=V3_MODEL, annotations=ann)
+                    calls_out.append(dict(call_id=cid, scenario="emotion_corpus", voices={"speaker": vname}, segments=[seg], events=[], split="train"))
+                    flat.append(dict(call_id=cid, scenario="emotion_corpus", **{k: seg[k] for k in ("segment_id", "speaker_id", "audio_file", "start_seconds", "end_seconds", "text")}, **ann))
     idx = list(range(len(calls_out))); random.Random(a.seed + 1).shuffle(idx)
     for r, i in enumerate(idx): calls_out[i]["split"] = "test" if r < max(1, len(idx) // 7) else ("val" if r < 2 * max(1, len(idx) // 7) else "train")
     (run / "calls.jsonl").write_text("\n".join(json.dumps(c) for c in calls_out))
