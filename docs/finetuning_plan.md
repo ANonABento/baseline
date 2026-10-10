@@ -69,13 +69,17 @@ Complete calls, speaker-separated and timestamped, original audio kept beside te
 ```
 Rules: `unknown` is masked in the loss, never 0. Keep apart: perceived emotion vs self-report; reading/rehearsal vs anything about honesty. The `condition` field records the *experimental manipulation* (what the speaker was asked to do), not an inner state and not a deception label. Define scales and annotator instructions before labeling; annotators are blind to condition; report weighted kappa; drop a label with kappa < 0.4.
 
-## 6. Data collection: controlled conversations
-- Paired role-plays with private info cards (limits, facts, a persona) and scripted **conditions**: calm baseline; rising time pressure; surprise follow-ups; reading a prepared script vs speaking spontaneously; answering within vs beyond one's fact sheet.
-- Use conditions to **test whether the signals move** (does stress-related change rise under pressure? do read-like markers separate script from spontaneous?). We never train a model to output "honest vs dishonest".
-- Elderly-scam scenes (grandparent bail, fake bank security, etc., `recording_protocol.md` §6) stay as scenarios for the application layer.
-- Randomize roles, scripts, conditions and setups across speakers; small incentive so stakes are not zero; debrief; stop word.
-- **Limit for any slide:** staged, instructed behavior in a controlled task; it does not establish what these signals mean in real calls.
-- Recruit volunteers beyond the team: with 2-4 speakers we can build the pipeline and a pilot, not a validated model.
+## 6. Data: open datasets only (decision 2026-10-10, Dae: no self-recorded training data)
+Details, licences and access checks: [`research/open_datasets.md`](research/open_datasets.md) (licence text read via a summarising fetch tool; human sign-off needed in `docs/licences.md` before any commercial use).
+| Role | Dataset | Why | Caveat |
+|---|---|---|---|
+| Read speech (S3 read class, spoof real class) | LibriSpeech (CC BY 4.0) | already in the repo; many utterances per speaker | read audiobook audio |
+| Spontaneous conversation (S2, S3, S4) | AMI (HF `edinburghcstr/ami`, CC BY 4.0, ~100 h, 47 speaker IDs, transcripts, dialog acts, ~29 GB so use a subset) | multi-turn meetings give per-speaker history and content | corpus, channel and speaker population differ from LibriSpeech, so read-vs-spontaneous is confounded |
+| Emotion / arousal prototype (S1) | CREMA-D (ODbL, share-alike; official access path ambiguous) and RAVDESS (CC BY-NC-SA, research only) | categorical emotion plus intensity, many actors | **acted**, categorical not dimensional; non-commercial limits |
+Not available tonight (signed agreement or fee): MSP-Podcast (best arousal fit), IEMOCAP, ESD, BESST, SUSAS, Switchboard, VoxCeleb. No open dataset opened has stress ground truth relative to a speaker's own baseline, so **S2 (stress-related change vs baseline) stays an unvalidated HYPOTHESIS**: we can build it from prosody z-scores and show it on public audio, but cannot claim it measures stress.
+- **What this changes vs the earlier plan:** no scripted-pressure manipulation check and no team-voice baselines. Replaced by (a) held-out-speaker agreement of S1 with CREMA-D/RAVDESS labels, (b) whether S3 read-like markers separate LibriSpeech (read) from AMI (spontaneous) with the corpus confound stated, (c) a sanity check that z-score changes track within-AMI-speaker variation, labelled exploratory.
+- Self-recorded scenes (`recording_protocol.md`) are **not used**. The elderly-scam scenes remain scenarios for C's demo, built from text-to-speech and public audio.
+- **Limit for any slide:** acted emotion is not real stress; read vs spontaneous is confounded by corpus; with no real-stress ground truth, S2 is shown as "change vs this speaker's earlier delivery", never as measured stress.
 
 ## 7. Model design
 **Audio branch.** Pretrained encoder, 16 kHz waveform in, frame states out. Start **frozen**: learnable weighted sum of layer outputs and attention pooling per segment (frozen-first is deliberate with a tiny labeled set). Unfreeze top layers or use LoRA only if the labeled set grows enough (threshold is a judgement call). PEFT/LoRA support for these audio encoders is **UNVERIFIED** (the PEFT page fetched did not say); test on the real model, fallback is unfreezing the top 2 layers. Keep full segment embeddings, not only emotion probabilities.
@@ -87,7 +91,7 @@ Rules: `unknown` is masked in the loss, never 0. Keep apart: perceived emotion v
 ## 8. Evaluation
 - **Splits** by speaker, call and scenario at once; no speaker, script, role or setup in two splits; leave-one-speaker-out when N is small.
 - **Required comparison:** text-only vs audio-only vs fused for each of S1-S3. Audio ablations must not corrupt the transcript (mask the audio branch; verify the text is byte-identical). Question: **does audio add value for the signal we claim?** Report the delta with a bootstrap CI (resample calls, not segments).
-- **Manipulation checks:** do S2/S3 move in the expected direction under the scripted conditions (pressure, script-vs-spontaneous)? Report effect sizes with CIs per speaker and pooled.
+- **Public-data checks (replace manipulation checks):** S1 vs CREMA-D/RAVDESS labels on held-out actors; S3 read-vs-spontaneous (LibriSpeech vs AMI, confounded, say so); S2 within-speaker variation on AMI. Effect sizes with CIs; exploratory.
 - **Baselines:** hand-crafted prosody z-scores + simple regression; energy-only; always-prior. If a fine-tuned model does not beat prosody z-scores, ship the z-scores and say so.
 - **Metrics:** per-output accuracy/F1 or correlation with annotators (for S1-S3), calibration curve and ECE where percentages are shown, abstention rate and performance on non-abstained cases; **false-alarm rate on calm and honest-but-anxious speakers** (an anxious person must not look suspect).
 - **Shortcut audit:** can speaker identity, role, script, device or loudness alone predict the label? Robustness to noise, gain, compression, mic distance, accents, speaking styles.

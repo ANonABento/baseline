@@ -1,6 +1,12 @@
+# Recording Protocol: RETIRED (2026-10-10)
+
+> **Not used.** Decision by Dae on 2026-10-10: no self-recorded training data; the model uses open datasets ([`research/open_datasets.md`](research/open_datasets.md), plan §6). No participants are recorded, so the consent form (`consent_template.md`) and retention rules do not apply. Kept for two reasons: (1) the scene scripts in §6 below are scenarios for C's demo, played by text-to-speech; (2) if anyone later records people, start from §1 and the compliance findings in `workplan.md` (CP1), which still apply. Earlier override of the compliance no-go is moot.
+
+---
+
 # Recording Protocol: Controlled Conversations (V)
 
-Status: **DRAFT v2, not yet run. Compliance review (CP1) said NO-GO until consent wording, retention value and handling rules existed. The human (Dae) overrode that on 2026-10-10 and approved starting with teammates; default retention is 30 days after the event. Outside volunteers and public display of any clip still need their own explicit decision.** Owner: V. Rewritten 2026-10-10 for the model in [`finetuning_plan.md`](finetuning_plan.md) (voice and content signal summaries, **no lie detection**). The application story (elderly scam prevention, owned by C) is unchanged; its scenes are kept in §6.
+Status: **RETIRED, see banner above.**
 
 **Goal.** Collect consented recordings of people speaking calmly and then under scripted conditions, so we can (1) set and test per-speaker baselines, (2) test whether stress-related change, delivery markers and emotion estimates **move in the expected direction under the conditions**, (3) validate on the demo mic and channel, and (4) record the demo clip.
 

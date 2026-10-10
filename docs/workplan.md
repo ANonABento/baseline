@@ -21,10 +21,10 @@ Status: **PROPOSAL from V, not yet accepted by C.** Times are from `team_split.m
 |---|---|---|---|
 | 0.1 | V | Evidence check of the interpretation table and licences: `docs/research/voice_signal_evidence.md` | file exists; every row SUPPORTED/PARTLY/UNSUPPORTED/UNVERIFIED with a source |
 | 0.2 | V | Fold the verdicts into `finetuning_plan.md` §2 (drop or reword unsupported rows) | no row stays unlabelled |
-| 0.3 | V | Rewrite `recording_protocol.md` for the controlled-conversation design (consent text, personas, conditions) | banner removed |
+| 0.3 | V | Recording protocol: **retired** (decision: open data only, no self-recorded training data) | banner on file |
 | 0.4 | C | Reply in the room: accept or change the output contract (plan §9) and say where in the UI the notes show | message in room |
 | 0.5 | C | Tell V which `details` keys `fusion.py` may read and whether `events.py` gets an optional field | keys listed in `docs/workplan.md` §Contract |
-| 0.6 | both | Choose recording volunteers and the persona (Margaret or Robert); agree consent wording | named in this file |
+| 0.6 | C | Demo persona and clip source (text-to-speech or public audio; no participant voices) | named in this file |
 
 **CP1 checks (T0 first):** `scripts/validate.sh` (outer repo) is not applicable; run `make test` in `baseline/`. Then `hallucination-detector` once on `finetuning_plan.md` and the evidence file, then `compliance-reviewer` once on `recording_protocol.md` and the licence table. **Human sign-off by both of you** on the contract before any code that depends on it.
 
@@ -37,9 +37,9 @@ Status: **PROPOSAL from V, not yet accepted by C.** Times are from `team_split.m
 | # | Owner | Task | Done when |
 |---|---|---|---|
 | 1.1 | V | `backend/detectors/voice_state.py` (new, V-owned): per-speaker rolling baseline of pitch, energy, rate, pauses, latency; z-scores; sustained-change rule; `insufficient_evidence` when under ~1 s, clipped or noisy | unit tests pass on synthetic clips; returns `details` keys in the agreed contract |
-| 1.2 | V | Spoof rerun with ElevenLabs flash output (needs the team key from a private channel, never git); check real human mic is not flagged; row in `results/history.csv` | row added with the note and N |
-| 1.3 | V | Record consented baseline + 2 scenes per volunteer, room tone, demo channel | passes QC in the protocol |
-| 1.4 | V | Manipulation check: do the signals move under the scripted pressure condition vs calm, per speaker? exploratory, labelled so | table with N and per-speaker numbers |
+| 1.2 | V | Spoof rerun with ElevenLabs flash output (needs the team key from a private channel, never git; synthetic voice, not a person's clone); check real human mic is not flagged; row in `results/history.csv` | row added with the note and N |
+| 1.3 | V | Download open data: LibriSpeech dev/test subset, AMI subset (a few speakers, a few hours), CREMA-D or RAVDESS; write `scripts/fetch_open_data.py` with md5/sha checks | files in `data/external/` (gitignored), licence note in `docs/licences.md` |
+| 1.4 | V | Public-data checks (plan §8): S1 vs emotion labels (held-out actors), S3 read vs spontaneous, S2 within-speaker variation; exploratory, N stated | table in `results/` |
 | 1.5 | C | `fusion.py` and panel read the optional keys; observations and notes shown with "can reflect other causes" wording | demo clip shows the panel |
 | 1.6 | C | S4 content observations via the LLM (responsiveness, contradiction flagged as inconsistency), quotes checked against the transcript | tests on `data/demo/*.txt` |
 | 1.7 | C | Elderly-story demo script and persona lines (uses `data/demo/grandparent_vulnerable.txt`) | script file |
@@ -51,7 +51,7 @@ Status: **PROPOSAL from V, not yet accepted by C.** Times are from `team_split.m
 |---|---|---|---|
 | 2.1 | V | Tune thresholds on the recorded clips; false alarms on calm and on honest-but-anxious speech reported | `results/history.csv` rows |
 | 2.2 | V | Optional: frozen WavLM or emotion2vec probe vs prosody z-scores; ship the simpler one if equal | one table, N stated |
-| 2.3 | V | Record the demo clip (best of 3, consent on file) and a fallback replay | files in `data/demo/` |
+| 2.3 | V | Demo audio without participants: TTS voices and a public-audio fallback replay in `data/demo/` | files, licence noted |
 | 2.4 | V | README: honest limits and the eval table | README section |
 | 2.5 | C | Tune fusion weights so benign clips stay quiet; alert wording | tests pass |
 | 2.6 | C | 3-minute pitch script and 5 slides with the human story and the limits | files |
@@ -69,4 +69,4 @@ Keys V will put in `DetectorResult.details` (proposal, not agreed): `stress_rela
 - Few speakers and staged pressure: results are exploratory and say so.
 - The spoof detector flags 15/40 real LibriSpeech clips; do not let spoof alone drive a high alert.
 - Interpretation notes are only as strong as the evidence file allows.
-- Recording people needs consent first; no consent, no recording.
+- No recordings of people are made (decision 2026-10-10). Open datasets are acted or confounded; S2 is unvalidated.
