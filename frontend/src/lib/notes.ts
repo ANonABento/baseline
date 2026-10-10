@@ -80,7 +80,7 @@ export function buildNotes(lines: TranscriptEvent[], signals: SignalEvent[], evi
       quote: e.quote,
       span: line ? findSpan(line.text, e.quote) : null,
       sayThis: e.say_this,
-      source: e.source || undefined,
+      source: /^https?:\/\//.test(e.source) ? e.source.replace(/^https?:\/\/(www\.)?([^/]+).*$/, "$2") : e.source || undefined,
       sourceUrl: e.source_url ?? (/^https?:\/\//.test(e.source) ? e.source : undefined),
     });
   }

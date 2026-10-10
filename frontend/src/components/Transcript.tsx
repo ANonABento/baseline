@@ -43,7 +43,8 @@ export function Transcript({ lines, notes, active, onActive, scrollTo, who, foll
   const [hover, setHover] = useState<string | null>(null);
   const byLine = useMemo(() => notesByLine(notes), [notes]);
   // lines arrive when each utterance finishes; show them in spoken order
-  const ordered = useMemo(() => [...lines].sort((a, b) => a.t_start - b.t_start || a.utterance_id - b.utterance_id), [lines]);
+  // (a typed line is instantaneous: on a tie it precedes the AI reply that starts at the same moment)
+  const ordered = useMemo(() => [...lines].sort((a, b) => a.t_start - b.t_start || a.t_end - b.t_end), [lines]);
   const lit = hover ?? active;
   const litNote = notes.find((n) => n.id === lit);
 

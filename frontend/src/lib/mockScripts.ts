@@ -227,10 +227,10 @@ export const AGENT_SCRIPTS: Record<string, Script> = {
 
 /** AI plays the bank agent; the visitor plays the scammer. */
 export const SCAMMER_SCRIPT: Script = {
-  persona_label: "Dana, a careful agent at First Harbor Bank",
+  persona_label: "Jordan, a careful agent at First Harbor Bank",
   customer: MARGARET,
   lines: [
-    { text: "Thank you for calling First Harbor Bank, this is Dana. Who am I speaking with today?" },
+    { text: "Thank you for calling First Harbor Bank, this is Jordan. Who am I speaking with today?" },
     { text: "Thanks. Before we go further I'll need to verify a few details. Can you confirm your date of birth?" },
     { text: "I understand. I can't skip that step, but I'm happy to call you back on the number we have on file." },
     { text: "For your security, I'm not able to make that change on this call. I'll send a confirmation to the email on file." },

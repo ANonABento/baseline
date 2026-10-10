@@ -210,7 +210,7 @@ export function Room({ state, aiLevel, onHangup, onText, onPcm, onBargeIn, onAga
         <div className="room__left">
           <div className={`tile ${speakingAi ? "tile--speaking" : ""} ${aiIsCaller && verdict.level === "alert" ? "tile--alert" : ""}`}>
             <div className="tile__label">
-              <span className="label tile__name">{aiIsCaller ? ident : "Dana · First Harbor Bank"}</span>
+              <span className="label tile__name">{aiIsCaller ? ident : "Jordan · First Harbor Bank"}</span>
               <span className="label">{aiIsCaller ? "Caller (AI)" : "Agent (AI)"}</span>
             </div>
             <Viewport source="head" level={aiLevel} chaos={aiIsCaller ? alertChaos : 0} resolve={aiIsCaller ? resolve : 0.4} drift label="The AI caller" />

@@ -3,7 +3,7 @@ import { fmtTime, SIGNAL_LABEL } from "../analysis";
 import { Baseline } from "../components/Baseline";
 import { TopBar } from "../components/Chrome";
 import { Transcript } from "../components/Transcript";
-import { fetchReport, isMockSetting } from "../lib/client";
+import { fetchReport, isMockSetting, loadConfig } from "../lib/client";
 import { buildNotes, spikesFromNotes, TIER_GLYPH, topEvidence, verdictOf, type Note } from "../lib/notes";
 import { linkTo } from "../lib/prefs";
 import { eventsFromBackend, listReports, loadLocal, replay, type Recorded } from "../lib/reports";
@@ -26,6 +26,13 @@ function download(name: string, data: unknown) {
 export function Report({ id }: { id: string }) {
   const [data, setData] = useState<Loaded | null>(null);
   const [missing, setMissing] = useState(false);
+  const [labels, setLabels] = useState<Record<string, string>>({});
+  useEffect(() => {
+    loadConfig().then(
+      ({ config }) => setLabels(Object.fromEntries([...config.voices, ...config.scenarios].map((o) => [o.id, o.label]))),
+      () => undefined,
+    );
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -172,11 +179,17 @@ export function Report({ id }: { id: string }) {
                 <dt>Visitor</dt>
                 <dd>{(reveal?.role ?? call?.role) === "scammer" ? "Played the scammer" : "Played the bank agent"}</dd>
                 <dt>Scenario</dt>
-                <dd>{SCENARIO_LABEL[reveal?.scenario ?? call?.scenario ?? ""] ?? (reveal?.scenario || call?.scenario || "Unknown")}</dd>
+                <dd>{(() => {
+                  const id = reveal?.scenario ?? call?.scenario ?? "";
+                  return labels[id] ?? SCENARIO_LABEL[id] ?? (id || "Unknown");
+                })()}</dd>
                 <dt>Claimed</dt>
                 <dd>{call ? `${call.customer.name} ${call.customer.account_mask}` : "Unknown"}</dd>
                 <dt>Voice</dt>
-                <dd>{[cap(reveal?.voice ?? call?.voice ?? ""), reveal?.tts].filter(Boolean).join(", ") || "Unknown"}</dd>
+                <dd>{(() => {
+                  const id = reveal?.voice ?? call?.voice ?? "";
+                  return [labels[id] ?? cap(id), reveal?.tts ? `via ${reveal.tts}` : ""].filter(Boolean).join(", ") || "Unknown";
+                })()}</dd>
                 <dt>Ended</dt>
                 <dd>{state.ended?.reason.replace(/_/g, " ") ?? "Disconnected"}</dd>
               </dl>
@@ -224,13 +237,17 @@ export function Report({ id }: { id: string }) {
                       {e.quote && <span className="evidence__quote">{e.quote}</span>}
                       {e.source && (
                         <span className="label">
-                          {e.source_url ? (
-                            <a className="link" href={e.source_url} target="_blank" rel="noreferrer">
-                              {e.source}
-                            </a>
-                          ) : (
-                            e.source
-                          )}
+                          {(() => {
+                            const href = e.source_url ?? (/^https?:\/\//.test(e.source) ? e.source : null);
+                            const text = /^https?:\/\//.test(e.source) ? new URL(e.source).hostname.replace(/^www\./, "") : e.source;
+                            return href ? (
+                              <a className="link" href={href} target="_blank" rel="noreferrer">
+                                {text}
+                              </a>
+                            ) : (
+                              text
+                            );
+                          })()}
                         </span>
                       )}
                     </div>
