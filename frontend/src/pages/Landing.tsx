@@ -68,7 +68,7 @@ export function Landing() {
     <div className="landing">
       <TopBar>
         <nav className="topbar__nav">
-          <a href="#banks" className="hide-sm">For banks</a>
+          <a href="#banks" className="hide-sm">For Banks</a>
           <a href="/reports" onClick={linkTo("/reports")} className="hide-sm">Reports</a>
         </nav>
       </TopBar>
@@ -89,7 +89,7 @@ export function Landing() {
               Take a call
             </a>
             <a className="link hero__down" href="#banks">
-              For banks <span aria-hidden>↓</span>
+              For Banks <span aria-hidden>↓</span>
             </a>
           </div>
         </div>
@@ -207,7 +207,6 @@ export function Landing() {
         <div className="footer__links">
           <a href="/call" onClick={linkTo("/call")}>Take a call</a>
           <a href="/reports" onClick={linkTo("/reports")}>Reports</a>
-          <a href="/legacy">Agent dashboard (v1)</a>
         </div>
       </footer>
     </div>

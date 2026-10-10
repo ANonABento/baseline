@@ -1,13 +1,10 @@
-import { lazy, StrictMode, Suspense } from "react";
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import { usePath } from "./lib/prefs";
 import { CallPage } from "./pages/CallPage";
 import { Landing } from "./pages/Landing";
 import { Report, Reports } from "./pages/Report";
-
-// The v1 agent dashboard, kept reachable (and its Tailwind CSS isolated) behind a lazy chunk.
-const Legacy = lazy(() => import("./legacy/App"));
 
 function App() {
   const path = usePath().replace(/\/+$/, "") || "/";
@@ -16,12 +13,6 @@ function App() {
   if (path === "/reports") return <Reports />;
   const m = path.match(/^\/report\/([^/]+)$/);
   if (m) return <Report key={m[1]} id={decodeURIComponent(m[1])} />;
-  if (path === "/legacy")
-    return (
-      <Suspense fallback={null}>
-        <Legacy />
-      </Suspense>
-    );
   return (
     <div className="notice">
       <span className="label">404</span>
