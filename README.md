@@ -4,6 +4,8 @@
 
 A real-time co-pilot for bank call-center agents (Customer Layer track). It flags voice-clone account takeovers and customers being coached by scammers by comparing each call against three baselines: the customer's enrolled voice, what real human audio sounds like, and what legitimate requests look like.
 
+**Second mode: pressure simulation (Digital Twin + verifiable credential).** In the lobby choose "Pressure simulation": you are the bank agent, an AI caller applies scripted pressure (level 1 to 3), and Baseline reads **your own** delivery live (pitch, loudness, speech rate, pausing, each as change vs your first 3 turns; response latency; recovery time after your biggest change; keyword-detected decisions such as asking to verify or refusing). A live Digital Twin panel shows it during the call; at the end the report page shows the twin summary and an Ed25519 `did:key` credential that anyone can verify offline at `/verify.html`. The credential proves who signed which observations; it is **not** a measure of skill, honesty or suitability, and no signal here is calibrated against real stress or job performance (exploratory, small N). Contract and limits: [docs/ui_spec_signals.md](docs/ui_spec_signals.md), [backend/README.md](backend/README.md).
+
 - [docs/baseline_master_plan.md](docs/baseline_master_plan.md): plan, architecture, 18-hour schedule
 - [docs/finetuning_plan.md](docs/finetuning_plan.md): voice + content signal-summary model plan (emotion/delivery observations, no lie detection; checkpoints, data, evaluation); model side only
 - [docs/recording_protocol.md](docs/recording_protocol.md): consent, safety and recording protocol for model data (draft, being revised)
@@ -22,9 +24,7 @@ make dev-backend            # FastAPI on http://localhost:8000
 make dev-frontend           # dashboard on http://localhost:5173 (second terminal)
 ```
 
-Open the dashboard, pick `takeover_clone.wav`, press **Start replay**: the transcript streams in real time,
-the fraud card flags the account-takeover script, and the alert goes red (the spoof card uses a stub
-hint until the real model lands). `benign_balance.wav` stays green; `grandparent_vulnerable.wav` is caution.
+Open http://localhost:5173/call to take a live call (roles: bank agent, scammer, pressure simulation; with no backend running the page falls back to a clearly labelled demo mode with simulated values). The original clip-replay dashboard is at `/legacy`: pick `takeover_clone.wav`, press **Start replay**: the transcript streams in real time, the fraud card flags the account-takeover script, and the alert goes red. `benign_balance.wav` stays green; `grandparent_vulnerable.wav` is caution. For real models use `make dev-live` (also turns on the WavLM emotion probe, `EMOTION_PROVIDER=wavlm`, an acted-speech probe shown as a side bar only).
 
 Other commands:
 
@@ -39,7 +39,7 @@ make build                  # production build of the dashboard
 
 ```
 backend/    FastAPI app, pipeline, providers/, detectors/, fusion, kb/fraud_playbook.json
-frontend/   React + Vite + TypeScript + Tailwind agent dashboard
+frontend/   React + Vite + TypeScript live-call app (/call, /report/<id>, Digital Twin panel, public/verify.html); v1 Tailwind dashboard under /legacy
 scripts/    eval.py, make_clips.py, build_eval_set.py (real vs synthetic spoof eval set), train_spoof.py, enroll.py
 tests/      pytest suite (run from backend/: `uv run pytest`)
 data/       demo/ (small tracked clips + sidecars), eval/ (labels.csv; audio gitignored), enroll/, train/ (gitignored)

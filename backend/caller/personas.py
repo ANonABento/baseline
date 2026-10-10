@@ -178,7 +178,7 @@ def bank_agent_prompt(customer: CustomerProfile = CUSTOMER) -> str:
 
 @dataclass(frozen=True)
 class Persona:
-    role: str  # visitor role: "agent" (AI = fraudster) | "scammer" (AI = bank agent)
+    role: str  # visitor role: "agent" | "candidate" (AI = fraudster) | "scammer" (AI = bank agent)
     scenario: str
     label: str
     system_prompt: str
@@ -211,11 +211,32 @@ def redact(line: str, persona: "Persona") -> str:
     return line
 
 
+# Scripted pressure applied by the AI fraudster in the "candidate" simulation. The level is the scenario's own
+# manipulation (known, not inferred), so delivery change by level needs no stress label.
+PRESSURE_HINTS = {
+    1: "PRESSURE LEVEL 1 (calm): friendly and a little rushed; ask politely.",
+    2: "PRESSURE LEVEL 2 (rising): clearly impatient and anxious; stress the deadline; say you have already "
+       "verified elsewhere and the agent is wasting time.",
+    3: "PRESSURE LEVEL 3 (high): upset and insistent; say you will lose money or close the account if the agent "
+       "doesn't act right now; ask for a supervisor who will 'just do it'. Never become abusive.",
+}
+
+
+def pressure_for_turn(n_ai_turns_before: int) -> int:
+    """Pressure level for the AI's n-th turn (0 = opener): 2 calm turns, 2 rising, then high."""
+    return 1 if n_ai_turns_before < 2 else 2 if n_ai_turns_before < 4 else 3
+
+
+def pressure_for_time(elapsed_s: float) -> int:
+    """Pressure by call time so a short call still escalates: level 2 from 30 s, level 3 from 70 s."""
+    return 1 if elapsed_s < 30 else 2 if elapsed_s < 70 else 3
+
+
 def build_persona(role: str, scenario: str, customer: CustomerProfile = CUSTOMER) -> Persona:
-    if role == "agent":
+    if role in ("agent", "candidate"):
         sc = SCENARIOS[scenario]
-        return Persona(role, scenario, f"AI fraudster: {sc.label}", fraudster_prompt(sc, customer), sc.openers,
-                       sc.stub_lines, sc.summary)
+        label = f"AI fraudster: {sc.label}" if role == "agent" else f"AI caller applying scripted pressure: {sc.label}"
+        return Persona(role, scenario, label, fraudster_prompt(sc, customer), sc.openers, sc.stub_lines, sc.summary)
     if role == "scammer":
         return Persona(role, scenario, BANK_AGENT_LABEL, bank_agent_prompt(customer), BANK_AGENT_OPENERS,
                        BANK_AGENT_STUB_LINES,

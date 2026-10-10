@@ -2,8 +2,10 @@
 // Type-only module: safe to import from node --test.
 import type { AlertLevel, Citation, SignalName } from "../types";
 
-export type Role = "agent" | "scammer";
+export type Role = "agent" | "scammer" | "candidate";
 export type Speaker = "ai" | "visitor";
+/** Keyword-detected phrases in the candidate's turn (not verdicts). */
+export type DecisionKind = "verification_requested" | "refused" | "complied_phrase";
 
 export interface Option {
   id: string;
@@ -64,6 +66,8 @@ export type ServerMsg =
       reason: string;
       details: Record<string, unknown>;
     }
+  | { type: "pressure"; level: number; utterance_id: number; t: number }
+  | { type: "decision"; event: DecisionKind; utterance_id: number; t: number }
   | { type: "trust"; score: number }
   | { type: "alert"; level: AlertLevel; reasons: string[]; suggested_action: string; signals: string[]; citations: Citation[] }
   | { type: "warning"; message: string; seconds_left: number }

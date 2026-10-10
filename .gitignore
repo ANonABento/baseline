@@ -58,3 +58,6 @@ data/reports/
 
 # synthetic call data (generated; regenerate with scripts/generate_synthetic_calls.py)
 data/synthetic/
+
+# Credential issuer signing key (never commit)
+*.key

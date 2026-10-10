@@ -23,10 +23,15 @@ import numpy as np
 
 HEDGES = re.compile(r"\b(maybe|perhaps|i think|i guess|sort of|kind of|probably|not sure)\b", re.I)
 VERIFY = re.compile(r"\b(verify|verification|call (you|them|him|her) back|number on file|who is (this|calling)|can i confirm|prove|reference number|official)\b", re.I)
-REFUSE = re.compile(r"\b(no|not going to|won't|will not|i refuse|hang up|hanging up|not giving|don't share|do not share)\b", re.I)
+REFUSE = re.compile(r"\b(no\b(?!\s+(problem|worries|rush|trouble|issue))|not going to|won't|will not|i refuse|hang up|hanging up|not giving|don't share|do not share)\b", re.I)
 COMPLY = re.compile(r"\b(here (is|are)|my (card|account|pin|social|code) (number )?is|i('ll| will) (send|transfer|wire|read)|okay,? (i'll|let me) (send|transfer|wire|read))\b", re.I)
 FILLERS = re.compile(r"\b(um+|uh+|er+|erm|hmm+|you know|i mean|like)\b", re.I)
 Z_RECOVER = 2.5  # same threshold as voice_state.Z_FIRE (kept literal: report consumers need no backend import)
+
+
+def decision_tags(text: str) -> list[str]:
+    """Keyword-based decision phrases in one turn's STT text (also used live, so UI and report agree)."""
+    return [ev for ev, rx in (("verification_requested", VERIFY), ("refused", REFUSE), ("complied_phrase", COMPLY)) if rx.search(text)]
 
 
 def _prosody_by_utt(report: dict) -> dict[int, dict]:
@@ -91,8 +96,7 @@ def analyse(report: dict, pressure: dict[int, int] | None = None) -> dict:
         "note": "keyword-based counts on STT text; a model-based decision tagger can replace them",
     }
     out["decision_events"] = [{"t": round(u["t_start"], 1), "utterance_id": u["utterance_id"], "event": ev}
-                              for u in turns for ev, rx in (("verification_requested", VERIFY), ("refused", REFUSE), ("complied_phrase", COMPLY))
-                              if rx.search(u["text"])]
+                              for u in turns for ev in decision_tags(u["text"])]
     if pressure:
         by: dict[int, list[float]] = {}
         for u in turns:

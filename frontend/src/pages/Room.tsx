@@ -3,6 +3,8 @@ import { fmtTime } from "../analysis";
 import { Baseline } from "../components/Baseline";
 import { Mark, RenderToggle } from "../components/Chrome";
 import { Transcript } from "../components/Transcript";
+import { TwinPanel } from "../components/Twin";
+import { twinView } from "../lib/twin";
 import { Viewport } from "../components/Viewport";
 import { currentCamera, micChoice } from "../lib/media";
 import { buildNotes, spikesFromNotes, TIER_GLYPH, verdictOf, type Note } from "../lib/notes";
@@ -62,6 +64,8 @@ export function Room({ state, aiLevel, onHangup, onText, onPcm, onBargeIn, onAga
   const call = state.call!;
   const role = state.ended?.reveal.role ?? call.role;
   const notes = useMemo(() => buildNotes(state.lines, state.signals, state.evidence.items), [state.lines, state.signals, state.evidence.items]);
+  const candidate = role === "candidate";
+  const twin = useMemo(() => twinView(state), [state.lines, state.signals, state.pressure, state.decisions]);
   const verdict = useMemo(() => verdictOf(state.alert, notes, state.evidence.items), [state.alert, notes, state.evidence.items]);
   const [active, setActive] = useState<string | null>(null);
   const [scrollTo, setScrollTo] = useState<{ id: number; n: number } | null>(null);
@@ -191,7 +195,7 @@ export function Room({ state, aiLevel, onHangup, onText, onPcm, onBargeIn, onAga
           <Mark alert={verdict.level === "alert"} />
           <span className="hide-sm">Baseline</span>
         </a>
-        <span className="role-badge">{role === "scammer" ? "You: scammer" : "You: bank agent"}</span>
+        <span className="role-badge">{role === "scammer" ? "You: scammer" : candidate ? "You: agent under pressure" : "You: bank agent"}</span>
         {live && <span className="live-dot" aria-hidden />}
         <span className="room__timer" aria-label="Call time">
           {fmtTime(t)}
@@ -263,7 +267,7 @@ export function Room({ state, aiLevel, onHangup, onText, onPcm, onBargeIn, onAga
         </div>
 
         <div className="room__right">
-          <VerdictStrip v={verdict} />
+          {candidate ? <TwinPanel twin={twin} duration={duration} /> : <VerdictStrip v={verdict} />}
           <Transcript
             lines={state.lines}
             notes={notes}
@@ -297,7 +301,7 @@ export function Room({ state, aiLevel, onHangup, onText, onPcm, onBargeIn, onAga
                 ? state.ended.reveal.persona_label || "Call over."
                 : state.error ?? "Call over."}
             </h2>
-            {state.ended?.reveal && (
+            {state.ended?.reveal && !candidate && (
               <p className="label">
                 {state.peak === "high" ? "Baseline raised an alert" : state.peak === "caution" ? "Baseline was watching" : "Baseline stayed clear"}
               </p>
@@ -305,7 +309,7 @@ export function Room({ state, aiLevel, onHangup, onText, onPcm, onBargeIn, onAga
             <div className="ended__actions">
               {state.ended?.report_id && (
                 <button className="btn" type="button" onClick={() => navigate(`/report/${state.ended!.report_id}`)}>
-                  See the report
+                  {candidate ? "See the twin summary and credential" : "See the report"}
                 </button>
               )}
               <button className="btn btn--ghost" type="button" onClick={onAgain}>

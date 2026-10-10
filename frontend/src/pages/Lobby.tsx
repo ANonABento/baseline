@@ -11,6 +11,7 @@ const ROLES: { id: SessionRequest["role"]; label: string; hint: string }[] = [
   { id: "random", label: "Random", hint: "You'll find out who you are when the call connects." },
   { id: "agent", label: "You're the bank agent", hint: "An AI fraudster calls in. Decide whether to trust them." },
   { id: "scammer", label: "You're the scammer", hint: "Call the bank and try to talk your way past Baseline." },
+  { id: "candidate", label: "Pressure simulation", hint: "You're the bank agent; the caller's pressure rises. Your delivery and decisions feed a Digital Twin and a signed credential." },
 ];
 
 export const SCENARIO_LABEL: Record<string, string> = {

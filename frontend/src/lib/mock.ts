@@ -8,6 +8,7 @@ export const MOCK_CONFIG: AppConfig = {
   roles: [
     { id: "agent", label: "You're the bank agent" },
     { id: "scammer", label: "You're the scammer" },
+    { id: "candidate", label: "Pressure simulation" },
   ],
   scenarios: SCENARIOS,
   voices: VOICES,
@@ -53,7 +54,7 @@ export class MockTransport {
     this.role = req.role === "random" ? pick<Role>(["agent", "scammer"]) : req.role;
     this.scenario = req.scenario === "random" ? pick(SCENARIOS).id : req.scenario;
     this.voice = req.voice === "random" ? pick(VOICES).id : req.voice;
-    this.script = pickScript(this.role, this.scenario);
+    this.script = pickScript(this.role === "candidate" ? "agent" : this.role, this.scenario);
     this.later(250, () => this.emit({ type: "queue", position: 2, queue_length: 3, eta_s: 45 }));
     this.later(2200, () => this.emit({ type: "queue", position: 1, queue_length: 2, eta_s: 15 }));
     this.later(4200, () => this.start());
@@ -112,6 +113,7 @@ export class MockTransport {
     const dur = Math.max(1.6, words * 0.34);
     const tStart = this.now();
     this.emit({ type: "speaking", who: "ai", state: "start" });
+    if (this.role === "candidate") this.emit({ type: "pressure", level: this.next <= 2 ? 1 : this.next <= 4 ? 2 : 3, utterance_id: this.uid + 1, t: tStart });
     this.speak(line.text);
     const levelTimer = window.setInterval(() => {
       if (this.closed) return window.clearInterval(levelTimer);
@@ -128,7 +130,7 @@ export class MockTransport {
       this.aiBusy = false;
       if (this.role === "agent") this.analyze(id, line);
       // the last line is a goodbye
-      if (this.next >= this.script.lines.length && this.role === "agent") this.later(2500, () => this.end("caller_hung_up"));
+      if (this.next >= this.script.lines.length && this.role !== "scammer") this.later(this.role === "candidate" ? 9000 : 2500, () => this.end("caller_hung_up"));
       else this.armIdle(this.role === "agent" ? 6500 : 12000);
     });
   }
@@ -182,7 +184,8 @@ export class MockTransport {
 
   private visitorLine(text: string, tStart: number) {
     const id = ++this.uid;
-    this.emit({ type: "transcript", utterance_id: id, t_start: tStart, t_end: this.now(), text, speaker: "visitor", analyzed: this.role === "scammer" });
+    this.emit({ type: "transcript", utterance_id: id, t_start: tStart, t_end: this.now(), text, speaker: "visitor", analyzed: this.role === "scammer" || this.role === "candidate" });
+    if (this.role === "candidate") this.mockDelivery(id, text);
     if (this.role === "scammer") {
       const pats = SCAMMER_TRIGGERS.filter((t) => t.re.test(text)).map((t) => t.make(text.match(t.re)?.[0] ?? text));
       const scam = pats.length > 0;
@@ -210,6 +213,29 @@ export class MockTransport {
     }
     if (!this.aiBusy) this.later(900, () => this.aiTurn());
   }
+
+  /** DEMO MODE ONLY: simulated delivery values (nothing is measured), clearly labelled in `reason`. */
+  private mockDelivery(id: number, text: string) {
+    const n = ++this.nDelivery;
+    const lvl = this.next <= 2 ? 1 : this.next <= 4 ? 2 : 3;
+    const z = (k: number) => Math.round((n <= 3 ? 0.2 : k * (0.6 + 0.9 * lvl) * (Math.random() * 0.4 + 0.8)) * 10) / 10;
+    const ok = n > 3;
+    this.later(500, () =>
+      this.emit({
+        type: "signal", utterance_id: id, signal: "prosody", score: 0, confidence: 0.25,
+        reason: "DEMO MODE: simulated values, not measured from your voice.",
+        details: {
+          status: ok ? "ok" : "building_baseline", baseline_n: Math.min(n, 3), delivery_change: ok ? Math.min(1, lvl / 3) : null,
+          delivery_markers: ok && lvl >= 2 ? ["higher pitch than this speaker's earlier delivery", "faster speech than earlier (rough proxy)"] : [],
+          z: ok ? { f0_median_st: z(1), f0_std_st: z(0.4), rms_db: z(0.7), rate_proxy: z(0.9), pause_frac: -z(0.3) } : undefined,
+          features: { pause_frac: 0.15 }, calibration_status: "not_established",
+        },
+      }),
+    );
+    const tags = [/verify|call (you )?back|number on file/i.test(text) && "verification_requested", /\b(no|won't|will not|refuse)\b/i.test(text) && "refused"].filter(Boolean) as ("verification_requested" | "refused")[];
+    for (const event of tags) this.emit({ type: "decision", event, utterance_id: id, t: this.now() });
+  }
+  private nDelivery = 0;
 
   private end(reason: string) {
     if (this.ended) return;

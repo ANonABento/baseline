@@ -32,6 +32,7 @@ class Brain(ABC):
         self.persona = persona
         self.history: list[dict] = []  # [{"role": "assistant"|"user", "content": str}]
         self._stub_i = 0
+        self.pressure_hint = ""  # appended to the system prompt (candidate simulation)
 
     def add_ai(self, text: str) -> None:
         if text:
@@ -85,7 +86,8 @@ class LLMBrain(Brain):
             hist = [{"role": "user", "content": "(call connected)"}] + hist
         if not hist or hist[-1]["role"] != "user":
             hist = hist + [{"role": "user", "content": "(silence)"}]
-        return [{"role": "system", "content": self.persona.system_prompt}] + hist
+        system = self.persona.system_prompt + (f"\n\n{self.pressure_hint}" if self.pressure_hint else "")
+        return [{"role": "system", "content": system}] + hist
 
     async def _stream_tokens(self) -> AsyncIterator[str]:
         kwargs = {}

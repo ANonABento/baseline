@@ -1,14 +1,9 @@
 """session_signals known-answer tests + credential issue/verify/tamper (software correctness only)."""
 
 import copy
-import sys
-from pathlib import Path
-
 import pytest
 
 from detectors.session_signals import analyse
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 
 def report():
@@ -61,6 +56,15 @@ def test_credential_roundtrip_and_tamper(tmp_path):
     other["transcript"][1]["text"] = "changed"
     assert c.verify(cred, other) == (False, "signature valid, but the report does not match report_sha256")
     assert c.public_from_did(cred["payload"]["issuer"]) and cred["payload"]["issuer"].startswith("did:key:z6Mk")
+
+
+def test_pressure_by_time_and_refusal_keyword():
+    from caller.personas import pressure_for_time
+    from detectors.session_signals import decision_tags
+
+    assert [pressure_for_time(t) for t in (0, 29.9, 30, 69.9, 70, 200)] == [1, 1, 2, 2, 3, 3]
+    assert decision_tags("No problem, take your time") == []
+    assert decision_tags("No, I will not do that") == ["refused"]
 
 
 def test_interaction_and_decisions():

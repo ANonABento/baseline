@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { fmtTime, SIGNAL_LABEL } from "../analysis";
 import { Baseline } from "../components/Baseline";
 import { TopBar } from "../components/Chrome";
+import { BehaviourSummary } from "../components/Credential";
 import { Transcript } from "../components/Transcript";
+import { TwinPanel } from "../components/Twin";
+import { twinView } from "../lib/twin";
 import { fetchReport, fetchReportList, isMockSetting, loadConfig } from "../lib/client";
 import { buildNotes, spikesFromNotes, TIER_GLYPH, topEvidence, verdictOf, type Note } from "../lib/notes";
 import { linkTo } from "../lib/prefs";
@@ -55,6 +58,7 @@ export function Report({ id }: { id: string }) {
 
   const state = useMemo(() => (data ? replay(data.events) : null), [data]);
   const notes = useMemo(() => (state ? buildNotes(state.lines, state.signals, state.evidence.items) : []), [state]);
+  const twin = useMemo(() => (state ? twinView(state) : null), [state]);
   const [active, setActive] = useState<string | null>(null);
   const [scrollTo, setScrollTo] = useState<{ id: number; n: number } | null>(null);
 
@@ -84,6 +88,8 @@ export function Report({ id }: { id: string }) {
       </>
     );
 
+  const behaviour = (data.raw as { behaviour?: Record<string, unknown> } | null)?.behaviour;
+  const candidate = !!behaviour || state.call?.role === "candidate";
   const peakAlert = state.peakAlert ?? state.alert;
   const verdict = verdictOf(peakAlert, notes, state.evidence.items);
   const level = state.peak === "high" ? "alert" : state.peak === "caution" ? "watching" : "clear";
@@ -122,7 +128,7 @@ export function Report({ id }: { id: string }) {
               {data.source === "local" ? ", recorded in this browser" : ""}
             </span>
             <h1 className={`report__verdict report__verdict--${level}`}>
-              {level === "alert" ? "Likely fraud" : level === "watching" ? "Needs a closer look" : "No fraud signals"}
+              {candidate ? "Digital twin summary" : level === "alert" ? "Likely fraud" : level === "watching" ? "Needs a closer look" : "No fraud signals"}
             </h1>
           </div>
           <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
@@ -165,11 +171,15 @@ export function Report({ id }: { id: string }) {
           </section>
 
           <aside>
+            {candidate && twin && <TwinPanel twin={twin} duration={axis} />}
+            {candidate && behaviour && <BehaviourSummary id={id} behaviour={behaviour} twin={twin!} />}
+            {!candidate && (
             <section className="report__section">
               <span className="label">Recommended action</span>
               <p className="action">{action}</p>
               {verdict.sayThis && <p className="say__text" style={{ marginTop: "1rem", color: "var(--ink-2)" }}>{verdict.sayThis}</p>}
             </section>
+            )}
 
             <section className="report__section">
               <span className="label">Reveal</span>
@@ -177,7 +187,7 @@ export function Report({ id }: { id: string }) {
                 <dt>Caller</dt>
                 <dd>{reveal?.persona_label || "Not disclosed"}</dd>
                 <dt>Visitor</dt>
-                <dd>{(reveal?.role ?? call?.role) === "scammer" ? "Played the scammer" : "Played the bank agent"}</dd>
+                <dd>{(reveal?.role ?? call?.role) === "scammer" ? "Played the scammer" : (reveal?.role ?? call?.role) === "candidate" ? "Played the bank agent under scripted pressure" : "Played the bank agent"}</dd>
                 <dt>Scenario</dt>
                 <dd>{(() => {
                   const id = reveal?.scenario ?? call?.scenario ?? "";
@@ -195,6 +205,7 @@ export function Report({ id }: { id: string }) {
               </dl>
             </section>
 
+            {!candidate && (
             <section className="report__section">
               <span className="label">Signals, peak per detector</span>
               <table className="sigtable">
@@ -221,6 +232,7 @@ export function Report({ id }: { id: string }) {
                 </tbody>
               </table>
             </section>
+            )}
 
             {state.evidence.items.length > 0 && (
               <section className="report__section">

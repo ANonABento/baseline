@@ -22,8 +22,11 @@ Twin = a running model of the person on the call: baseline learned (n/3), curren
 ## 4. End of call
 At call end C does: `from detectors.session_signals import analyse; report["behaviour"] = analyse(report, pressure={interviewer_utterance_id: level})` before saving the report. Summary panel reads `report["behaviour"]`: `tone_drift`, `speech_rate`, `hesitation`, `response_latency_s`, `recovery_latency` (status `recovered | not_recovered_in_call | no_peak_over_threshold`), `interaction`, `delivery_change_by_pressure_level`.
 
-## 5. Credential
-After saving the report: `scripts/credential.py` functions `issue(report, decisions, key_path)` and `verify(cred, report)` (needs `cryptography`; add it to backend deps). Write `data/reports/<id>.credential.json`; serve it at `GET /api/credential/<id>` (C's `live_api.py`). UI: "Download credential" and a "Verify" link to a copy of `docs/verify.html` (copy it into `frontend/public/verify.html`; it is self-contained, no backend call). Show the issuer `did:key` and the claims text verbatim. The issuer key is `data/issuer.key` (never commit; create once).
+## 5. Credential (implemented 2026-10-10)
+`backend/credential.py` (`issue`, `verify`, `issue_for_report`, `load_credential`; CLI wrapper `scripts/credential.py`; `cryptography==50.0.2` is a backend dependency). `LiveCall.end` (role `candidate`) writes `report["pressure"]` and `report["behaviour"]`, saves the report, then signs the SAVED report and writes `data/reports/credentials/<id>.json`; `GET /api/credential/<id>` serves it. UI: `frontend/src/components/Credential.tsx` shows the issuer `did:key`, report SHA-256 and claims text verbatim, "Download credential" and "Verify offline" (`frontend/public/verify.html`, a copy of `docs/verify.html`; keep the two identical). The issuer key is `data/issuer.key` (never commit; `*.key` is gitignored).
+
+## 5b. Where the Twin renders (implemented)
+`frontend/src/lib/twin.ts` (pure view-model, tests in `frontend/tests/twin.test.ts`) -> `components/Twin.tsx` (`TwinPanel`, used in the live `Room` for role `candidate` and in the `Report` page). Live `pressure` and `decision` WebSocket messages feed `SessionState.pressure/decisions`.
 
 ## 6. Enabling the emotion probe
 `EMOTION_PROVIDER=wavlm` in `.env` (needs `data/models/emotion_probe.npz`, made by `scripts/train_emotion_probe.py`; loads WavLM-base-plus, ~380 MB, first call slower). Off by default; the UI must handle `emotion_estimate: null`.

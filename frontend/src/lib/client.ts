@@ -124,6 +124,10 @@ export async function fetchReport(id: string): Promise<unknown> {
   return fetchJson<unknown>(`/api/report/${encodeURIComponent(id)}`, undefined, 6000);
 }
 
+export async function fetchCredential(id: string): Promise<unknown> {
+  return fetchJson<unknown>(`/api/credential/${encodeURIComponent(id)}`, undefined, 6000);
+}
+
 export async function fetchReportList(): Promise<unknown> {
   return fetchJson<unknown>("/api/reports?limit=20", undefined, 4000);
 }

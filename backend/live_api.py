@@ -4,6 +4,7 @@
     POST /api/session                {role, scenario, voice} (each may be "random") -> {session_id, ws_url}
     WS   /ws/session/{session_id}    queue -> call; contract in backend/README.md "Live call API"
     GET  /api/report/{id}            full end-of-call report (data/reports/<id>.json)
+    GET  /api/credential/{id}        signed Ed25519 did:key credential for a candidate-role call
     GET  /api/reports?limit=20       newest report summaries
 
 `LiveService` holds the process-wide pieces (session manager, TTS, STT, brain factory). Tests
@@ -27,6 +28,8 @@ from caller.live_call import LiveCall
 from caller.personas import CUSTOMER, SCENARIOS, build_persona
 from caller.report import list_reports, load_report
 from caller.tts import TTSProvider, make_tts
+from credential import issuer_did, load_credential
+from detectors.prosody import ProsodyDetector
 from ml import voiceprints
 from pipeline import CallPipeline
 from providers import make_stt
@@ -36,7 +39,8 @@ from settings import Settings, get_settings
 
 log = logging.getLogger("baseline.live")
 
-ROLES = ["agent", "scammer"]
+ROLES = ["agent", "scammer", "candidate"]
+RANDOM_ROLES = ["agent", "scammer"]  # "random" never picks the assessment mode (candidate)
 
 router = APIRouter()
 
@@ -49,7 +53,7 @@ class LiveService:
         self.tts = tts or make_tts(settings)
         self._stt = stt
         self.brains = brain_factory or BrainFactory(settings)
-        self.pipeline_factory = pipeline_factory or (lambda emit: CallPipeline(emit, settings))
+        self.pipeline_factory = pipeline_factory or self._default_pipeline
         self.segmenter_factory = segmenter_factory or (lambda: make_segmenter(settings))
         self.manager = manager or SessionManager(
             settings.max_concurrent_calls, settings.max_call_seconds, reconnect_grace_s=settings.reconnect_grace_s,
@@ -58,6 +62,11 @@ class LiveService:
         log.info("live calls: tts=%s (%d voices), persona llm=%s, max_concurrent=%d, max_call_s=%d",
                  self.tts.name, len(self.tts.voices()), self.llm_info(), self.manager.max_concurrent,
                  int(settings.max_call_seconds))
+
+    def _default_pipeline(self, emit, role: str = "agent") -> CallPipeline:
+        # candidate: only delivery signals on the trainee's voice (no spoof/speaker/fraud scoring of the trainee)
+        dets = [ProsodyDetector()] if role == "candidate" else None
+        return CallPipeline(emit, self.settings, detectors=dets)
 
     @property
     def stt(self):
@@ -144,7 +153,7 @@ def _pick(value: str, options: list[str], what: str) -> str:
 @router.post("/api/session")
 async def api_session(req: SessionRequest, request: Request) -> dict:
     svc = service()
-    role = _pick(req.role, ROLES, "role")
+    role = random.choice(RANDOM_ROLES) if (req.role or "random").strip() == "random" else _pick(req.role, ROLES, "role")
     scenario = _pick(req.scenario, list(SCENARIOS), "scenario")
     voice = _pick(req.voice, [v["id"] for v in svc.tts.voices()], "voice")
     s = svc.manager.create(role, scenario, voice, requested=req.model_dump())
@@ -159,6 +168,21 @@ async def api_report(report_id: str) -> dict:
     if r is None:
         raise HTTPException(404, "report not found")
     return r
+
+
+@router.get("/api/issuer")
+async def api_issuer() -> dict:
+    """The issuer did:key. Compare it with the `issuer` field of a credential to pin who signed it."""
+    return {"issuer": issuer_did(service().settings.issuer_key_path)}
+
+
+@router.get("/api/credential/{report_id}")
+async def api_credential(report_id: str) -> dict:
+    """Signed simulation credential (candidate role only). Verify offline: /verify.html or scripts/credential.py."""
+    c = load_credential(service().settings.reports_dir, report_id)
+    if c is None:
+        raise HTTPException(404, "credential not found")
+    return c
 
 
 @router.get("/api/reports")
@@ -262,7 +286,7 @@ async def ws_session(ws: WebSocket, session_id: str) -> None:
 
         call = LiveCall(session=sess, settings=svc.settings, send_json=conn.send_json, send_bytes=conn.send_bytes,
                         persona=persona, brain=svc.brains(persona), tts=svc.tts, stt=svc.stt,
-                        pipeline=svc.pipeline_factory(lambda ev: asyncio.sleep(0)),
+                        pipeline=svc.pipeline_factory(lambda ev: asyncio.sleep(0), sess.role),
                         segmenter=svc.segmenter_factory(), customer_enrolled=svc.customer_enrolled(),
                         llm_info=svc.llm_info(), on_end=on_end)
         svc.calls[session_id] = call
