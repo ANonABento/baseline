@@ -41,44 +41,97 @@ export function rms(samples: Float32Array): number {
   return Math.sqrt(sum / samples.length);
 }
 
-/** Browser-only player. Create lazily from a user gesture (Join call) so autoplay is allowed. */
+/**
+ * Browser-only player. Create lazily from a user gesture (Join call) so autoplay is allowed.
+ * Plays through an AudioWorklet ring buffer (public/pcm-player-worklet.js) that resamples
+ * continuously; one AudioBufferSourceNode per 50 ms frame (the fallback when worklets are
+ * unavailable) clicks at every frame seam.
+ */
 export class PcmPlayer {
   private ctx: AudioContext;
   private gain: GainNode;
   private state: ScheduleState = { nextTime: 0 };
   private live = new Set<AudioBufferSourceNode>();
   private sampleRate: number;
+  private node: AudioWorkletNode | null = null;
+  private pending: Float32Array[] = [];
+  private ready: Promise<void>;
+  private readyDone = false;
 
   constructor(sampleRate = 16000) {
     this.sampleRate = sampleRate;
     this.ctx = new AudioContext();
     this.gain = this.ctx.createGain();
     this.gain.connect(this.ctx.destination);
+    this.ready = this.initWorklet();
+  }
+
+  private async initWorklet() {
+    try {
+      if (!this.ctx.audioWorklet) return;
+      await this.ctx.audioWorklet.addModule(`${import.meta.env.BASE_URL}pcm-player-worklet.js`);
+      const node = new AudioWorkletNode(this.ctx, "pcm-player", { outputChannelCount: [1] });
+      node.connect(this.gain);
+      node.port.postMessage({ type: "rate", sr: this.sampleRate });
+      this.node = node;
+      for (const x of this.pending) this.post(x);
+    } catch {
+      /* no worklet (insecure context, old browser): per-chunk buffers */
+    } finally {
+      if (!this.node) for (const x of this.pending) this.schedule(x);
+      this.pending = [];
+      this.readyDone = true;
+    }
   }
 
   setSampleRate(sr: number) {
-    if (sr >= 8000 && sr <= 96000) this.sampleRate = sr;
+    if (sr >= 8000 && sr <= 96000) {
+      this.sampleRate = sr;
+      this.node?.port.postMessage({ type: "rate", sr });
+    }
   }
 
   async resume() {
     if (this.ctx.state === "suspended") await this.ctx.resume();
+    await this.ready;
+  }
+
+  private post(x: Float32Array) {
+    this.node!.port.postMessage({ type: "pcm", data: x }, [x.buffer]);
+  }
+
+  private schedule(data: Float32Array) {
+    const ab = this.ctx.createBuffer(1, data.length, this.sampleRate);
+    ab.copyToChannel(data as Float32Array<ArrayBuffer>, 0);
+    const src = this.ctx.createBufferSource();
+    src.buffer = ab;
+    src.connect(this.gain);
+    src.start(this.track(ab.duration));
+    this.live.add(src);
+    src.onended = () => this.live.delete(src);
+  }
+
+  /** advance the queued-audio estimate; returns where this chunk starts on the audio clock */
+  private track(duration: number): number {
+    const plan = planChunk(this.state, this.ctx.currentTime, duration);
+    this.state = plan.state;
+    return plan.startAt;
   }
 
   /** Queue one chunk; returns its RMS (0..1) so callers can animate without ai_level. */
   push(buf: ArrayBuffer): number {
     const data = pcm16ToFloat(buf);
     if (!data.length) return 0;
-    const ab = this.ctx.createBuffer(1, data.length, this.sampleRate);
-    ab.copyToChannel(data as Float32Array<ArrayBuffer>, 0);
-    const src = this.ctx.createBufferSource();
-    src.buffer = ab;
-    src.connect(this.gain);
-    const plan = planChunk(this.state, this.ctx.currentTime, ab.duration);
-    this.state = plan.state;
-    src.start(plan.startAt);
-    this.live.add(src);
-    src.onended = () => this.live.delete(src);
-    return rms(data);
+    const level = rms(data);
+    if (this.node) {
+      this.track(data.length / this.sampleRate);
+      this.post(data);
+    } else if (!this.readyDone) {
+      this.pending.push(data);
+    } else {
+      this.schedule(data);
+    }
+    return level;
   }
 
   /** stop_audio / barge-in: cut everything that's queued, immediately. */
@@ -91,6 +144,8 @@ export class PcmPlayer {
       }
     }
     this.live.clear();
+    this.node?.port.postMessage({ type: "clear" });
+    this.pending = [];
     this.state = { nextTime: 0 };
   }
 
