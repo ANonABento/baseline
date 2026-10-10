@@ -103,7 +103,8 @@ async def warmup_live(settings: Settings) -> None:
             brain.add_visitor("Hello, how can I help?")
             async for _ in brain.reply():
                 pass
-            log.info("persona LLM warm")
+            err = getattr(brain, "last_error", None)
+            log.info("persona LLM %s", f"warmup incomplete ({err}); first reply may be slow" if err else "warm")
         except Exception:
             log.warning("persona LLM warmup failed", exc_info=True)
 
