@@ -28,7 +28,7 @@ def test_finished(text):
 def _fake(silence_ms=200, extra_ms=400):
     return SimpleNamespace(settings=SimpleNamespace(turn_end_silence_ms=silence_ms, turn_unfinished_extra_ms=extra_ms),
                            visitor_speaking=False, _last_speech_at=time.monotonic(), turn_q=asyncio.Queue(),
-                           _ending=False)
+                           _ending=False, ptt_mode=False, ptt_active=False, _transcribing=lambda: False)
 
 
 def _turn(text, source="audio"):
@@ -69,3 +69,32 @@ def test_typed_turn_skips_hold():
         await LiveCall._hold_for_end_of_turn(call, [_turn("and", source="text")])
         return time.monotonic() - t0
     assert asyncio.run(run()) < 0.05
+
+
+def test_ptt_release_skips_silence_hold():
+    async def run():
+        call = _fake(silence_ms=2000)
+        call.ptt_mode = True
+        t0 = time.monotonic()
+        await LiveCall._hold_for_end_of_turn(call, [_turn("Yeah I got a text but")])
+        return time.monotonic() - t0
+    assert asyncio.run(run()) < 0.05
+
+
+def test_ptt_waits_while_held_and_merges():
+    async def run():
+        call = _fake(silence_ms=2000)
+        call.ptt_mode, call.ptt_active = True, True
+        turns = [_turn("Yeah I got a text but")]
+
+        async def keep_talking_then_release():
+            await asyncio.sleep(0.2)
+            call.turn_q.put_nowait(_turn("I didn't click it."))
+            await asyncio.sleep(0.1)
+            call.ptt_active = False
+        asyncio.create_task(keep_talking_then_release())
+        t0 = time.monotonic()
+        await LiveCall._hold_for_end_of_turn(call, turns)
+        return time.monotonic() - t0, turns
+    dt, turns = asyncio.run(run())
+    assert dt < 0.5 and [t.text for t in turns] == ["Yeah I got a text but", "I didn't click it."]

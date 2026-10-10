@@ -23,6 +23,7 @@ export function CallPage() {
             onText={s.sendText}
             onPcm={s.sendPcm}
             onBargeIn={s.bargeIn}
+            onPtt={s.ptt}
             onAgain={s.reset}
           />
         );

@@ -274,6 +274,9 @@ class LiveCall:
         self._cur_timing: TurnTiming | None = None
         self._last_vad_end_at: float | None = None
         self._last_speech_at = 0.0  # monotonic: last mic frame the turn VAD counted as speech
+        self.ptt_mode = False  # the client sent ptt messages: press/release marks turns, no silence hold
+        self.ptt_active = False
+        self._stt_pending = 0  # visitor segments queued for or in our STT worker
         self._ending = False
         self._send_ok = True
         frame_ms = 1000 * getattr(segmenter, "frame", 480) / settings.sample_rate
@@ -577,12 +580,45 @@ class LiveCall:
             self.barge_in()
         for seg in segs:
             self._last_vad_end_at = time.monotonic()
-            if self.role in ("client", "candidate"):
-                self.stt_q.put_nowait((seg, self._last_vad_end_at))
+            self._to_stt(seg)
         if segs or (self.visitor_speaking and not in_speech):
             if self.visitor_speaking:
                 self.visitor_speaking = False
                 asyncio.create_task(self.send_json({"type": "speaking", "who": "visitor", "state": "end"}))
+
+    def _to_stt(self, seg) -> None:
+        if self.role in ("client", "candidate"):
+            self._stt_pending += 1
+            self.stt_q.put_nowait((seg, self._last_vad_end_at))
+
+    def ptt(self, state: str) -> None:
+        """Push-to-talk. down: the visitor holds the talk key (interrupts the AI). up: sent after the
+        release tail; the held speech is closed into a turn now instead of waiting for silence."""
+        if self._ending:
+            return
+        self.ptt_mode = True
+        if state == "down":
+            self.ptt_active = True
+            self.barge_in()
+            return
+        if state != "up" or not self.ptt_active:
+            return
+        self.ptt_active = False
+        for seg in self.turn_vad.flush():
+            self._last_vad_end_at = time.monotonic()
+            self._to_stt(seg)
+        if self.role == "scammer":
+            for seg in self.pipe.segmenter.flush():
+                self.pipe._enqueue(seg)
+        if self.visitor_speaking:
+            self.visitor_speaking = False
+            asyncio.create_task(self.send_json({"type": "speaking", "who": "visitor", "state": "end"}))
+
+    def _transcribing(self) -> bool:
+        """Held speech still on its way to a visitor turn (our STT worker or the pipeline's queue)."""
+        if self._stt_pending > 0:
+            return True
+        return self.role != "client" and getattr(self.pipe._queue, "_unfinished_tasks", 0) > 0
 
     async def feed_text(self, text: str) -> None:
         text = " ".join(str(text).split())[:500]
@@ -596,7 +632,6 @@ class LiveCall:
             self.turn_q.put_nowait(VisitorTurn(text, t, t, time.monotonic(), "text"))
 
     async def _stt_worker(self) -> None:
-        sr = self.settings.sample_rate
         n = 0
         while True:
             seg, vad_end = await self.stt_q.get()
@@ -604,22 +639,29 @@ class LiveCall:
             t_end = round(seg.t_end, 2)
             t = time.perf_counter()
             try:
-                text = (await self.stt.transcribe(Utterance(id=n, audio=seg.audio, sample_rate=sr,
-                                                            t_start=t_start, t_end=t_end))).strip()
-            except Exception as e:
-                log.exception("visitor STT failed")
-                self.col.errors.append(f"visitor STT failed: {e}")
-                text = ""
+                await self._stt_one(seg, vad_end, n, t_start, t_end, t)
+            finally:
+                self._stt_pending = max(0, self._stt_pending - 1)
             n += 1
-            stt_ms = round((time.perf_counter() - t) * 1000, 1)
-            if not text or self._ending:
-                continue
-            if self.candidate:  # transcript + prosody come back through the pipeline and queue the turn
-                self.pipe.feed_utterance(seg.audio, self._mic_to_call_time(t_start), self._mic_to_call_time(t_end), text=text)
-                continue
-            await self._visitor_line(text, t_start, t_end, stt_ms)
-            self.turn_q.put_nowait(VisitorTurn(text, t_start, t_end, time.monotonic(), "audio",
-                                               vad_end_at=vad_end, stt_ms=stt_ms))
+
+    async def _stt_one(self, seg, vad_end, n: int, t_start: float, t_end: float, t: float) -> None:
+        sr = self.settings.sample_rate
+        try:
+            text = (await self.stt.transcribe(Utterance(id=n, audio=seg.audio, sample_rate=sr,
+                                                        t_start=t_start, t_end=t_end))).strip()
+        except Exception as e:
+            log.exception("visitor STT failed")
+            self.col.errors.append(f"visitor STT failed: {e}")
+            text = ""
+        stt_ms = round((time.perf_counter() - t) * 1000, 1)
+        if not text or self._ending:
+            return
+        if self.candidate:  # transcript + prosody come back through the pipeline and queue the turn
+            self.pipe.feed_utterance(seg.audio, self._mic_to_call_time(t_start), self._mic_to_call_time(t_end), text=text)
+            return
+        await self._visitor_line(text, t_start, t_end, stt_ms)
+        self.turn_q.put_nowait(VisitorTurn(text, t_start, t_end, time.monotonic(), "audio",
+                                           vad_end_at=vad_end, stt_ms=stt_ms))
 
     # ------------------------------------------------------------------ AI turns
 
@@ -651,6 +693,18 @@ class LiveCall:
     async def _hold_for_end_of_turn(self, turns: list[VisitorTurn]) -> None:
         """Don't answer a pause: wait until the visitor has been silent TURN_END_SILENCE_MS (longer if
         the words so far sound unfinished), merging any turn that arrives meanwhile. Typed turns skip it."""
+        if self.ptt_mode:
+            # push-to-talk: release ends the turn. Wait only while the key is held or held speech is
+            # still being transcribed (bounded), merging whatever arrives.
+            deadline = time.monotonic() + 30
+            while (self.ptt_active or self._transcribing()) and not self._ending and time.monotonic() < deadline:
+                try:
+                    turns.append(await asyncio.wait_for(self.turn_q.get(), timeout=0.05))
+                except asyncio.TimeoutError:
+                    pass
+            while not self.turn_q.empty():
+                turns.append(self.turn_q.get_nowait())
+            return
         while turns[-1].source == "audio" and not self._ending:
             text = " ".join(t.text for t in turns if t.source != "resume")
             need = self.settings.turn_end_silence_ms

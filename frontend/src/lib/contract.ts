@@ -146,7 +146,7 @@ export interface Behaviour {
   decision_events: { t: number; utterance_id: number; event: string }[];
 }
 
-export type ClientMsg = { type: "hangup" } | { type: "ping" } | { type: "text"; text: string } | { type: "suspect" };
+export type ClientMsg = { type: "hangup" } | { type: "ping" } | { type: "text"; text: string } | { type: "suspect" } | { type: "ptt"; state: "down" | "up" };
 
 export type MsgOf<T extends ServerMsg["type"]> = Extract<ServerMsg, { type: T }>;
 

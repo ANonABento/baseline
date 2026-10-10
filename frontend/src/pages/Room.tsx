@@ -22,10 +22,12 @@ interface Props {
   onText: (t: string) => void;
   onPcm: (pcm: ArrayBuffer) => void;
   onBargeIn: () => void;
+  onPtt: (state: "down" | "up") => void;
   onAgain: () => void;
 }
 
-const TAIL_MS = 600;
+const TAIL_MS = 400; // keep sending after release (worklet latency), then tell the server the turn is over
+const PREROLL_BYTES = 16000 * 2 * 0.3; // last 300 ms of 16 kHz PCM16, sent on press so the first syllable survives
 
 function useNow(active: boolean, ms = 250) {
   const [now, setNow] = useState(Date.now());
@@ -150,7 +152,7 @@ export function YouVsBaseline({ state, compact = false }: { state: SessionState;
   );
 }
 
-export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBargeIn, onAgain }: Props) {
+export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBargeIn, onPtt, onAgain }: Props) {
   const live = state.phase === "live";
   const now = useNow(live);
   const t = elapsed(state, now);
@@ -170,6 +172,8 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
   const mic = useRef<MicHandle | null>(null);
   const sendUntil = useRef(0);
   const holdingRef = useRef(false);
+  const preroll = useRef<ArrayBuffer[]>([]);
+  const upTimer = useRef<number | undefined>(undefined);
 
   // ---- mic: open once the call is live; only stream while holding (+ a short tail so the VAD closes)
   const ensureMic = useCallback(async () => {
@@ -177,7 +181,14 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
     try {
       mic.current = await startMic(
         (pcm) => {
-          if (holdingRef.current || performance.now() < sendUntil.current) onPcm(pcm);
+          if (holdingRef.current || performance.now() < sendUntil.current) {
+            onPcm(pcm);
+            return;
+          }
+          const buf = preroll.current;
+          buf.push(pcm);
+          let bytes = buf.reduce((n, b) => n + b.byteLength, 0);
+          while (buf.length > 1 && bytes - buf[0].byteLength >= PREROLL_BYTES) bytes -= buf.shift()!.byteLength;
         },
         (lv) => {
           myLevel.current = lv;
@@ -207,15 +218,24 @@ export function Room({ state, aiLevel, onHangup, onSuspect, onText, onPcm, onBar
     holdingRef.current = true;
     setHolding(true);
     onBargeIn();
+    window.clearTimeout(upTimer.current);
+    onPtt("down");
+    for (const b of preroll.current) onPcm(b);
+    preroll.current = [];
     void ensureMic();
-  }, [live, ensureMic, onBargeIn]);
+  }, [live, ensureMic, onBargeIn, onPtt, onPcm]);
   const release = useCallback(() => {
     if (!holdingRef.current) return;
     holdingRef.current = false;
     sendUntil.current = performance.now() + TAIL_MS;
+    window.clearTimeout(upTimer.current);
+    upTimer.current = window.setTimeout(() => {
+      if (!holdingRef.current) onPtt("up");
+    }, TAIL_MS + 60);
     setHolding(false);
     setMyLevelUi(0);
-  }, []);
+  }, [onPtt]);
+  useEffect(() => () => window.clearTimeout(upTimer.current), []);
 
   useEffect(() => {
     const typing = (e: KeyboardEvent) => {

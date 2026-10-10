@@ -348,6 +348,8 @@ async def ws_session(ws: WebSocket, session_id: str) -> None:
                 await call.feed_text(str(data.get("text", "")))
             elif kind == "suspect":
                 await call.suspect()
+            elif kind == "ptt":
+                call.ptt(str(data.get("state", "")))
             else:
                 await conn.send_json({"type": "error", "message": f"unknown message type: {kind!r}"})
     except WebSocketDisconnect:

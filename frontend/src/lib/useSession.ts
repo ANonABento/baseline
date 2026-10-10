@@ -136,6 +136,8 @@ export function useSession() {
     dispatch({ kind: "suspect", now: Date.now() });
     transport.current?.send({ type: "suspect" });
   }, []);
+  /** push-to-talk edges: the server closes the turn on "up" instead of waiting for silence */
+  const ptt = useCallback((state: "down" | "up") => transport.current?.send({ type: "ptt", state }), []);
   const sendPcm = useCallback((pcm: ArrayBuffer) => transport.current?.sendPcm(pcm), []);
   const bargeIn = useCallback(() => {
     player.current?.stop();
@@ -159,5 +161,5 @@ export function useSession() {
     [],
   );
 
-  return { state, join, cancel, hangup, sendText, suspect, sendPcm, bargeIn, reset, aiLevel, isMock: () => mock.current };
+  return { state, join, cancel, hangup, sendText, suspect, sendPcm, ptt, bargeIn, reset, aiLevel, isMock: () => mock.current };
 }
