@@ -571,7 +571,27 @@ class LiveCall:
                 self.brain.add_visitor(t.text)
             await self._ai_gate.wait()  # Baseline is speaking to the client
             real = [t for t in turns if t.source != "resume"]
-            await self._run_ai_turn(real[-1] if real else None)
+            await self._run_ai_turn_merging(real[-1] if real else None)
+
+    async def _run_ai_turn_merging(self, turn: VisitorTurn | None) -> None:
+        """Run a reply, but if the visitor says more before any of it is heard (one sentence split
+        in two by the VAD), drop it and requeue so a single reply answers both fragments."""
+        self.ai_task = asyncio.create_task(self._ai_turn(turn, None))
+        getter = asyncio.create_task(self.turn_q.get())
+        await asyncio.wait({self.ai_task, getter}, return_when=asyncio.FIRST_COMPLETED)
+        if not getter.done():
+            getter.cancel()
+            with suppress(asyncio.CancelledError):
+                await getter
+        if getter.done() and not getter.cancelled():
+            if not self.ai_task.done() and not self.ai_speaking:
+                log.info("visitor kept talking before the reply was heard; merging turns")
+                self.ai_task.cancel()
+                await asyncio.wait({self.ai_task})
+                if self.col.turns and self.col.turns[-1].first_audio_at is None:
+                    self.col.turns.pop()  # the dropped reply never played: not a latency sample
+            self.turn_q.put_nowait(getter.result())  # the outer loop picks it up, merged with any others
+        await asyncio.wait({self.ai_task})
 
     async def _run_ai_turn(self, turn: VisitorTurn | None, fixed: str | None = None) -> None:
         self.ai_task = asyncio.create_task(self._ai_turn(turn, fixed))
