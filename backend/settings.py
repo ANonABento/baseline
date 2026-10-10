@@ -134,6 +134,8 @@ class Settings(BaseSettings):
     caller_llm_max_tokens: int = 90
     caller_llm_temperature: float = 0.7
     barge_in_ms: int = 350  # visitor speech this long while the AI talks interrupts it
+    turn_end_silence_ms: int = 800  # visitor silence before the AI replies (VAD hangover counts toward it)
+    turn_unfinished_extra_ms: int = 1100  # extra wait when the turn sounds unfinished ("and...", "um...")
     audio_chunk_ms: int = 50  # AI audio frame size sent to the client (also the ai_level rate)
     audio_lead_ms: int = 250  # how far ahead of real time AI audio is sent (client jitter buffer)
     reports_dir: Path = REPO_ROOT / "data" / "reports"

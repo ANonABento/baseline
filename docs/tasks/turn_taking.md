@@ -1,6 +1,6 @@
 # Task: stop the AI caller from answering while the visitor is still talking
 
-**Owner:** next agent · **Size:** about 1 hour · **Deadline:** submission at 9:00 AM, Oct 10
+**Status:** DONE (see git log: "Backend: end-of-turn hold")
 
 ## Bug (from live testing)
 In a live call, if the visitor pauses mid-thought for about 0.5–0.8 s, the AI replies to the first half of what they said.

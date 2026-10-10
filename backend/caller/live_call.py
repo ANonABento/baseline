@@ -26,6 +26,8 @@ from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
+import re
+
 import numpy as np
 
 from caller import intervention
@@ -45,6 +47,30 @@ log = logging.getLogger(__name__)
 SendJson = Callable[[dict], Awaitable[None]]
 SendBytes = Callable[[bytes], Awaitable[None]]
 UNANALYZED_ID_BASE = 1000  # utterance ids for lines that skip the pipeline (never collide with analyzed ids)
+
+
+_TRAILING = {"and", "but", "so", "because", "or", "um", "uh", "umm", "uhh", "like", "the", "a", "an", "my",
+             "i", "to", "if", "that", "then", "with", "of", "for", "is", "was", "just", "well"}
+_COMPLETE_SHORT = {"yes", "yeah", "yep", "no", "nope", "okay", "ok", "hello", "hi", "hey", "sure", "what", "why",
+                   "who", "who is this", "who's this", "bye", "goodbye", "thanks", "thank you", "right", "correct",
+                   "sorry", "pardon", "huh", "really", "no thanks", "not interested", "hold on", "one sec"}
+
+
+def looks_unfinished(text: str) -> bool:
+    """Heuristic: the visitor paused mid-thought (trailing conjunction/filler, comma, or a fragment)."""
+    t = text.strip().lower()
+    if not t:
+        return False
+    if re.search(r"(,|-|\u2014|\.\.\.|\u2026)$", t):
+        return True
+    words = re.findall(r"[a-z']+", t)
+    if not words:
+        return False
+    if " ".join(words) in _COMPLETE_SHORT:
+        return False
+    if words[-1] in _TRAILING:
+        return True
+    return len(words) <= 2 and not re.search(r"[.!?]$", t)
 
 
 @dataclass
@@ -237,6 +263,7 @@ class LiveCall:
         self._mic_samples = 0
         self._cur_timing: TurnTiming | None = None
         self._last_vad_end_at: float | None = None
+        self._last_speech_at = 0.0  # monotonic: last mic frame the turn VAD counted as speech
         self._ending = False
         self._send_ok = True
         frame_ms = 1000 * getattr(segmenter, "frame", 480) / settings.sample_rate
@@ -499,6 +526,8 @@ class LiveCall:
             self.pipe.feed_float(x)
         speech_ms = getattr(self.turn_vad, "_speech_frames", 0) * self._frame_ms
         in_speech = bool(getattr(self.turn_vad, "_in_speech", False))
+        if in_speech and getattr(self.turn_vad, "_silence_run", 0) == 0:
+            self._last_speech_at = time.monotonic()
         if in_speech and not self.visitor_speaking and speech_ms >= self.settings.vad_min_speech_ms:
             self.visitor_speaking = True
             asyncio.create_task(self.send_json({"type": "speaking", "who": "visitor", "state": "start"}))
@@ -567,11 +596,36 @@ class LiveCall:
             turns = [turn]
             while not self.turn_q.empty():
                 turns.append(self.turn_q.get_nowait())
+            await self._hold_for_end_of_turn(turns)
             for t in turns:
                 self.brain.add_visitor(t.text)
             await self._ai_gate.wait()  # Baseline is speaking to the client
             real = [t for t in turns if t.source != "resume"]
             await self._run_ai_turn_merging(real[-1] if real else None)
+
+    async def _hold_for_end_of_turn(self, turns: list[VisitorTurn]) -> None:
+        """Don't answer a pause: wait until the visitor has been silent TURN_END_SILENCE_MS (longer if
+        the words so far sound unfinished), merging any turn that arrives meanwhile. Typed turns skip it."""
+        while turns[-1].source == "audio" and not self._ending:
+            text = " ".join(t.text for t in turns if t.source != "resume")
+            need = self.settings.turn_end_silence_ms
+            if looks_unfinished(text):
+                need += self.settings.turn_unfinished_extra_ms
+            if self.visitor_speaking:
+                quiet_ms = 0.0
+            else:
+                quiet_ms = (time.monotonic() - self._last_speech_at) * 1000
+            if quiet_ms >= need:
+                return
+            if self.visitor_speaking:
+                wait_s = 0.05
+            else:
+                wait_s = (need - quiet_ms) / 1000
+            try:
+                turns.append(await asyncio.wait_for(self.turn_q.get(), timeout=wait_s))
+            except asyncio.TimeoutError:
+                if not self.visitor_speaking and (time.monotonic() - self._last_speech_at) * 1000 >= need:
+                    return
 
     async def _run_ai_turn_merging(self, turn: VisitorTurn | None) -> None:
         """Run a reply, but if the visitor says more before any of it is heard (one sentence split
