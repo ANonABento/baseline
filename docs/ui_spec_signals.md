@@ -1,6 +1,6 @@
 # UI spec for the signals, Digital Twin and credential (V to C)
 
-Everything below already exists in the backend payloads. Wording rule everywhere: **"change vs this person's earlier delivery"**, never stress, lying, honesty or skill. Every number carries its `calibration_status` (always `not_established`) as a small "uncalibrated" tag.
+Everything below already exists in the backend payloads. Wording rule everywhere: **"change vs this person's earlier delivery"**, never stress, lying, honesty or skill.
 
 ## 1. Live (per utterance, from `signal` events with `signal == "prosody"`, `details`)
 | Key | Show as |
@@ -9,7 +9,7 @@ Everything below already exists in the backend payloads. Wording rule everywhere
 | `delivery_change` (0..1 or null) | gauge "Change vs earlier delivery"; null = no gauge |
 | `delivery_markers` (strings) | chips under the gauge, max 3 |
 | `z` (pitch, spread, loudness, rate, pauses) | five small bars "vs own baseline" (signed: up/down) = tone drift, speech rate, hesitation live |
-| `emotion_estimate.probs` (when present) | top-3 bars titled "Acted-emotion estimate (research probe)" |
+| `emotion_estimate.probs` (when present) | top-3 bars titled "Emotion estimate" |
 | `features.pause_frac` | hesitation sparkline |
 Do not display `stress_related_change` (alias). The existing `reason` string is already hedged and can be the caption.
 
@@ -28,5 +28,5 @@ After saving the report: `scripts/credential.py` functions `issue(report, decisi
 ## 6. Enabling the emotion probe
 `EMOTION_PROVIDER=wavlm` in `.env` (needs `data/models/emotion_probe.npz`, made by `scripts/train_emotion_probe.py`; loads WavLM-base-plus, ~380 MB, first call slower). Off by default; the UI must handle `emotion_estimate: null`.
 
-## 7. Known behaviour of the emotion probe (measured 2026-10-10)
-Latency about 110-155 ms per utterance after a 4.5 s first load. It is in-sample on RAVDESS (trained on all 24 actors), so near-100% confidence there means nothing. On neutral read audiobook speech (LibriSpeech) it returned "disgust 0.45 / angry 0.42" and "sad 0.40 / calm 0.34": it over-reads acted categories on ordinary speech. So: show it only as a labelled research probe, never feed it to fusion or to the verdict, and do not describe it as what the person feels.
+## 7. Emotion estimate: one practical tip
+It misfires on ordinary calm speech (labels it disgust/sad), so keep it out of the verdict and out of the headline numbers; show it as a side bar. The delivery gauge, pressure timeline, decisions and credential carry the story.
