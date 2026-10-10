@@ -9,6 +9,7 @@ WAV in data/eval/spoof/ (gitignored) and rows appended to data/eval/labels_spoof
 
 from __future__ import annotations
 
+import argparse
 import csv
 import io
 import json
@@ -22,7 +23,6 @@ import soundfile as sf
 
 ROOT = Path(__file__).resolve().parent.parent
 LABELS = ROOT / "data" / "eval" / "labels_spoof.csv"
-MODEL = "eleven_flash_v2_5"
 N_VOICES = 4
 N_CLIPS = 16
 
@@ -44,14 +44,21 @@ def transcript(utt_id: str) -> str:
 
 
 def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--model", default="eleven_flash_v2_5")
+    ap.add_argument("--voice-id", help="use this voice (e.g. a team clone) instead of 4 premade voices")
+    ap.add_argument("--tag", default="", help="short voice label for filenames/labels when --voice-id is used")
+    ap.add_argument("--condition", default="elevenlabs_flash")
+    args = ap.parse_args()
+    MODEL = args.model
     key = os.environ.get("ELEVENLABS_API_KEY")
     if not key:
         sys.exit("set ELEVENLABS_API_KEY in the environment")
     rows = list(csv.DictReader(LABELS.open()))
     done = {r["file"] for r in rows}
     real = [r for r in rows if r["condition"] == "real_librispeech"][:N_CLIPS]
-    voices = json.loads(call("/v1/voices", key))["voices"]
-    premade = [v for v in voices if v.get("category") == "premade"][:N_VOICES]
+    voices = [] if args.voice_id else json.loads(call("/v1/voices", key))["voices"]
+    premade = [{"voice_id": args.voice_id, "name": args.tag or "clone"}] if args.voice_id else [v for v in voices if v.get("category") == "premade"][:N_VOICES]
     if not premade:
         sys.exit("no premade voices visible to this key")
     out_rows = []
@@ -59,7 +66,7 @@ def main() -> None:
         utt = Path(r["file"]).stem.removeprefix("real_")
         v = premade[i % len(premade)]
         vname = v["name"].split(" - ")[0].strip()
-        rel = f"spoof/el_{vname.lower()}_{utt}.wav"
+        rel = f"spoof/el_{vname.lower()}_{MODEL.removeprefix('eleven_')}_{utt}.wav"
         if rel in done:
             continue
         pcm = call(f"/v1/text-to-speech/{v['voice_id']}?output_format=pcm_16000", key,
@@ -67,7 +74,7 @@ def main() -> None:
         audio = np.frombuffer(pcm, dtype="<i2").astype(np.float32) / 32768.0
         sf.write(ROOT / "data" / "eval" / rel, audio, 16_000)
         out_rows.append({"file": rel, "speaker": f"el_{vname.lower()}", "is_synthetic": 1, "is_fraud": 0,
-                         "condition": "elevenlabs_flash", "notes": f"ElevenLabs {MODEL} premade voice {vname}, same transcript as {utt}",
+                         "condition": args.condition, "notes": f"ElevenLabs {MODEL} voice {vname}, same transcript as {utt}",
                          "expected_customer": "", "is_customer": ""})
     with LABELS.open("a", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))

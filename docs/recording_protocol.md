@@ -1,5 +1,7 @@
 # Recording Protocol: RETIRED (2026-10-10)
 
+> **Update 2026-10-10 (Dae): the no-recording rule is lifted ONLY for Kevin's and one teammate's own voices (real-mic spoof class, enrollment). Use [`recording_kit.md`](recording_kit.md); staged-pressure scenes stay retired.**
+>
 > **Not used.** Decision by Dae on 2026-10-10: no self-recorded training data; the model uses open datasets ([`research/open_datasets.md`](research/open_datasets.md), plan §6). No participants are recorded, so the consent form (`consent_template.md`) and retention rules do not apply. Kept for two reasons: (1) the scene scripts in §6 below are scenarios for C's demo, played by text-to-speech; (2) if anyone later records people, start from §1 and the compliance findings in `workplan.md` (CP1), which still apply. Earlier override of the compliance no-go is moot.
 
 ---
