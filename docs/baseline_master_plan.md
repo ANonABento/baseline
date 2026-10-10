@@ -179,22 +179,25 @@ tests/
 
 **Status:** the scaffold is done (commit `e468ae9`). There's an end-to-end skeleton: replay and mic share one path, fusion and alerts work, the fraud detector runs on the LLM with a keyword fallback, eval writes to `history.csv`, 58 tests pass, and there's a dashboard. Speech-to-text, speaker verification and spoof detection are still stubs. Model weights are cached and smoke-tested on the M5 (see §10).
 
-**Team of two, each running Claude Code.** Use SharedNet to coordinate the agents. Each person works on their own branch and merges to `main` at every sync.
+**Team of two, each running Claude Code, split into vertical slices: each person owns backend + frontend + part of the pitch for their slice.** Use SharedNet to coordinate agents. Each person works on their own branch and merges to `main` at every sync. Full briefs are in `docs/team_split.md`.
 
-- **A = audio/ML.** Owns `detectors/{spoof,speaker,prosody}.py`, `segmenter.py` (silero), `providers/stt_*` (mlx-whisper), `scripts/`, `data/`.
-- **B = app/product.** Owns `providers/llm_*`, `detectors/fraud.py`, `kb/`, `fusion.py`, `app.py`, `frontend/`, the pitch and the submission.
-- **Contract:** `DetectorResult` and the event schema in `events.py`. Change them only after telling the other person.
+- **V = Voice & Proof (Kevin):** "Is this the real customer, and a real human?"
+  - Backend: `detectors/{speaker,spoof,prosody}.py`, `segmenter.py`, `providers/stt_*`, `scripts/`, `data/`, enrollment.
+  - Frontend: `components/{SignalCards,CustomerPanel,TrustGauge}.tsx` + new `ProofStrip.tsx`, `EnrollPanel.tsx`.
+  - Pitch: the proof section (accuracy chart, edge cases, latency) + demo audio + backup video.
+- **C = Conversation & Action (teammate):** "What is being asked, and what should the agent do?"
+  - Backend: `providers/llm_*`, `detectors/fraud*.py`, `kb/`, `fusion.py`, `app.py`, `pipeline.py`.
+  - Frontend: `App.tsx` layout, `components/{Transcript,AlertBanner,CallControls}.tsx` + new `Timeline.tsx` / `FraudEvidence.tsx`, `useCall.ts`, `mic.ts`.
+  - Pitch: script, slides, MentorMates submission.
+- **Shared contract:** `events.py` / `types.ts` (event schema) and `DetectorResult`. Change them only after telling the other person. C owns fusion weights; V provides calibrated scores.
 
-**Before 7 PM:** teammate pulls the repo, runs `make setup`, and pre-downloads the models (venue wifi measured at ~1–2 MB/s). Redeem the ElevenLabs, Nebius and NVIDIA credits. Draft the demo call scripts together.
-
-| Time | A (audio/ML) | B (app/product) | Sync |
+| Time | V: Voice & Proof (Kevin) | C: Conversation & Action (teammate) | Sync |
 |---|---|---|---|
-| 7–8 PM *(mentors)* | Record both voices (~3 min natural speech each + scripts); make ElevenLabs clones | Set up SharedNet; `.env` with Nebius key; check the LLM model id; verify the playbook URLs | **7:00:** agree on the contract + demo |
-| 8–10 PM | Real STT (mlx-whisper turbo) + silero VAD; generate ~60 clips (real/fake × benign/fraud, via TTS *and* voice changer); label `data/eval` | Real LLM fraud analyzer tuned on transcripts; dashboard: customer profile + signal cards | **10:00:** a real clip replays with a real transcript + fraud flags |
-| 10 PM–1 AM | ECAPA enrollment + verification; pretrained spoof (`mo-thecreator`) on ElevenLabs clips → **first history row**; start the WavLM + LR classifier | Alert takeover card, suggested actions, citations; fusion tuning | **1:00:** all-real end-to-end run; delete the stub hint file |
-| 1–4 AM | Calibrated spoof classifier; edge-case suite (held-out speaker, non-ElevenLabs TTS, pitch-shift, noise, phone codec); eval after every change | Proof strip (history chart, latency); live mic tested in the browser | **4:00:** decide cuts |
-| 4–6 AM | Prosody/pressure meter if on track; final eval numbers | Pitch script + slides; README; submission text | **6:00 feature freeze** |
-| 6–8:30 AM | Record final demo clips; demo gate 5× | Record backup video; **submit by 8:30** | Rehearse twice together |
+| now–10:30 PM | Record both voices; ElevenLabs clones; review + merge the real-models branch (STT, VAD, ECAPA, pretrained spoof) | Setup; Nebius key; real LLM fraud analyzer tuned on transcripts; verification-evasion + coaching patterns | **10:30:** a real clip replays with a real transcript + fraud flags |
+| 10:30 PM–1 AM | Generate ~60 eval clips + labels; enroll Margaret; **first history row**; Voice Match + Synthetic Audio cards show real scores + evidence | Layout pass; Transcript with trigger highlighting + Timeline; FraudEvidence (quote + citation); AlertBanner with suggested action | **1:00:** all-real end-to-end; delete the stub hint file |
+| 1–4 AM | Train WavLM + LR spoof classifier; edge-case suite; ProofStrip (history chart, latency) | Fusion tuning with V's scores; live mic tested in Chrome; verify playbook URLs; start pitch script | **4:00:** decide cuts |
+| 4–6 AM | Prosody/pressure card if on track; EnrollPanel (optional); final eval numbers | Slides + submission text; README; UI polish pass | **6:00 feature freeze** |
+| 6–8:30 AM | Record final demo audio; demo gate 5×; backup video | Final pitch edits; **submit by 8:30** | Rehearse twice together |
 
 ### Cut list (drop in this order if behind)
 1. Public deployment (Replit)
