@@ -273,16 +273,26 @@ def fraudster_prompt(scenario: Scenario, customer: CustomerProfile = CUSTOMER) -
 
 
 def candidate_caller_prompt(scenario: Scenario, customer: CustomerProfile = CUSTOMER) -> str:
-    """AI caller for the pressure simulation: calls the bank pretending to be the customer; the visitor is the agent."""
+    """AI caller for the pressure simulation: a believable human who calls the bank and pressures the agent (the visitor)."""
     return (
-        f"{SIM_FRAME}\n\nROLE: You are calling {BANK_NAME} pretending to be the customer {customer.name} "
-        f"(about 75 years old). The person you are talking to is the bank's call-center agent (the trainee). "
-        f"What you know about {customer.name}: account ending {customer.account_mask[-4:]}, address "
-        f"{customer.address}, customer since {customer.member_since}. You do NOT know her date of birth or ZIP "
-        f"code unless your tactics say otherwise; if pressed, stall or deflect rather than invent them.\n\n"
-        f"SCENARIO: {scenario.label}.\nGOALS (in order): {scenario.goals}\nTACTICS: {scenario.tactics}\n"
-        f"If the agent firmly refuses, try one different angle, then politely insist. Follow the PRESSURE LEVEL "
-        f"given below.\n\nSTYLE: {STYLE_RULES}"
+        f"{SIM_FRAME}\n\n"
+        f"ROLE: You are a real person on a phone call, not an assistant. You are calling {BANK_NAME} pretending to be "
+        f"the customer {customer.name} (about 75, warm but rattled). The person you are talking to is the bank's "
+        f"call-center agent (the trainee). What you know: account ending {customer.account_mask[-4:]}, address "
+        f"{customer.address}, customer since {customer.member_since}. You do NOT know her date of birth or ZIP code "
+        f"unless your tactics say otherwise; if pressed, stall, deflect or get flustered rather than invent them.\n\n"
+        f"SCENARIO: {scenario.label}.\nGOALS (in order): {scenario.goals}\nTACTICS: {scenario.tactics}\n\n"
+        "HOW TO SOUND HUMAN: listen first. Your reply must answer or react to the exact words the agent just said, "
+        "then push toward your goal. Never repeat an earlier line or reason; use a NEW angle each turn (a deadline, "
+        "a person who depends on you, a past favor, how long you have banked here, an earlier call, being "
+        "embarrassed, the agent's own power to fix it). Use natural speech: contractions, a quick 'oh', 'look,', "
+        "'honestly', a half-sentence that trails off, an apology, an occasional hesitation like 'um' or a restart. "
+        "Make small specific details up (a name, a time, a street) and keep them consistent. If the agent is warm, "
+        "soften a little and then push again; if the agent is cold or refuses, get more upset. If they offer a "
+        "call back or a branch visit, resist it with a believable reason. If they firmly refuse several times, "
+        "show frustration or reluctant resignation, as a real person would.\n"
+        "Follow the PRESSURE LEVEL given below exactly; it changes through the call.\n\n"
+        f"STYLE: {STYLE_RULES}"
     )
 
 
@@ -341,11 +351,16 @@ def redact(line: str, persona: "Persona") -> str:
 # Scripted pressure applied by the AI fraudster in the "candidate" simulation. The level is the scenario's own
 # manipulation (known, not inferred), so delivery change by level needs no stress label.
 PRESSURE_HINTS = {
-    1: "PRESSURE LEVEL 1 (calm): friendly and a little rushed; ask politely.",
-    2: "PRESSURE LEVEL 2 (rising): clearly impatient and anxious; stress the deadline; say you have already "
-       "verified elsewhere and the agent is wasting time.",
-    3: "PRESSURE LEVEL 3 (high): upset and insistent; say you will lose money or close the account if the agent "
-       "doesn't act right now; ask for a supervisor who will 'just do it'. Never become abusive.",
+    1: "PRESSURE LEVEL 1 (calm): you are friendly, a bit rushed, apologetic about the inconvenience. Ask politely "
+       "and give a plausible reason. React to what the agent just said before making your ask.",
+    2: "PRESSURE LEVEL 2 (rising): you are visibly anxious and getting impatient. The deadline is close. Say you "
+       "already went through this with someone else, that this is taking too long, that you feel treated like a "
+       "suspect. Push back on every procedural step with a concrete, human reason. Interrupt yourself, sigh, "
+       "change tack.",
+    3: "PRESSURE LEVEL 3 (high): you are upset and insistent, voice tight. Real consequences are minutes away "
+       "(money lost, a family member in trouble, account closed). Demand a supervisor, say you have been a "
+       "customer for years, say you will take your business elsewhere, appeal to the agent personally ('please, "
+       "you can fix this right now'). Stay human: emotional, never abusive, no threats of violence.",
 }
 
 

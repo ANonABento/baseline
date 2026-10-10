@@ -495,6 +495,17 @@ def test_role_candidate_signals_pressure_and_credential(tmp_path):
         assert client.get("/api/issuer").json()["issuer"] == cred["payload"]["issuer"]
 
 
+def test_candidate_prompt_is_human_and_pressure_aware():
+    from caller.brain import StubBrain
+    from caller.personas import PRESSURE_HINTS, build_persona
+
+    persona = build_persona("candidate", "pressure_account_takeover")
+    assert "real person" in persona.system_prompt and "NEW angle" in persona.system_prompt
+    brain = StubBrain(persona)
+    brain.pressure_hint = PRESSURE_HINTS[3]
+    assert set(PRESSURE_HINTS) == {1, 2, 3} and "LEVEL 3" in PRESSURE_HINTS[3]
+
+
 def test_barge_in_stops_ai_audio(tmp_path):
     client, svc = make_client(tmp_path, barge_in_ms=200, audio_lead_ms=100)
     svc.tts = StubTTS(seconds_per_word=0.5, max_seconds=4.0)  # long opener so we can interrupt it
