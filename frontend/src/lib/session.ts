@@ -2,7 +2,7 @@
 // Pure reducer, no DOM: unit-tested under node --test (tests/session.test.ts).
 import { EMPTY_EVIDENCE, mergeEvidence, type EvidenceState } from "../analysis.ts";
 import type { AlertEvent, SignalEvent, TranscriptEvent } from "../types.ts";
-import type { MsgOf, ServerMsg, Speaker } from "./contract.ts";
+import type { Behaviour, MsgOf, ServerMsg, Speaker } from "./contract.ts";
 
 export type Phase = "lobby" | "requesting" | "queued" | "live" | "ended" | "error";
 
@@ -23,6 +23,8 @@ export interface SessionState {
   evidence: EvidenceState;
   trust: number;
   trustHistory: { t: number; score: number }[];
+  /** latest behavioural-signal summary for the analysed speaker */
+  behaviour: Behaviour | null;
   alert: AlertEvent | null;
   /** highest alert level seen in this call, and the alert that set it */
   peak: AlertEvent["level"];
@@ -44,6 +46,7 @@ export const INITIAL: SessionState = {
   evidence: EMPTY_EVIDENCE,
   trust: 100,
   trustHistory: [],
+  behaviour: null,
   alert: null,
   peak: "none",
   peakAlert: null,
@@ -126,6 +129,10 @@ function onMsg(s: SessionState, msg: ServerMsg, now: number): SessionState {
       const alert: AlertEvent = { ...msg, type: "alert" };
       const up = LEVEL_RANK[msg.level] >= LEVEL_RANK[s.peak] && msg.level !== "none";
       return { ...s, alert, peak: up ? msg.level : s.peak, peakAlert: up ? alert : s.peakAlert };
+    }
+    case "behaviour": {
+      const { type: _t, t: _at, ...b } = msg;
+      return { ...s, behaviour: b };
     }
     case "warning":
       return { ...s, warning: { message: msg.message, seconds_left: msg.seconds_left, at: now } };

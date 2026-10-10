@@ -459,7 +459,26 @@ button { cursor: pointer; }
 .typed button:hover { color: var(--ink); }
 .controls__row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
 
-.room__right { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+.room__right { display: grid; grid-template-rows: auto auto minmax(0, 1fr); min-height: 0; }
+
+/* Live behavioural signals (tone drift, speech rate, hesitation, latency, de-escalation, decisions) */
+.signals { border-bottom: 1px solid var(--rule); padding: 0.6rem var(--gutter) 0.5rem; }
+.signals__head { display: flex; justify-content: space-between; margin-bottom: 0.35rem; color: var(--ink-3); }
+.signals__rows { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 0.15rem 1.25rem; }
+.sig { display: grid; gap: 0.05rem; padding: 0.3rem 0 0.3rem 0.55rem; border-left: 2px solid var(--rule); }
+.sig--1 { border-left-color: var(--amber); }
+.sig--2 { border-left-color: var(--red); }
+.sig__name { font-size: var(--t-label); color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.06em; }
+.sig__value { font-size: var(--t-body); color: var(--ink); }
+.sig__sub { font-size: var(--t-label); color: var(--ink-3); }
+.sig__meaning { font-size: var(--t-label); color: var(--ink-2); font-style: italic; }
+.signals__decisions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-top: 0.45rem; }
+.signals__decisions .label { color: var(--ink-3); margin-right: 0.25rem; }
+.chip { font-size: var(--t-label); border: 1px solid var(--rule); padding: 0.1rem 0.45rem; color: var(--ink-2); }
+.chip--verification_requested { border-color: var(--amber); }
+.chip--refused { border-color: var(--ink-3); }
+.chip--complied_phrase { border-color: var(--red); }
+.signals__note { margin: 0.4rem 0 0; font-size: var(--t-label); color: var(--ink-4); }
 
 /* verdict strip */
 .verdict { border-bottom: 1px solid var(--rule); padding: 1rem var(--gutter) 1rem; display: grid; gap: 0.5rem; transition: background 400ms var(--ease); }

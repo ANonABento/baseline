@@ -65,6 +65,7 @@ export type ServerMsg =
       details: Record<string, unknown>;
     }
   | { type: "trust"; score: number }
+  | ({ type: "behaviour"; t: number } & Behaviour)
   | { type: "alert"; level: AlertLevel; reasons: string[]; suggested_action: string; signals: string[]; citations: Citation[] }
   | { type: "warning"; message: string; seconds_left: number }
   | {
@@ -74,6 +75,28 @@ export type ServerMsg =
       reveal: { role: Role; scenario: string; persona_label: string; voice: string; tts: string };
     }
   | { type: "error"; message: string };
+
+/** Session behavioural signals for the analysed speaker so far (backend detectors/session_signals.py). */
+export interface Behaviour {
+  n_turns_analysed: number;
+  n_turns_with_baseline: number;
+  calibration_status: string;
+  tone_drift: { pitch_z_per_min: number | null; loudness_z_per_min: number | null; max_abs_z: number };
+  speech_rate: { words_per_s_mean: number | null; words_per_s_trend_per_min: number | null };
+  hesitation: { fillers_per_100_words: number | null; pause_frac_mean: number | null };
+  response_latency_s: { mean: number | null; max: number | null; n: number };
+  recovery_latency: { status: string; peak_at_s?: number; latency_s?: number | null };
+  interaction: {
+    talk_over_count: number;
+    talk_time_share: number | null;
+    mean_turn_s: number | null;
+    hedges_per_100_words: number | null;
+    verification_attempts: number;
+    refusals: number;
+    compliance_phrases: number;
+  };
+  decision_events: { t: number; utterance_id: number; event: string }[];
+}
 
 export type ClientMsg = { type: "hangup" } | { type: "ping" } | { type: "text"; text: string };
 

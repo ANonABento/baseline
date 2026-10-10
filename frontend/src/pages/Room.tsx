@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fmtTime } from "../analysis";
 import { Baseline } from "../components/Baseline";
 import { Mark, RenderToggle } from "../components/Chrome";
+import { Signals } from "../components/Signals";
 import { Transcript } from "../components/Transcript";
 import { Viewport } from "../components/Viewport";
 import { currentCamera, micChoice } from "../lib/media";
@@ -264,6 +265,7 @@ export function Room({ state, aiLevel, onHangup, onText, onPcm, onBargeIn, onAga
 
         <div className="room__right">
           <VerdictStrip v={verdict} />
+          <Signals behaviour={state.behaviour} signals={state.signals} />
           <Transcript
             lines={state.lines}
             notes={notes}

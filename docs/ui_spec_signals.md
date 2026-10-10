@@ -39,12 +39,12 @@ Live path today: `Room.tsx` push-to-talk mic -> `WS /ws/session/{id}` -> `LiveCa
 
 | Spec item | Status | Evidence / gap |
 |---|---|---|
-| §1 live prosody panel (gauge, z bars, markers, pause sparkline, "learning normal n of 3") | missing | `details.z` / markers are never read in `frontend/src`; prosody confidence is capped at 0.25 (`backend/detectors/prosody.py:288`) but the UI and fusion need >= 0.3 (`notes.ts:39`, `analysis.ts:15`, `settings.py:98`), so prosody never appears live |
-| Tone drift, speech rate, pauses | computed, not shown | `voice_state.py` (z, `rate_proxy`, `pause_frac`) |
-| Fillers, hedging, talk-over, verification attempts, refusals, response latency | library only | `session_signals.py`; `analyse()` is never called by the backend |
-| Response latency correctness | bug | human utterance times come from fed-sample counts (push-to-talk), AI/typed lines from wall clock (`segmenter.py:73`, `live_call.py:350,425,481`), so latency/talk-over would be wrong |
+| §1 live prosody panel (gauge, z bars, markers, pause sparkline, "learning normal n of 3") | partial (2026-10-10) | `frontend/src/components/Signals.tsx` shows the latest pitch z (or "learning baseline") per turn; gauge/z bars/sparkline not built; `details.z` / markers are never read in `frontend/src`; prosody confidence is capped at 0.25 (`backend/detectors/prosody.py:288`) but the UI and fusion need >= 0.3 (`notes.ts:39`, `analysis.ts:15`, `settings.py:98`), so prosody never appears live |
+| Tone drift, speech rate, pauses | **live** (2026-10-10) | `Signals.tsx` panel in `Room.tsx`, fed by the `behaviour` WS event; `voice_state.py` (z, `rate_proxy`, `pause_frac`) |
+| Fillers, hedging, talk-over, verification attempts, refusals, response latency, de-escalation latency | **live** (2026-10-10) | `LiveCall._emit_behaviour` runs `session_signals.analyse()` after every analysed transcript/prosody event and sends `{"type":"behaviour", ...}`; decisions shown as chips |
+| Response latency correctness | **fixed** (2026-10-10) | visitor audio turns are mapped from mic-sample time to call time (`LiveCall._mic_to_call_time`); was: human utterance times come from fed-sample counts (push-to-talk), AI/typed lines from wall clock (`segmenter.py:73`, `live_call.py:350,425,481`), so latency/talk-over would be wrong |
 | §2 Digital Twin page, pressure levels 1..3 | missing | no twin component; bank-agent persona has no escalation (`personas.py`) |
-| §3 decisions during the call, §4 `report["behaviour"]` | missing | `build_report` (`live_call.py:527`) never sets `behaviour` |
+| §3 decisions during the call, §4 `report["behaviour"]` | **live / saved** (2026-10-10) | keyword decision events stream live; `build_report` now sets `behaviour` |
 | §5 credential from the app | CLI only | `scripts/credential.py` works; no `cryptography` dependency, no `/api/credential`, no Download/Verify UI, `verify.html` not in `frontend/public/` |
 | §6 emotion probe | off | no `data/models/emotion_probe.npz`; `EMOTION_PROVIDER` read from `os.environ`, so `.env` alone does not enable it |
 | §8 notebook model | not wired | no inference wrapper for new audio; feature keys/units differ (`pitch_st_median` re 100 Hz vs backend `f0_median_st`) |
@@ -52,4 +52,4 @@ Live path today: `Room.tsx` push-to-talk mic -> `WS /ws/session/{id}` -> `LiveCa
 | Wording rule (no "stress"/"pressure" as a label) | mismatched | "Caller sounds under pressure" (`fusion.py:45,234`), "Pressure" labels (`notes.ts:30`, `analysis.ts:27`) |
 | Spoken input on Linux | stub | `mlx-whisper` is macOS-only; Linux falls back to stub STT (typed text works); demo needs the Mac |
 
-Order of work for the demo: (1) live signal panel + prosody confidence fix; (2) fix the utterance clock, then stream `analyse()` output incl. decisions as a `behaviour` WS event; (3) Twin panel in `Room.tsx` with AI pressure levels; (4) credential endpoint + Download/Verify; (5) scammer-role copy and neutral wording; (6) disable silent mock fallback, real STT + enrolment on the demo Mac; (7) emotion probe; (8) notebook-model inference wrapper.
+Order of work for the demo: (1)-(2) done 2026-10-10 (live signal panel, utterance clock, `behaviour` WS event); next: (3) Twin panel in `Room.tsx` with AI pressure levels; (4) credential endpoint + Download/Verify; (5) scammer-role copy and neutral wording; (6) disable silent mock fallback, real STT + enrolment on the demo Mac; (7) emotion probe; (8) notebook-model inference wrapper.

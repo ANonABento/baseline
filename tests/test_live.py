@@ -333,6 +333,37 @@ def test_role_scammer_text_is_analyzed(tmp_path):
         assert r["meta"]["analyzed_channel"] == "visitor" and r["verdict"]["caught"] is True
 
 
+def test_role_scammer_streams_behaviour_signals(tmp_path):
+    client, svc = make_client(tmp_path)
+    with client:
+        sid = new_session(client, role="scammer", scenario="random", voice="random")
+        with client.websocket_connect(f"/ws/session/{sid}") as ws:
+            recv_until(ws, lambda m: m["type"] == "call_started")
+            recv_until(ws, lambda m: m["type"] == "transcript")
+            ws.send_text(json.dumps({"type": "text", "text": "Um, I mean, I can't verify that right now, no."}))
+            seen = recv_until(ws, lambda m: m["type"] == "behaviour")
+            b = jsons(seen, "behaviour")[-1]
+            for k in ("tone_drift", "speech_rate", "hesitation", "response_latency_s", "recovery_latency", "decision_events"):
+                assert k in b
+            assert b["n_turns_analysed"] == 1 and b["hesitation"]["fillers_per_100_words"] > 0
+            assert {e["event"] for e in b["decision_events"]} >= {"verification_requested", "refused"}
+            ws.send_text(json.dumps({"type": "hangup"}))
+            recv_until(ws, lambda m: m["type"] == "call_ended")
+        r = client.get(f"/api/report/{sid}").json()
+        assert r["behaviour"]["n_turns_analysed"] == 1
+
+
+def test_mic_time_maps_to_call_time():
+    from caller.live_call import LiveCall
+
+    c = LiveCall.__new__(LiveCall)
+    c.settings = type("S", (), {"sample_rate": 16000})()
+    # push-to-talk: 1 s of audio arrives at call time 1.0, the next 1 s only at call time 10.0
+    c._mic_ends, c._mic_walls = [16000, 32000], [1.0, 10.0]
+    assert c._mic_to_call_time(0.5) == 0.5
+    assert c._mic_to_call_time(1.5) == 9.5  # audio-clock 1.5 s is call time 9.5, not 1.5
+
+
 def tone(seconds, amp=0.3):
     t = np.arange(int(16000 * seconds)) / 16000
     return (amp * np.sin(2 * np.pi * 200 * t) * 32767).astype("<i2").tobytes()
