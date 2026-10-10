@@ -18,6 +18,7 @@ frontend/dist/
 
 # Audio data (large / personal voices). Small demo clips in data/demo/ ARE tracked.
 data/train/
+data/external/
 data/enroll/
 data/eval/**/*.wav
 data/eval/**/*.flac

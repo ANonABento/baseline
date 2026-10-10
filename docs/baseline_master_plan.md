@@ -117,6 +117,22 @@ Not borrowed: power dynamics, "hidden resistance," engagement/sentiment scoring.
 
 ---
 
+## 2.5 Voice + Content Model for Commercial Calls (key factor)
+
+**Full plan: [`finetuning_plan.md`](finetuning_plan.md).** Source brief: `claude_voice_content_finetuning_brief.md` (supersedes the earlier "no deception score" handoff).
+
+Estimate possible bluffing, fabrication, rehearsed delivery and expressed-vs-genuine interest by jointly analyzing **the voice signal, what is said, and conversation history**, with live hints and a timestamped post-call report. All outputs are `PREDICTION`s.
+
+- **Target-specific scores, never one "lying %":** `negotiating_bluff`, `fabrication`, `interest_intent_mismatch`, `read_or_rehearsed_delivery`, plus emotion and delivery-change trajectories. No averaging of unrelated targets.
+- **Model scores, not percentages of truth.** Until per-target calibration is validated on held-out speakers, outputs carry `calibration_status: "not_established"` and `calibrated_probability: null`. A 0.74 is not a 74% real-world probability. `insufficient_evidence` is a normal output.
+- **Architecture:** pretrained audio encoder (WavLM / emotion2vec candidates, frozen first) + Whisper transcript + pretrained text encoder (DeBERTa-v3-base) + per-speaker history deltas, fused with modality dropout, then a call-level temporal model and one masked-loss head per target. Fine-tune, never train from scratch.
+- **Ground truth:** controlled negotiations with private information cards (true limits, assigned intent, fact sheets). Staged behavior: it does not establish real-call reliability.
+- **Evaluation:** text-only vs audio-only vs fused on speaker/call/scenario-disjoint splits; does audio add value for the actual target? Report false-positive/false-negative rates, calibration and abstention. A false accusation is a consequential error.
+- **Scope:** consent-based commercial conversations only. Not for hiring, candidate ranking, lending decisions or biometric emotion screening.
+- **Ownership:** V owns audio features, encoders, heads, data and eval; C owns the content/claim analysis prompts, hint wording and UI. New fields go in optional `DetectorResult.details` keys; announce before merging.
+
+---
+
 ## 3. The Spoof Detector: Make It Actually Work
 
 The flashiest and most fragile piece. Off-the-shelf ASVspoof models often miss modern ElevenLabs voices and degrade on speaker/phone audio.
