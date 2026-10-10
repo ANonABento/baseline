@@ -157,21 +157,6 @@ button { cursor: pointer; }
 .topbar__nav a { font-size: var(--t-small); color: var(--ink-2); text-decoration: none; }
 .topbar__nav a:hover { color: var(--ink); }
 
-.render-toggle { display: inline-flex; border: 1px solid var(--rule); }
-.render-toggle button {
-  font-family: var(--mono);
-  font-size: var(--t-label);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-  background: none;
-  border: 0;
-  padding: 0.35rem 0.6rem;
-  line-height: 1.2;
-}
-.render-toggle button + button { border-left: 1px solid var(--rule); }
-.render-toggle button[aria-pressed="true"] { color: var(--bg); background: var(--ink); }
-.render-toggle button:not([aria-pressed="true"]):hover { color: var(--ink); }
 
 .mode-chip { font-family: var(--mono); font-size: var(--t-label); letter-spacing: 0.08em; text-transform: uppercase; color: var(--amber); }
 
@@ -220,7 +205,10 @@ button { cursor: pointer; }
   letter-spacing: -0.045em;
 }
 .hero__sub { max-width: 34rem; color: var(--ink-2); font-size: var(--t-lead); line-height: 1.5; }
-.hero__actions { display: flex; gap: 1.75rem; align-items: center; margin-top: 0.75rem; flex-wrap: wrap; justify-content: center; }
+.hero__actions { display: flex; flex-direction: column; gap: 1.1rem; align-items: center; margin-top: 0.75rem; }
+.hero__down { font-size: var(--t-label); font-family: var(--mono); letter-spacing: 0.08em; text-transform: uppercase; text-decoration: none; color: var(--ink-3); }
+.hero__down span { display: inline-block; margin-left: 0.35em; }
+.hero__down:hover span { transform: translateY(2px); }
 
 .section {
   padding: clamp(4rem, 10vh, 8rem) var(--gutter);

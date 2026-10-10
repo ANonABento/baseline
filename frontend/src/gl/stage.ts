@@ -4,6 +4,7 @@
 // re-renders per frame.
 import * as THREE from "three";
 import { loadHead, sampleSurface } from "./head";
+import { personMask, type PersonMask } from "../lib/segment";
 import {
   ASCII_FRAG,
   DITHER_FRAG,
@@ -115,6 +116,8 @@ export class Stage {
   private headMat: THREE.ShaderMaterial | null = null;
   private srcMat: THREE.ShaderMaterial | null = null;
   private videoTex: THREE.VideoTexture | null = null;
+  /** person segmentation for the webcam: the background drops out */
+  private mask: PersonMask | null = null;
   // post
   private postScene = new THREE.Scene();
   private postMat: THREE.ShaderMaterial | null = null;
@@ -163,6 +166,9 @@ export class Stage {
 
   setVideo(v: HTMLVideoElement | null) {
     this.opts.video = v;
+    this.mask?.release();
+    this.mask = v ? personMask(v) : null;
+    this.mask?.retain();
     this.videoTex?.dispose();
     this.videoTex = v ? new THREE.VideoTexture(v) : null;
     if (this.videoTex) this.videoTex.colorSpace = THREE.NoColorSpace;
@@ -170,6 +176,7 @@ export class Stage {
       if (m?.uniforms.uTex) {
         m.uniforms.uTex.value = this.videoTex;
         m.uniforms.uHasTex.value = this.videoTex ? 1 : 0;
+        m.uniforms.uMask.value = this.mask?.texture ?? null;
       }
     }
   }
@@ -233,6 +240,8 @@ export class Stage {
             uPx: { value: 4 },
             uTex: { value: this.videoTex },
             uHasTex: { value: this.videoTex ? 1 : 0 },
+            uMask: { value: this.mask?.texture ?? null },
+            uHasMask: { value: 0 },
             uCover: { value: new THREE.Vector4(1, 1, 0, 0) },
             uAspect: { value: new THREE.Vector2(1, 1) },
           },
@@ -258,6 +267,8 @@ export class Stage {
           ...common(),
           uTex: { value: this.videoTex },
           uHasTex: { value: this.videoTex ? 1 : 0 },
+          uMask: { value: this.mask?.texture ?? null },
+          uHasMask: { value: 0 },
           uCover: { value: new THREE.Vector4(1, 1, 0, 0) },
         },
         depthTest: false,
@@ -403,16 +414,20 @@ export class Stage {
       u.uLevel.value = this.cur.level;
       u.uResolve.value = this.cur.resolve;
       if (u.uCover) u.uCover.value = this.cover();
+      if (u.uHasMask) u.uHasMask.value += ((this.mask?.ready ? 1 : 0) - u.uHasMask.value) * Math.min(1, dt * 4);
     };
     [this.headMat, this.srcMat, this.postMat, this.ptsMat].forEach(set);
 
     if (this.opts.source === "head") {
+      // facing the viewer and breathing (~4.5 s cycle: slow in, quicker out), with only
+      // a faint sway so it reads as alive rather than as a turntable
       const drift = this.opts.drift !== false && !this.opts.reducedMotion;
-      const breathe = 1 + Math.sin(t * 0.55) * 0.012;
-      this.headGroup.rotation.y = drift ? Math.sin(t * 0.11) * 0.55 + Math.sin(t * 0.031) * 0.2 : 0.25;
-      this.headGroup.rotation.x = drift ? Math.sin(t * 0.07) * 0.08 + 0.04 : 0.05;
-      this.headGroup.position.y = Math.sin(t * 0.4) * 0.02;
-      this.headGroup.scale.setScalar(breathe);
+      const ph = t * 1.4;
+      const breath = Math.pow(0.5 - 0.5 * Math.cos(ph), 1.6);
+      this.headGroup.scale.set(1 + breath * 0.022, 1 + breath * 0.03, 1 + breath * 0.022);
+      this.headGroup.position.y = breath * 0.035 - 0.015;
+      this.headGroup.rotation.x = 0.05 - breath * 0.035;
+      this.headGroup.rotation.y = drift ? Math.sin(t * 0.09) * 0.05 : 0;
     }
 
     if (this.style === "points") {
@@ -437,6 +452,7 @@ export class Stage {
     this.clear(this.ptsScene);
     this.clear(this.srcScene);
     this.videoTex?.dispose();
+    this.mask?.release();
     this.rt.dispose();
     this.renderer.dispose();
   }

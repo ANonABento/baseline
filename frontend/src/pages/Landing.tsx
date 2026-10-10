@@ -88,8 +88,8 @@ export function Landing() {
             <a className="btn btn--big" href="/call" onClick={linkTo("/call")}>
               Take a call
             </a>
-            <a className="link" href="#banks">
-              For banks
+            <a className="link hero__down" href="#banks">
+              For banks <span aria-hidden>↓</span>
             </a>
           </div>
         </div>

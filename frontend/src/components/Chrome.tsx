@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { linkTo, RENDER_STYLES, setRenderStyle, STYLE_LABEL, useRenderStyle } from "../lib/prefs";
+import { linkTo } from "../lib/prefs";
 
 export function Mark({ alert = false }: { alert?: boolean }) {
   return (
@@ -18,26 +18,12 @@ export function Wordmark() {
   );
 }
 
-export function RenderToggle() {
-  const style = useRenderStyle();
-  return (
-    <div className="render-toggle" role="group" aria-label="Render style">
-      {RENDER_STYLES.map((s) => (
-        <button key={s} type="button" aria-pressed={style === s} onClick={() => setRenderStyle(s)}>
-          {STYLE_LABEL[s]}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 export function TopBar({ children, rule = false }: { children?: ReactNode; rule?: boolean }) {
   return (
     <header className={`topbar ${rule ? "topbar--rule" : ""}`}>
       <Wordmark />
       <div className="topbar__spacer" />
       {children}
-      <RenderToggle />
     </header>
   );
 }

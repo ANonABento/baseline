@@ -9,6 +9,10 @@ float vnoise(vec3 x){
   return mix(mix(mix(hash11(n+0.0), hash11(n+1.0), f.x), mix(hash11(n+57.0), hash11(n+58.0), f.x), f.y),
              mix(mix(hash11(n+113.0), hash11(n+114.0), f.x), mix(hash11(n+170.0), hash11(n+171.0), f.x), f.y), f.z);
 }
+// webcam person mask (selfie segmentation): 1 on the person, 0 on the background; on = 0 → no-op
+float personMask(sampler2D m, vec2 uv, float on){
+  return mix(1.0, smoothstep(0.3, 0.7, texture2D(m, uv).r), on);
+}
 `;
 
 /** Head surface: soft key + rim light, displaced by noise and a "mask slip" when chaos rises. */
@@ -36,7 +40,8 @@ varying vec3 vN; varying vec3 vView;
 void main(){
   vec3 N = normalize(vN);
   vec3 V = normalize(vView);
-  vec3 L = normalize(vec3(-0.45, 0.75, 0.55));
+  // near-frontal key from above so both halves of the face read (the head faces the viewer)
+  vec3 L = normalize(vec3(-0.12, 0.62, 0.78));
   float diff = max(dot(N, L), 0.0);
   float rim = pow(1.0 - max(dot(N, V), 0.0), 2.6);
   float l = diff * 0.62 + rim * 0.42 + 0.02;
@@ -50,7 +55,7 @@ varying vec2 vUv;
 void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
 export const SOURCE_FRAG = /* glsl */ `
-uniform sampler2D uTex; uniform float uHasTex; uniform vec4 uCover; uniform float uTime; uniform float uLevel;
+uniform sampler2D uTex; uniform float uHasTex; uniform sampler2D uMask; uniform float uHasMask; uniform vec4 uCover; uniform float uTime; uniform float uLevel;
 varying vec2 vUv;
 ${NOISE}
 float field(vec2 uv){
@@ -66,6 +71,7 @@ void main(){
     vec3 c = texture2D(uTex, uv).rgb;
     l = dot(c, vec3(0.299, 0.587, 0.114));
     l = smoothstep(0.08, 0.85, l);
+    l *= personMask(uMask, uv, uHasMask);
   } else {
     l = field(vUv);
   }
@@ -147,7 +153,8 @@ void main(){
   vec3 N = normalize(normalMatrix * aNormal);
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
   vec3 V = normalize(-mv.xyz);
-  vec3 L = normalize(vec3(-0.45, 0.75, 0.55));
+  // near-frontal key from above so both halves of the face read (the head faces the viewer)
+  vec3 L = normalize(vec3(-0.12, 0.62, 0.78));
   float diff = max(dot(N, L), 0.0);
   float rim = pow(1.0 - max(dot(N, V), 0.0), 2.6);
   vL = clamp((diff * 0.65 + rim * 0.45 + 0.05) * (0.75 + uLevel * 0.8 + uResolve * 0.2), 0.0, 1.2);
@@ -161,6 +168,7 @@ void main(){
 export const GRID_POINTS_VERT = /* glsl */ `
 attribute vec2 aUv; attribute float aRand;
 uniform sampler2D uTex; uniform float uHasTex; uniform vec4 uCover; uniform float uTime; uniform float uChaos; uniform float uResolve;
+uniform sampler2D uMask; uniform float uHasMask;
 uniform float uPx; uniform float uLevel; uniform vec2 uAspect;
 varying float vL; varying float vRed;
 ${NOISE}
@@ -170,6 +178,7 @@ void main(){
     vec2 uv = vec2(1.0 - aUv.x, aUv.y) * uCover.xy + uCover.zw;
     vec3 c = texture2D(uTex, uv).rgb;
     l = smoothstep(0.08, 0.85, dot(c, vec3(0.299, 0.587, 0.114)));
+    l *= personMask(uMask, uv, uHasMask);
   } else {
     vec2 q = aUv * vec2(3.0, 2.2);
     float n = vnoise(vec3(q, uTime * 0.12)) * 0.6 + vnoise(vec3(q * 2.3, uTime * 0.2 + 4.0)) * 0.3;

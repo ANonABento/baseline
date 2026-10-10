@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fmtTime } from "../analysis";
 import { Baseline } from "../components/Baseline";
-import { Mark, RenderToggle } from "../components/Chrome";
+import { Mark } from "../components/Chrome";
 import { Transcript } from "../components/Transcript";
 import { Viewport } from "../components/Viewport";
 import { currentCamera, micChoice } from "../lib/media";
@@ -198,9 +198,6 @@ export function Room({ state, aiLevel, onHangup, onText, onPcm, onBargeIn, onAga
         </span>
         {state.warning && live && <span className="warning hide-sm">{Math.ceil(left)} s left</span>}
         <span style={{ flex: 1 }} />
-        <span className="hide-sm">
-          <RenderToggle />
-        </span>
         <button className="btn btn--danger btn--small" type="button" onClick={onHangup} disabled={!live}>
           Hang up
         </button>

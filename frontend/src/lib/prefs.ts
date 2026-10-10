@@ -1,46 +1,10 @@
-// Small shared UI state: render style (localStorage + ?render=), reduced motion, routing.
+// Small shared UI state: render style per source, reduced motion, routing.
 import { useEffect, useState, useSyncExternalStore } from "react";
-import type { RenderStyle } from "../gl/stage";
+import type { RenderStyle, SourceKind } from "../gl/stage";
 
-const STYLES: RenderStyle[] = ["ascii", "dither", "points"];
-const KEY = "baseline.render";
-const listeners = new Set<() => void>();
-
-function initialStyle(): RenderStyle {
-  const q = new URLSearchParams(location.search).get("render");
-  if (q && STYLES.includes(q as RenderStyle)) return q as RenderStyle;
-  try {
-    const v = localStorage.getItem(KEY);
-    if (v && STYLES.includes(v as RenderStyle)) return v as RenderStyle;
-  } catch {
-    /* storage blocked */
-  }
-  return "ascii";
-}
-
-let style: RenderStyle = initialStyle();
-
-export const RENDER_STYLES = STYLES;
-export const STYLE_LABEL: Record<RenderStyle, string> = { ascii: "Glyph", dither: "Dither", points: "Points" };
-
-export function setRenderStyle(s: RenderStyle) {
-  style = s;
-  try {
-    localStorage.setItem(KEY, s);
-  } catch {
-    /* storage blocked */
-  }
-  listeners.forEach((l) => l());
-}
-
-export function useRenderStyle(): RenderStyle {
-  return useSyncExternalStore(
-    (cb) => {
-      listeners.add(cb);
-      return () => listeners.delete(cb);
-    },
-    () => style,
-  );
+/** The caller (AI head) is always glyphs, half-seen; people on camera are always dither. */
+export function renderStyleFor(source: SourceKind): RenderStyle {
+  return source === "head" ? "ascii" : "dither";
 }
 
 export function useReducedMotion(): boolean {
@@ -62,10 +26,10 @@ const routeListeners = new Set<() => void>();
 window.addEventListener("popstate", () => routeListeners.forEach((l) => l()));
 
 export function navigate(to: string, replace = false) {
-  // keep debugging params (?mock=1, ?render=...) across navigation
+  // keep debugging params (?mock=1, ?tts=...) across navigation
   const keep = new URLSearchParams(location.search);
   const url = new URL(to, location.origin);
-  for (const k of ["mock", "render", "tts"]) if (keep.has(k) && !url.searchParams.has(k)) url.searchParams.set(k, keep.get(k)!);
+  for (const k of ["mock", "tts"]) if (keep.has(k) && !url.searchParams.has(k)) url.searchParams.set(k, keep.get(k)!);
   const href = url.pathname + url.search + url.hash;
   if (replace) history.replaceState(null, "", href);
   else history.pushState(null, "", href);

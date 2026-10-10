@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Stage, webglAvailable, type SourceKind } from "../gl/stage";
-import { useReducedMotion, useRenderStyle } from "../lib/prefs";
+import { renderStyleFor, useReducedMotion } from "../lib/prefs";
 
 interface Props {
   source: SourceKind;
@@ -44,7 +44,7 @@ function GlyphFallback({ chaos = 0 }: { chaos?: number }) {
 export function Viewport({ source, video = null, level, chaos = 0, resolve = 0, scale, drift, zoom, className, label }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const stage = useRef<Stage | null>(null);
-  const style = useRenderStyle();
+  const style = renderStyleFor(source);
   const reduced = useReducedMotion();
   const [gl] = useState(webglAvailable);
   const levelRef = useRef(level);
