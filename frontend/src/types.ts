@@ -68,3 +68,30 @@ export interface Customer {
   member_since: string;
   segment: string;
 }
+
+// ---------------------------------------------------------------- fraud evidence contract
+// Shape of `details` on a `fraud` SignalEvent (agreed with the backend). Every field is
+// optional on the wire: older backends send `patterns` as a list of ids plus `citations`
+// and `matched_phrases`; the frontend tolerates both (see analysis.ts).
+export type Severity = "low" | "medium" | "high";
+
+export interface FraudPatternEvidence {
+  id: string;
+  name: string;
+  severity: Severity;
+  quote: string;
+  utterance_id: number;
+  source: string;
+  suggested_agent_action: string;
+}
+
+export interface FraudEvidenceDetails {
+  patterns?: FraudPatternEvidence[] | string[];
+  engine?: "llm" | "keywords" | string;
+  model?: string | null;
+  // legacy fields (pre-contract backend)
+  citations?: Citation[];
+  matched_phrases?: Record<string, string[]>;
+  suggested_action?: string;
+  method?: string;
+}
