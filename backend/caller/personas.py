@@ -185,9 +185,30 @@ class Persona:
     openers: tuple[str, ...]
     stub_lines: tuple[str, ...]
     summary: str
+    # strings the AI must never say (bank agent: record details); a line containing one is replaced
+    secrets: tuple[str, ...] = ()
+    redaction_line: str = ""
 
     def opener(self, rng: random.Random | None = None) -> str:
         return (rng or random).choice(self.openers)
+
+
+def record_secrets(c: CustomerProfile) -> tuple[str, ...]:
+    month_day = c.dob.split(",")[0]  # "March 14"
+    year = c.dob.split(",")[-1].strip()
+    digits = "".join(ch for ch in c.phone_on_file if ch.isdigit())
+    return (month_day, year, c.zip_code, digits[-4:] if len(digits) >= 4 else digits, "555-0142")
+
+
+def redact(line: str, persona: "Persona") -> str:
+    """Replace a line that leaks any persona secret (case/space-insensitive) with the refusal line."""
+    if not persona.secrets:
+        return line
+    flat = re.sub(r"[\s,.-]", "", line.lower())
+    for sec in persona.secrets:
+        if sec and re.sub(r"[\s,.-]", "", sec.lower()) in flat:
+            return persona.redaction_line
+    return line
 
 
 def build_persona(role: str, scenario: str, customer: CustomerProfile = CUSTOMER) -> Persona:
@@ -200,7 +221,10 @@ def build_persona(role: str, scenario: str, customer: CustomerProfile = CUSTOMER
                        BANK_AGENT_STUB_LINES,
                        f"An AI bank agent at {BANK_NAME} who follows identity-verification procedure; Baseline "
                        f"analyzed your voice against {customer.name}'s enrolled voiceprint and your words for fraud "
-                       f"patterns.")
+                       f"patterns.",
+                       secrets=record_secrets(customer),
+                       redaction_line="I'm sorry, I can't share details from the account, but I can check what you "
+                                      "tell me.")
     raise ValueError(f"unknown role: {role}")
 
 
@@ -223,6 +247,17 @@ def clean_line(text: str, max_sentences: int = 2) -> str:
     t = re.sub(r"\s{2,}", " ", t).strip()
     parts = [p for p in _SENT.split(t) if p.strip()]
     return " ".join(parts[:max_sentences]).strip()
+
+
+def split_first_clause(buf: str, min_chars: int = 30, max_chars: int = 70) -> tuple[str | None, str]:
+    """For the FIRST chunk of a reply only: if no sentence end has arrived after `max_chars`,
+    cut at the last comma past `min_chars` so TTS can start sooner."""
+    if len(buf) < max_chars:
+        return None, buf
+    cut = buf.rfind(", ", min_chars)
+    if cut < 0:
+        return None, buf
+    return buf[:cut + 1].strip(), buf[cut + 2:]
 
 
 def split_sentences(buf: str, min_chars: int = 12) -> tuple[list[str], str]:

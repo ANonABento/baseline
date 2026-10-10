@@ -16,7 +16,7 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from types import SimpleNamespace
 
-from caller.personas import Persona, clean_line, split_sentences
+from caller.personas import Persona, clean_line, redact, split_first_clause, split_sentences
 
 log = logging.getLogger(__name__)
 
@@ -99,17 +99,17 @@ class LLMBrain(Brain):
                 if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
                     yield chunk.choices[0].delta.content
         finally:
-            close = getattr(stream, "close", None)
+            close = getattr(stream, "close", None) or getattr(stream, "aclose", None)
             if close is not None:
                 res = close()
                 if asyncio.iscoroutine(res):
                     await res
 
     async def reply(self) -> AsyncIterator[str]:
-        buf, n, t0 = "", 0, time.monotonic()
+        buf, n, t0, first_cut = "", 0, time.monotonic(), False
         tokens = self._stream_tokens()
         try:
-            while n < MAX_SENTENCES:
+            while n < MAX_SENTENCES + first_cut:
                 remaining = self.timeout_s - (time.monotonic() - t0)
                 if remaining <= 0:
                     raise asyncio.TimeoutError
@@ -121,15 +121,19 @@ class LLMBrain(Brain):
                 if "<think>" in buf and "</think>" not in buf:
                     continue
                 done, buf = split_sentences(buf)
+                if not done and n == 0 and not first_cut:
+                    clause, buf2 = split_first_clause(buf)
+                    if clause:
+                        done, buf, first_cut = [clause], buf2, True
                 for s in done:
-                    line = clean_line(s, 1)
+                    line = redact(clean_line(s, 3), self.persona)
                     if line:
                         n += 1
                         yield line
-                        if n >= MAX_SENTENCES:
+                        if n >= MAX_SENTENCES + first_cut:  # a first-clause cut is not a sentence
                             break
-            if n < MAX_SENTENCES:
-                tail = clean_line(buf, 1)
+            if n < MAX_SENTENCES + first_cut:
+                tail = redact(clean_line(buf, 3), self.persona)
                 if tail:
                     n += 1
                     yield tail

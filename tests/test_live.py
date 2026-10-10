@@ -412,3 +412,66 @@ def test_legacy_ws_call_still_works(tmp_path):
         with client.websocket_connect("/ws/call") as ws:
             m = json.loads(ws.receive()["text"])
             assert m["type"] == "status" and m["state"] == "connected"
+
+
+# ----------------------------------------------------------------------------- persona LLM streaming
+
+
+class _FakeChunk:
+    def __init__(self, t):
+        self.choices = [type("C", (), {"delta": type("D", (), {"content": t})()})()]
+
+
+class _FakeClient:
+    """Minimal AsyncOpenAI stand-in: streams `text` word by word."""
+
+    def __init__(self, text, fail=False):
+        outer = self
+
+        class Completions:
+            async def create(self, **kw):
+                outer.kwargs = kw
+                if fail:
+                    raise RuntimeError("boom")
+
+                async def gen():
+                    for w in text.split():
+                        yield _FakeChunk(w + " ")
+                return gen()
+
+        self.chat = type("Chat", (), {"completions": Completions()})()
+
+
+async def _reply(persona, text, fail=False):
+    from caller.brain import LLMBrain
+
+    client = _FakeClient(text, fail)
+    b = LLMBrain(persona, client, "m", "ollama")
+    b.add_ai(persona.openers[0])
+    b.add_visitor("hello")
+    return [x async for x in b.reply()], client, b
+
+
+async def test_llm_brain_two_sentences_reasoning_off_and_history():
+    p = build_persona("agent", "account_takeover")
+    out, client, b = await _reply(p, "Margaret: Sure thing. I lost my phone yesterday. Third sentence. Fourth.")
+    assert out == ["Sure thing.", "I lost my phone yesterday."]
+    assert client.kwargs["reasoning_effort"] == "none" and client.kwargs["stream"] is True
+    msgs = client.kwargs["messages"]
+    assert msgs[0]["role"] == "system" and msgs[1] == {"role": "user", "content": "(call connected)"}
+    assert msgs[-1] == {"role": "user", "content": "hello"}
+
+
+async def test_llm_brain_redacts_bank_record_and_falls_back():
+    p = build_persona("scammer", "random")
+    out, _, _ = await _reply(p, "Sure. Your date of birth is March 14, 1951 on file. Anything else?")
+    assert out[0] == p.redaction_line and not any("1951" in x for x in out)
+    out, _, b = await _reply(p, "", fail=True)
+    assert out == [p.stub_lines[0]] and b.last_error
+
+
+async def test_llm_brain_first_clause_cut():
+    p = build_persona("scammer", "random")
+    out, _, _ = await _reply(p, "Hello Margaret, I will need your full name, date of birth, ZIP code, and a "
+                                "passcode sent to your phone first. Then we can proceed. Extra.")
+    assert out[0].endswith(",") and len(out) == 3 and out[2] == "Then we can proceed."
