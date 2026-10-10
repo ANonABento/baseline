@@ -525,9 +525,9 @@ def test_twin_and_credential_for_scammer_role(tmp_path):
 
 
 def test_human_rules_in_client_prompt():
-    from caller.personas import PRESSURE_HINTS, build_persona
+    from caller.personas import PRESSURE_HINTS, build_persona, scenarios_for
 
-    p = build_persona("client", "otp_bank_fraud")
+    p = build_persona("client", next(iter(scenarios_for("client"))))
     assert "HOW TO SOUND HUMAN" in p.system_prompt and set(PRESSURE_HINTS) == {1, 2, 3}
 
 
