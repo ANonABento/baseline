@@ -101,6 +101,32 @@ class Settings(BaseSettings):
     customer_name: str = "Margaret Chen"
     customer_id: str = "CUST-004217"
 
+    # --- live "try it" calls (sessions.py, caller/, live_api.py) ---
+    max_concurrent_calls: int = 1
+    max_call_seconds: int = 240  # hard cap per live call
+    call_warning_seconds: int = 30  # `warning` event this long before the cap
+    reconnect_grace_s: float = 10.0  # a queued visitor who reconnects within this keeps their place
+    session_idle_timeout_s: float = 60.0  # created sessions that never connect are dropped
+    default_call_estimate_s: float = 120.0  # ETA seed until real call lengths are measured
+    # TTS for the AI side: auto = elevenlabs if ELEVENLABS_API_KEY, else macOS `say`, else stub tones
+    tts_provider: Literal["auto", "elevenlabs", "say", "stub"] = "auto"
+    elevenlabs_api_key: str = ""
+    elevenlabs_voice_id: str = ""  # default voice (e.g. a consented clone); listed first in /api/config voices
+    # optional list of cloned voices: "Label:voice_id,Label 2:voice_id2" (replaces the premade list)
+    elevenlabs_voices: str = ""
+    elevenlabs_model: str = "eleven_flash_v2_5"
+    # Persona LLM for the AI caller / AI bank agent (OpenAI-compatible presets, providers/llm_presets.py)
+    caller_llm_provider: Literal["stub", "nebius", "nvidia", "ollama"] = "ollama"
+    caller_llm_base_url: str = ""
+    caller_llm_model: str = ""
+    caller_llm_timeout_s: float = 10.0
+    caller_llm_max_tokens: int = 90
+    caller_llm_temperature: float = 0.7
+    barge_in_ms: int = 350  # visitor speech this long while the AI talks interrupts it
+    audio_chunk_ms: int = 50  # AI audio frame size sent to the client (also the ai_level rate)
+    audio_lead_ms: int = 250  # how far ahead of real time AI audio is sent (client jitter buffer)
+    reports_dir: Path = REPO_ROOT / "data" / "reports"
+
     def providers_summary(self) -> dict[str, str]:
         """What each stage is configured to use (eval.py / /health record this)."""
         return {

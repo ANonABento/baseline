@@ -8,6 +8,8 @@ WS /ws/call
   server -> client: JSON events (transcript | signal | trust | alert | status).
 POST /replay/{clip}  starts a replay of data/demo/<clip> on every connected session.
 GET /customers       enrolled voiceprints (data/enroll/*.npy); GET /customer?customer_id=...
+Live "try it" calls (queue + AI caller/agent): /api/config, POST /api/session, WS /ws/session/{id},
+/api/report(s) -- see live_api.py and backend/README.md "Live call API".
 
 Real models (STT_PROVIDER=mlx, VAD_PROVIDER=silero, SPEAKER_PROVIDER=ecapa,
 SPOOF_PROVIDER=pretrained|wavlm) are loaded and warmed up once at startup (WARMUP_MODELS).
@@ -27,6 +29,8 @@ from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnec
 from fastapi.middleware.cors import CORSMiddleware
 
 from events import Event, StatusEvent
+from live_api import router as live_router
+from live_api import warmup_live
 from ml import voiceprints
 from pipeline import CallPipeline, float_to_pcm16, load_wav, stt_for_clip, warmup_models
 from providers.stt_stub import sidecar_path_for
@@ -47,11 +51,13 @@ async def lifespan(_app: FastAPI):
         # blocking loads happen on the models' own threads; the loop just waits for them
         WARMUP.update(await asyncio.to_thread(warmup_models, settings))
         log.info("warmup done in %.1fs: %s", time.perf_counter() - t0, WARMUP)
+        await warmup_live(settings)  # live calls: pre-spawn TTS, prime the persona LLM
     yield
 
 
 app = FastAPI(title="Baseline", version="0.1.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.include_router(live_router)  # public "try it live" API: /api/*, WS /ws/session/{id} (live_api.py)
 
 
 def resolve_clip(clip: str) -> Path:

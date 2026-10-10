@@ -45,3 +45,5 @@ data/text_eval/local/
 
 # SharedNet seat credentials
 .sharednet/
+# Live-call reports (WS /ws/session)
+data/reports/
