@@ -121,7 +121,10 @@ class Settings(BaseSettings):
     baseline_say_voice: str = "Samantha"  # used when TTS is macOS `say`
     intervention_min_gap_s: float = 10.0  # at most one intervention per this many seconds (new reasons)
     # Persona LLM for the AI caller / AI bank agent (OpenAI-compatible presets, providers/llm_presets.py)
-    caller_llm_provider: Literal["stub", "nebius", "nvidia", "ollama"] = "ollama"
+    # auto = nebius if NEBIUS_API_KEY else ollama (independent of the fraud analyzer's LLM_PROVIDER)
+    caller_llm_provider: Literal["auto", "stub", "nebius", "nvidia", "ollama"] = "auto"
+    caller_llm_reasoning_effort: str = ""  # empty = preset default (nebius gpt-oss: low, ollama: none)
+    caller_llm_first_timeout_s: float = 4.0  # no first sentence by then -> Ollama for this turn
     caller_llm_base_url: str = ""
     caller_llm_model: str = ""
     caller_llm_timeout_s: float = 10.0

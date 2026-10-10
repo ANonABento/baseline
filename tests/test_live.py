@@ -494,6 +494,49 @@ async def test_llm_brain_redacts_bank_record_and_falls_back():
 
 async def test_llm_brain_first_clause_cut():
     p = build_persona("scammer", "random")
-    out, _, _ = await _reply(p, "Hello Margaret, I will need your full name, date of birth, ZIP code, and a "
+    out, _, _ = await _reply(p, "Hello Kevin, I will need your full name, date of birth, ZIP code, and a "
                                 "passcode sent to your phone first. Then we can proceed. Extra.")
     assert out[0].endswith(",") and len(out) == 3 and out[2] == "Then we can proceed."
+
+
+async def test_llm_brain_strips_leaked_reasoning():
+    from caller.brain import strip_reasoning
+
+    assert strip_reasoning("analysis The user wants a code.") == ("", True)
+    assert strip_reasoning("analysisThe user...assistantfinalHi Kevin, it's Alex.") == ("Hi Kevin, it's Alex.", False)
+    assert strip_reasoning("<think>hmm") == ("", True)
+    assert strip_reasoning("Plain line.") == ("Plain line.", False)
+    p = build_persona("client", "fake_bank")
+    out, _, _ = await _reply(p, "analysis We should ask for the code. assistantfinal Hi Kevin. Can you read me the code?")
+    assert out == ["Hi Kevin. Can you read me the code?"]
+
+
+async def test_llm_brain_falls_back_to_ollama_then_script():
+    from caller.brain import LLMBrain, LLMRoute
+
+    p = build_persona("client", "irs")
+    good = _FakeClient("Officer Ross here. You owe back taxes.")
+    b = LLMBrain(p, _FakeClient("", fail=True), "gpt-oss", "nebius", reasoning_effort="low",
+                 fallback=LLMRoute(good, "qwen3.5:4b", "ollama", "none", 90), first_timeout_s=2)
+    b.add_visitor("hello")
+    out = [x async for x in b.reply()]
+    assert out == ["Officer Ross here.", "You owe back taxes."] and b.last_route == "ollama"
+    assert good.kwargs["reasoning_effort"] == "none"
+    b = LLMBrain(p, _FakeClient("", fail=True), "gpt-oss", "nebius",
+                 fallback=LLMRoute(_FakeClient("", fail=True), "q", "ollama"))
+    b.add_visitor("hello")
+    assert [x async for x in b.reply()] == [p.stub_lines[0]] and b.last_route == "stub"
+
+
+def test_caller_llm_resolution():
+    from caller.brain import BrainFactory, caller_provider_name
+
+    assert caller_provider_name(Settings(caller_llm_provider="auto", nebius_api_key="")) == "ollama"
+    assert caller_provider_name(Settings(caller_llm_provider="auto", nebius_api_key="k")) == "nebius"
+    assert caller_provider_name(Settings(caller_llm_provider="nebius", nebius_api_key="")) == "ollama"
+    f = BrainFactory(Settings(caller_llm_provider="auto", nebius_api_key="k"))
+    assert f.info()["provider"] == "nebius" and f.info()["model"] == "openai/gpt-oss-120b"
+    assert f.info()["fallback"] == {"provider": "ollama", "model": "qwen3.5:4b"}
+    assert f.cfg.reasoning_effort == "low"
+    f = BrainFactory(Settings(caller_llm_provider="ollama", caller_llm_model="qwen3:8b"))
+    assert f.info() == {"provider": "ollama", "model": "qwen3:8b"}

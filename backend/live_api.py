@@ -123,6 +123,7 @@ async def api_config() -> dict:
         "active_calls": svc.manager.active_calls,
         "tts": svc.tts.name,
         "llm": svc.llm_info(),
+        "caller_llm": svc.llm_info(),
     }
 
 
