@@ -76,9 +76,9 @@ Keys V will put in `DetectorResult.details` (proposal, not agreed): `stress_rela
 |---|---|---|
 | 0.1 / 0.2 | done | `research/voice_signal_evidence.md`; plan §2 labelled |
 | 0.3 | retired | recording protocol banner (open data only) |
-| 0.4 / 0.5 / 0.6 | **OPEN, waiting on C**; no reply in the room (last read: sequence 14) | proposal in section Contract |
+| 0.4 / 0.5 / 0.6 | **OPEN, waiting on C**; no reply in the room; Kevin's session is usage-limited until 02:50 (per Dae), so not before then | proposal in section Contract |
 | 1.1 | done | `detectors/voice_state.py`, `prosody.py` adapter; 160 passed, 44 skipped, 204 collected (`make test ML=1`) |
-| 1.2 | **blocked** | needs the team ElevenLabs key (private channel); not available to this session |
+| 1.2 | done (small N) | `scripts/make_elevenlabs_clips.py`; 16 `eleven_flash_v2_5` clips, 4 premade voices (synthetic, no clone), LibriSpeech transcripts; spoof detector alone flags **12 of 16** (75%), misses 4. Same run: real LibriSpeech flagged **15 of 40** (37.5% false positive), macOS `say` 40/40, pitch-shifted 40/40. No real microphone audio exists (no recordings), so "real human mic not flagged" is NOT tested; LibriSpeech is a proxy. The `history.csv` row (2026-10-10T01:50:33) shows e2e false alarm 100% because the speaker module flags every LibriSpeech voice as not the default customer: an eval artifact, use the spoof column. |
 | 1.3 | done | `scripts/fetch_open_data.py`; AMI 6.2 h subset, RAVDESS md5-verified, LibriSpeech test-clean; `licences.md` |
 | 1.4 | done (exploratory) | `results/public_checks.md`, `results/public_checks.json` |
 | 2.1 | done (exploratory) | `scripts/tune_voice_state.py`, `results/tune_voice_state.json`; defaults changed after an earlier run (output overwritten, so the 55% figure is UNVERIFIED from files; nearest recorded grid row z=2, baseline 3, 1 feature, sustain 2: 57% on the tune half) |
