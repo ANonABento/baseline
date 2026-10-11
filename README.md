@@ -5,14 +5,18 @@
 **Is this caller real?** Baseline listens to a phone call on both sides, at the bank and on the client's phone, and steps in the moment the voice or the story stops adding up.
 
 <p align="center">
-  <a href="docs/media/walkthrough.mp4"><img src="docs/media/demo.gif" alt="A cloned-voice grandparent scam call: Baseline warns at 0:21, then flags likely fraud" width="100%"></a>
+  <a href="#full-walkthrough"><img src="docs/media/demo.gif" alt="A cloned-voice grandparent scam call: Baseline warns at 0:21, then flags likely fraud" width="100%"></a>
   <br>
-  <sub>A cloned-voice "grandparent scam". Baseline warns at 0:21 and holds transfers. <b><a href="docs/media/walkthrough.mp4">▶ Watch the full 100-second walkthrough</a></b></sub>
+  <sub>A cloned-voice "grandparent scam". Baseline warns at 0:21 and holds transfers. <b><a href="#full-walkthrough">▶ Watch the full 100-second walkthrough</a></b></sub>
   <br>
   <sub>Recorded in demo mode (<code>?mock=1</code>, a scripted caller), the same UI as a live call.</sub>
 </p>
 
 Built overnight at **Building from the Farm** (Stanford Founders Club, SF Tech Week 2026).
+
+## Full walkthrough
+
+https://github.com/user-attachments/assets/11dba749-b2e9-4740-9c8a-9a42d8b74df7
 
 ## How a call unfolds
 
